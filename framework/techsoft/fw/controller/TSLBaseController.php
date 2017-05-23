@@ -172,6 +172,10 @@ abstract class TSLBaseController extends CI_Controller {
             if ($_POST[$parameterName] === $valueToSearch) {
                 $_POST[$parameterName] = $valueToReplace;
             }
+
+            if ($_REQUEST[$parameterName] === $valueToSearch) {
+                $_REQUEST[$parameterName] = $valueToReplace;
+            }
             return $_POST[$parameterName];
         }
         return NULL;
