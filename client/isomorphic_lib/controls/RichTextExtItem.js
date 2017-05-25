@@ -27,12 +27,10 @@ isc.RichTextExtItem.addProperties({
     // this is going to be an editable data item
     shouldSaveValue:true,
 
-    // Implement 'createCanvas' to build a ListGrid from which the user may
-    // select items.
+    // Implement 'createCanvas' para construit r un container al verdadero RichTextEditor.
     createCanvas : function () {
         var rteditor =  isc.RichTextEditor.create({
             autoDraw: false,
-            overflow: "hidden",
             controlGroups: ["fontControls", "formatControls", "styleControls", "colorControls",
                             "bulletControls"],
             valueChanged: function (oldValue, newValue) {
