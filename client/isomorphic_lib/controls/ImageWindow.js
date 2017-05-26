@@ -12,8 +12,10 @@
  * @param width ancho del hover.
  * @param height altura del hover.
  * @param canCreateHovers booleano , true si se podra crear hovers sobre la imagen , false si no es posible.
+ * @param isImgMirror booleano , true si la imagen esta compuesta por un original y una copia debajo para representar
+ *  la posisicion final del hover.
  */
-var canvasImageMgr = function(canvasId,image,top,left,width,height,canCreateHovers) {
+var canvasImageMgr = function(canvasId,image,top,left,width,height,canCreateHovers,isImgMirror) {
     var canvas = document.getElementById(canvasId);
     var ctx = canvas.getContext("2d");
     var tool = null;
@@ -82,7 +84,9 @@ var canvasImageMgr = function(canvasId,image,top,left,width,height,canCreateHove
                 ctx.fillRect(left, top + height, ctx.measureText(txt).width, 15);
                 ctx.strokeText(txt, left, top + height + 10);
 
-                ctx.strokeRect(left, top + canvas.height / 2, width, height);
+                if (isImgMirror == true) {
+                    ctx.strokeRect(left, top + canvas.height / 2, width, height);
+                }
             }
         }
     }
@@ -210,6 +214,7 @@ isc.ImageWindow.addProperties({
     hoverHeight: undefined,
     // Si este miembro es false solo presentara la imagen mas no permitira accion alguna sobre la misma.
     canCreateHovers: true,
+    isImgMirror : false,
 
 
     /**
@@ -280,7 +285,8 @@ isc.ImageWindow.addProperties({
             self.setTitle("Vista Previa ("+self.domImage.width+" x "+self.domImage.height+")");
 
             // Dado que la imagen a esta altura ya esta cargada la pasamos al manejador de la misma.
-            self.canvasImageMgr = new canvasImageMgr("imageCanvas",self.domImage,self.hoverTop,self.hoverLeft,self.hoverWidth,self.hoverHeight,self.canCreateHovers);
+            self.canvasImageMgr = new canvasImageMgr("imageCanvas",self.domImage,self.hoverTop,self.hoverLeft,
+                                                        self.hoverWidth,self.hoverHeight,self.canCreateHovers,self.isImgMirror);
 
             // Ajustamos el ancho y alto de esta ventana poniendo como limites inferiores y superiores
             // valores razonables.
