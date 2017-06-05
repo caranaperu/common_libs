@@ -45,6 +45,20 @@ var canvasImageMgr = function(canvasId,image,top,left,width,height,canCreateHove
     };
 
     /**
+     * Metodo que retorna las dimensiones totales de la imagen , debe validarse estos valores
+     * ya que podria cancelarse la operacion y no haberse definido las dimensiones.
+     *
+     * @returns {{width: *, height: *}}
+     */
+    this.getImageSize = function() {
+        return {
+            width : canvas.width,
+            height: canvas.height
+        };
+
+    };
+
+    /**
      * Metodo que remueve los event listeners de ser necesario , util solo para browsers
      * antiguos ya que los modernos garantizan remover los listeners.
      */
@@ -215,6 +229,7 @@ isc.ImageWindow.addProperties({
     // Si este miembro es false solo presentara la imagen mas no permitira accion alguna sobre la misma.
     canCreateHovers: true,
     isImgMirror : false,
+    copyImageSize: false,
 
 
     /**
@@ -242,23 +257,36 @@ isc.ImageWindow.addProperties({
         // Los header controls son definidos antes del init para que sean tomados
         // en cuenta , pero solo si la funcion de create hovers sera usada ya que de lo
         // contrario el boton no sera de utilidad.
-        if (this.canCreateHovers == true) {
+        if (this.canCreateHovers == true || this.copyImageSize == true) {
             this.headerControls = ["headerLabel", isc.Button.create({
                 autoDraw: false,
                 width: 120,
                 title: 'Copiar',
                 click: function() {
-                    // Copia el rectangulo del hover marcado a la forma indicada
-                    // por targetForm , siempre que el metodo setHoverRectangleValues
-                    // este definido y que realmente los puntos representen un rectangulo.
-                    var rect = self.canvasImageMgr.getRectangle();
+                    if (self.canCreateHovers == true) {
+                        // Copia el rectangulo del hover marcado a la forma indicada
+                        // por targetForm , siempre que el metodo setHoverRectangleValues
+                        // este definido y que realmente los puntos representen un rectangulo.
+                        var rect = self.canvasImageMgr.getRectangle();
 
-                    if (rect.width <= 0 || rect.height <= 0) {
-                        isc.warn('No se especifica el ancho o el largo');
+                        if (rect.width <= 0 || rect.height <= 0) {
+                            isc.warn('No se especifica el ancho o el largo');
+                        } else {
+                            if (self.targetForm && typeof self.targetForm.setHoverRectangleValues === 'function') {
+                                self.targetForm.setHoverRectangleValues(rect.left, rect.top, rect.width, rect.height);
+                                self.close();
+                            }
+                        }
                     } else {
-                        if (self.targetForm && typeof self.targetForm.setHoverRectangleValues === 'function') {
-                            self.targetForm.setHoverRectangleValues(rect.left, rect.top, rect.width, rect.height);
-                            self.close();
+                        var size = self.canvasImageMgr.getImageSize();
+
+                        if (size.width <= 0 || size.height <= 0) {
+                            isc.warn('No se especifica las dimensiones de la imagen');
+                        } else {
+                            if (self.targetForm && typeof self.targetForm.setImageSizeValues === 'function') {
+                                self.targetForm.setImageSizeValues(size.width, size.height);
+                                self.close();
+                            }
                         }
                     }
                 }
