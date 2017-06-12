@@ -32,7 +32,7 @@ isc.RichTextExtItem.addProperties({
         var rteditor =  isc.RichTextEditor.create({
             autoDraw: false,
             controlGroups: ["fontControls", "formatControls", "styleControls", "colorControls",
-                            "bulletControls"],
+                            "bulletControls","insertControls"],
             valueChanged: function (oldValue, newValue) {
                 // parent canvas es el SectionStack
                 this.getParentCanvas().canvasItem.storeValue(newValue,newValue);
