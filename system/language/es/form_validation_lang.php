@@ -68,4 +68,5 @@ $lang['form_validation_error_message_not_set']	= 'Unable to access an error mess
 $lang['form_validation_in_list']		= 'The {field} field must be one of: {param}.';
 
 $lang['form_validation_is_boolean']		= 'The {field} field must be one true or false';
+$lang['form_validation_valid_url_ext']		= 'El campo {field} debe contener un URL valido.';
 
