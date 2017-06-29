@@ -43,6 +43,7 @@ isc.RichTextExtItem.addProperties({
             width: "*",
             border:"1px solid blue",
             autoDraw: false,
+            headerHeight: 24,
             sections: [
                 {
                     title: "HTML", expanded: true, items: [rteditor],

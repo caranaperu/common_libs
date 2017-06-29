@@ -15,6 +15,7 @@ isc.DetailGridContainer.addProperties({
     autoDraw: false,
     align: 'center',
     overflow: "hidden",
+    headerHeight: 24,
     /**
      * @private
      * @cfg {string} sectionTitle
@@ -256,8 +257,7 @@ isc.DetailGridContainer.addProperties({
                         members: [this._childForm,this._gridFormButtons]
                     })
                 ],
-                defaultLayoutAlign: "center",
-                styleName:"tabButtonTopSelected"});
+                defaultLayoutAlign: "center"});
 
             // agregamos la grilla a la seccion
             this.addItem(0, this._gridLayout, 0);
