@@ -66,8 +66,8 @@
         <field name="readOnlyWhen"      type="AdvancedCriteria" isRuleCriteria="true" basic="true" />
         <field name="visibleWhen"       type="AdvancedCriteria" isRuleCriteria="true" basic="true" />
         <field name="requiredWhen"      type="AdvancedCriteria" isRuleCriteria="true" basic="true" />
-        <field name="formula"           type="UserFormula" useRuleScope="true" />
-        <field name="textFormula"       type="UserSummary" useRuleScope="true" />
+        <field name="formula"           type="UserFormula" useRuleScope="true" basic="true"/>
+        <field name="textFormula"       type="UserSummary" useRuleScope="true" basic="true"/>
 
 		<field name="prompt" 			type="HTMLString"    title="Prompt" basic="true" />
 		<field name="hint" 				type="HTMLString" title="Hint" basic="true"/>

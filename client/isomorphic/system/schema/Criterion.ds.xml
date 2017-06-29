@@ -2,8 +2,8 @@
     <fields>
         <fieldName type="string" xmlAttribute="true"/>
         <operator type="string" xmlAttribute="true"/>
-        <value type="any" xmlExplicitTypes="true"/>
-        <valuePath type="string" xmlExplicitTypes="true"/>
+        <value type="any" xmlExplicitTypes="true" xmlAttributeInRuleCriteria="true"/>
+        <valuePath type="string" xmlAttribute="true"/>
         <start type="any" xmlExplicitTypes="true"/>
         <end type="any" xmlExplicitTypes="true"/>
         <criteria type="Criterion" multiple="true"/>

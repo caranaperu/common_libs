@@ -272,6 +272,7 @@ isc.loadSkin = function (theWindow) {
                     groupIcon:"[SKINIMG]/ListGrid/group.png",
                     groupIconPadding:3,
                     groupLeadingIndent:1,
+                    showHeaderShadow:true,
                     headerBackgroundColor:null,
                     headerBaseStyle:"headerButton",
                     headerHeight:23,
@@ -282,7 +283,7 @@ isc.loadSkin = function (theWindow) {
                     showHeaderMenuButton:true,
                     sortAscendingImage:{src:"[SKINIMG]ListGrid/sort_ascending.png", width:9, height:6},
                     sortDescendingImage:{src:"[SKINIMG]ListGrid/sort_descending.png", width:9, height:6},
-                    summaryRowHeight:21,
+                    summaryRowHeight: 24, // should be cellHeight + top/bottom borders
                     tallBaseStyle:"tallCell"
                 });
 
@@ -558,7 +559,7 @@ isc.loadSkin = function (theWindow) {
                 if (isc.minimalistTextControlAppearance) {
                     isc.TextAreaItem.addProperties({
                         showFocused:true,
-                        textBoxStyle:"textItemLite"
+                        textBoxStyle:"textAreaItemLite"
                     });
                 } else {
                     isc.TextAreaItem.addProperties({
@@ -809,7 +810,15 @@ isc.loadSkin = function (theWindow) {
                     vTrackStyle:"vSliderTrack",
                     touchThumbThickWidth:30,
                     touchThumbThinWidth:30,
-                    touchExtraThumbSpace:0
+                    touchExtraThumbSpace:0,
+                    hValueStyle: "hSliderValue",
+                    vValueStyle: "vSliderValue",
+                    hLabelSpacing: 1,
+                    vLabelSpacing: 7,
+                    titleSpacing: 15,
+                    vTitleSpacing: 7,
+                    showActiveTrack: true,
+                    labelHeight: 22
                 });
                 isc.Slider.changeDefaults("thumbDefaults", {
                     getCustomState : function () {
@@ -1579,7 +1588,7 @@ isc.loadSkin = function (theWindow) {
                     showHeaderMenuButton:true,
                     sortAscendingImage:{src:"[SKIN]sort_ascending.png", width:9, height:6},
                     sortDescendingImage:{src:"[SKIN]sort_descending.png", width:9, height:6},
-                    summaryRowHeight:21,
+                    summaryRowHeight: 24, // should be cellHeight + top/bottom borders
                     summaryRowStyle: "gridSummaryCell",
                     tallBaseStyle:"tallCell"
                 });
@@ -1678,7 +1687,7 @@ isc.loadSkin = function (theWindow) {
             	
             		isc.TextAreaItem.addProperties({
             			showFocused:true,
-            			textBoxStyle:"textItemLite"
+            			textBoxStyle:"textAreaItemLite"
             		});
             	
             	} else {

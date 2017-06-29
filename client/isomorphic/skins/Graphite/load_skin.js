@@ -259,6 +259,7 @@ with (theWindow) {
                 groupIcon:"[SKINIMG]/ListGrid/group.png",
                 groupIconPadding:3,
                 groupLeadingIndent:1,
+                showHeaderShadow:true,
                 headerBackgroundColor:null,
                 headerBaseStyle:"headerButton",
                 headerHeight:23,
@@ -269,7 +270,7 @@ with (theWindow) {
                 showHeaderMenuButton:true,
                 sortAscendingImage:{src:"[SKINIMG]ListGrid/sort_ascending.png", width:9, height:6},
                 sortDescendingImage:{src:"[SKINIMG]ListGrid/sort_descending.png", width:9, height:6},
-                summaryRowHeight:21,
+                summaryRowHeight: 24, // should be cellHeight + top/bottom borders
                 tallBaseStyle:"tallCell"
             });
 
@@ -557,7 +558,7 @@ with (theWindow) {
             if (isc.minimalistTextControlAppearance) {
                 isc.TextAreaItem.addProperties({
                     showFocused:true,
-                    textBoxStyle:"textItemLite"
+                    textBoxStyle:"textAreaItemLite"
                 });
             } else {
                 isc.TextAreaItem.addProperties({
@@ -749,6 +750,9 @@ with (theWindow) {
                 weekendHeaderStyle:"dateChooserWeekendButton",
                 styleName:"dateChooserBorder"
             });
+            isc.DateChooser.changeDefaults("timeItemDefaults", {
+                titleStyle: "customFormTitle"
+            });
         }
 
         if (isc.ToolStrip) {
@@ -807,7 +811,15 @@ with (theWindow) {
                 vTrackStyle:"vSliderTrack",
                 touchThumbThickWidth:30,
                 touchThumbThinWidth:30,
-                touchExtraThumbSpace:0
+                touchExtraThumbSpace:0,
+                hValueStyle: "hSliderValue",
+                vValueStyle: "vSliderValue",
+                hLabelSpacing: 1,
+                vLabelSpacing: 7,
+                titleSpacing: 15,
+                vTitleSpacing: 7,
+                showActiveTrack: true,
+                labelHeight: 22
             });
             isc.Slider.changeDefaults("thumbDefaults", {
                 getCustomState : function () {
@@ -1458,15 +1470,7 @@ with (theWindow) {
             baseWeekendStyle:"dateChooserWeekend",
             baseBottomButtonStyle:"dateChooserBorderedBottomButton",
             bottomButtonConstructor:"Button",
-            edgeBottom:3,
-            edgeCenterBackgroundColor:"#30415A",
-            edgeImage: "[SKINIMG]Window/window.png",
-			edgeOffsetTop:1,
-			edgeOffsetRight:3,
-			edgeOffsetLeft:3,
-			edgeOffsetBottom:5,
-            edgeSize:3,
-            edgeTop:26,
+            border:"1px solid #697186",
             headerHeight:24,
             headerStyle:"dateChooserButton",
             prevMonthIcon:"[SKIN]arrow_left.png",
@@ -1484,7 +1488,7 @@ with (theWindow) {
             nextYearIconWidth:16,
             shadowDepth:6,
             shadowOffset:5,
-            showEdges:true,
+            showEdges:false,
             showDoubleYearIcon:false,
             showShadow:false,
             skinImgDir:"images/DateChooser/",
@@ -1611,7 +1615,7 @@ with (theWindow) {
             showHeaderMenuButton:true,
             sortAscendingImage:{src:"[SKIN]sort_ascending.png", width:9, height:6},
             sortDescendingImage:{src:"[SKIN]sort_descending.png", width:9, height:6},
-            summaryRowHeight:21,
+            summaryRowHeight: 24, // should be cellHeight + top/bottom borders
             summaryRowStyle:"gridSummaryCell",
 			tallBaseStyle:"tallCell"
         });
@@ -1713,7 +1717,7 @@ with (theWindow) {
 		
 			isc.TextAreaItem.addProperties({
 				showFocused:true,
-				textBoxStyle:"textItemLite"
+				textBoxStyle:"textAreaItemLite"
 			});
 		
 		} else {

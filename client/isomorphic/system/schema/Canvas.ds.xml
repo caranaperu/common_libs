@@ -319,15 +319,6 @@
 			</valueMap>
 		</type>	
 		
-		<type ID="directionEnum"	inheritsFrom="enum"	 >
-			<valueMap>
-				<value>up</value>
-				<value>down</value>
-				<value>left</value>
-				<value>right</value>
-			</valueMap>
-		</type>	
-		
 		<type ID="bkgndRepeatEnum"		inheritsFrom="enum"	 >
 			<valueMap>
 				<value>repeat</value>

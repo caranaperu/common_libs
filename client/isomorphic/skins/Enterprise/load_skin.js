@@ -2,8 +2,6 @@
     "Enterprise" theme programmatic settings
     Copyright 2003 and beyond, Isomorphic Software
 ============================================================*/
-
-
 isc.loadSkin = function (theWindow) {
 if (theWindow == null) theWindow = window;
 with (theWindow) {
@@ -269,6 +267,7 @@ with (theWindow) {
                 groupIcon:"[SKINIMG]/ListGrid/group.png",
                 groupIconPadding:3,
                 groupLeadingIndent:1,
+                showHeaderShadow:true,
                 headerBackgroundColor:null,
                 headerBaseStyle:"headerButton",
                 headerHeight:23,
@@ -279,7 +278,7 @@ with (theWindow) {
                 showHeaderMenuButton:true,
                 sortAscendingImage:{src:"[SKINIMG]ListGrid/sort_ascending.png", width:9, height:6},
                 sortDescendingImage:{src:"[SKINIMG]ListGrid/sort_descending.png", width:9, height:6},
-                summaryRowHeight:21,
+                summaryRowHeight: 24, // should be cellHeight + top/bottom borders
                 tallBaseStyle:"tallCell"
             });
 
@@ -559,7 +558,7 @@ with (theWindow) {
 			
 				isc.TextAreaItem.addProperties({
 					showFocused:true,
-					textBoxStyle:"textItemLite"
+					textBoxStyle:"textAreaItemLite"
 				});
 				
         	} else {
@@ -721,7 +720,7 @@ with (theWindow) {
             isc.DateRangeDialog.changeDefaults("headerIconProperties", { src:"[SKIN]/DynamicForm/date_control.png" });
         }
 
-        if(isc.MiniDateRangeItem) {
+        if (isc.MiniDateRangeItem) {
             isc.MiniDateRangeItem.addProperties({"pickerIconSrc": "[SKIN]/DynamicForm/date_control.png"});
         }
 
@@ -811,7 +810,15 @@ with (theWindow) {
                 vTrackStyle:"vSliderTrack",
                 touchThumbThickWidth:30,
                 touchThumbThinWidth:30,
-                touchExtraThumbSpace:0
+                touchExtraThumbSpace:0,
+                hValueStyle: "hSliderValue",
+                vValueStyle: "vSliderValue",
+                hLabelSpacing: 1,
+                vLabelSpacing: 7,
+                titleSpacing: 15,
+                vTitleSpacing: 7,
+                showActiveTrack: true,
+                labelHeight: 22
             });
             isc.Slider.changeDefaults("thumbDefaults", {
                 getCustomState : function () {
@@ -1588,7 +1595,7 @@ with (theWindow) {
             showHeaderMenuButton: true,
             sortAscendingImage:{src:"[SKIN]sort_ascending.png", width:9, height:6},
             sortDescendingImage: {src:"[SKIN]sort_descending.png", width:9, height:6},
-            summaryRowHeight: 21,
+            summaryRowHeight: 24, // should be cellHeight + top/bottom borders
             summaryRowStyle: "gridSummaryCell",
 			tallBaseStyle: "tallCell"
         });
@@ -1690,7 +1697,7 @@ with (theWindow) {
 		
 			isc.TextAreaItem.addProperties({
 				showFocused:true,
-				textBoxStyle:"textItemLite"
+				textBoxStyle:"textAreaItemLite"
 			});
 			
 		} else {
@@ -1833,7 +1840,7 @@ with (theWindow) {
             src: "[SKIN]/DynamicForm/date_control.png"
         });
     }
-    if (isc.MiniDateRangeItem) {
+    if(isc.MiniDateRangeItem) {
         isc.MiniDateRangeItem.addProperties({"pickerIconSrc": "[SKIN]/DynamicForm/date_control.png"});
     }
 

@@ -1509,6 +1509,8 @@
 }
 
 .iconButtonOver,
+.iconButtonDown,
+.iconButtonSelected,
 .iconButtonSelectedOver,
 .iconButtonFocusedOver,
 .iconButtonSelectedFocusedOver {
@@ -1521,15 +1523,40 @@
 .iconButtonSelectedFocused,
 .iconButtonSelectedDown,
 .iconButtonSelectedFocusedDown,
-.iconButtonSelectedOver,
 .iconButtonSelectedFocusedOver {
-    background-color: pink;
+  background-color: #e5e5e5;
 }
 
 .iconButtonDisabled {
     color: #AAAAAA;
 }
 
+/* IconButton icon and menuIcon styles - used for spacing top and bottom of the title in v-buttons */
+.iconButtonHIcon {
+    vertical-align:middle;
+}
+.iconButtonHMenuIcon {
+    vertical-align:middle; 
+    border:1px solid transparent; 
+    -moz-border-radius: 3px; 
+    -webkit-border-radius: 3px; 
+    -khtml-border-radius: 3px; 
+    border-radius: 3px;
+}
+
+.iconButtonVIcon {
+    vertical-align:middle;
+    margin-bottom: 5px;
+}
+.iconButtonVMenuIcon {
+    vertical-align:middle; 
+    border:1px solid transparent; 
+    -moz-border-radius: 3px; 
+    -webkit-border-radius: 3px; 
+    -khtml-border-radius: 3px; 
+    border-radius: 3px;
+    margin-top: 4px;
+}
 
 /*============================================================
 	13) Tools

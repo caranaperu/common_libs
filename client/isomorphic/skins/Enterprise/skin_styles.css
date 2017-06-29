@@ -3114,7 +3114,27 @@ select[disabled] option {
 .selectItemLiteTextHint,
 .selectItemLiteTextHintRTL,
 .selectItemLiteTextDisabledHint,
-.selectItemLiteTextDisabledHintRTL {
+.selectItemLiteTextDisabledHintRTL,
+.textAreaItemLite,
+.textAreaItemLiteRTL,
+.textAreaItemLiteFocused,
+.textAreaItemLiteFocusedRTL,
+.textAreaItemLiteDisabled,
+.textAreaItemLiteDisabledRTL,
+.textAreaItemLiteError,
+.textAreaItemLiteErrorRTL,
+.textAreaItemLitePending,
+.textAreaItemLitePendingRTL,
+.textAreaItemLitePendingFocused,
+.textAreaItemLitePendingFocusedRTL,
+.textAreaItemLitePendingDisabled,
+.textAreaItemLitePendingDisabledRTL,
+.textAreaItemLitePendingError,
+.textAreaItemLitePendingErrorRTL,
+.textAreaItemLiteHint,
+.textAreaItemLiteHintRTL,
+.textAreaItemLiteDisabledHint,
+.textAreaItemLiteDisabledHintRTL {
   color: #555;
   padding-left: 4px;
   padding-right: 4px;
@@ -3123,6 +3143,30 @@ select[disabled] option {
   font-family: Arial, Verdana, sans-serif;
   font-size: 12px;
   border-radius: 0px;
+}
+
+.textAreaItemLite,
+.textAreaItemLiteRTL,
+.textAreaItemLiteFocused,
+.textAreaItemLiteFocusedRTL,
+.textAreaItemLiteDisabled,
+.textAreaItemLiteDisabledRTL,
+.textAreaItemLiteError,
+.textAreaItemLiteErrorRTL,
+.textAreaItemLitePending,
+.textAreaItemLitePendingRTL,
+.textAreaItemLitePendingFocused,
+.textAreaItemLitePendingFocusedRTL,
+.textAreaItemLitePendingDisabled,
+.textAreaItemLitePendingDisabledRTL,
+.textAreaItemLitePendingError,
+.textAreaItemLitePendingErrorRTL,
+.textAreaItemLiteHint,
+.textAreaItemLiteHintRTL,
+.textAreaItemLiteDisabledHint,
+.textAreaItemLiteDisabledHintRTL {
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 
 /* suppress borders on selectItem text - border is applied to control element
@@ -3202,7 +3246,27 @@ select[disabled] option {
 .selectItemLiteControlHint,
 .selectItemLiteControlHintRTL,
 .selectItemLiteControlDisabledHint,
-.selectItemLiteControlDisabledHintRTL {
+.selectItemLiteControlDisabledHintRTL,
+.textAreaItemLite,
+.textAreaItemLiteRTL,
+.textAreaItemLiteFocused,
+.textAreaItemLiteFocusedRTL,
+.textAreaItemLiteDisabled,
+.textAreaItemLiteDisabledRTL,
+.textAreaItemLiteError,
+.textAreaItemLiteErrorRTL,
+.textAreaItemLitePending,
+.textAreaItemLitePendingRTL,
+.textAreaItemLitePendingFocused,
+.textAreaItemLitePendingFocusedRTL,
+.textAreaItemLitePendingDisabled,
+.textAreaItemLitePendingDisabledRTL,
+.textAreaItemLitePendingError,
+.textAreaItemLitePendingErrorRTL,
+.textAreaItemLiteHint,
+.textAreaItemLiteHintRTL,
+.textAreaItemLiteDisabledHint,
+.textAreaItemLiteDisabledHintRTL {
   border: 1px solid #ccc;
   box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075);
   transition: border-color ease-in-out .15s,box-shadow ease-in-out .15s;
@@ -3222,7 +3286,11 @@ select[disabled] option {
 .selectItemLiteControlPendingFocused,
 .selectItemLiteControlPendingFocusedRTL,
 .selectItemLiteControlPendingFocusedOver,
-.selectItemLiteControlPendingFocusedOverRTL {
+.selectItemLiteControlPendingFocusedOverRTL,
+.textAreaItemLiteFocused,
+.textAreaItemLiteFocusedRTL,
+.textAreaItemLitePendingFocused,
+.textAreaItemLitePendingFocusedRTL {
   border-color: #66afe9;
   outline: none;
   box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 6px rgba(102, 175, 233, 0.6);
@@ -3252,7 +3320,13 @@ select[disabled] option {
 .selectItemLiteTextPendingFocused,
 .selectItemLiteTextPendingFocusedRTL,
 .selectItemLiteTextPendingError,
-.selectItemLiteTextPendingErrorRTL {
+.selectItemLiteTextPendingErrorRTL,
+.textAreaItemLitePending,
+.textAreaItemLitePendingRTL,
+.textAreaItemLitePendingFocused,
+.textAreaItemLitePendingFocusedRTL,
+.textAreaItemLitePendingError,
+.textAreaItemLitePendingErrorRTL {
   color: #0066cc;
 }
 .textItemLitePending:-moz-placeholder,
@@ -3266,7 +3340,13 @@ select[disabled] option {
 .selectItemLiteTextPendingFocused:-moz-placeholder,
 .selectItemLiteTextPendingFocusedRTL:-moz-placeholder,
 .selectItemLiteTextPendingError:-moz-placeholder,
-.selectItemLiteTextPendingErrorRTL:-moz-placeholder {
+.selectItemLiteTextPendingErrorRTL:-moz-placeholder,
+.textAreaItemLitePending:-moz-placeholder,
+.textAreaItemLitePendingRTL:-moz-placeholder,
+.textAreaItemLitePendingFocused:-moz-placeholder,
+.textAreaItemLitePendingFocusedRTL:-moz-placeholder,
+.textAreaItemLitePendingError:-moz-placeholder,
+.textAreaItemLitePendingErrorRTL:-moz-placeholder {
   color: #0066cc;
   opacity: 1;
   text-overflow: ellipsis;
@@ -3282,7 +3362,13 @@ select[disabled] option {
 .selectItemLiteTextPendingFocused::-moz-placeholder,
 .selectItemLiteTextPendingFocusedRTL::-moz-placeholder,
 .selectItemLiteTextPendingError::-moz-placeholder,
-.selectItemLiteTextPendingErrorRTL::-moz-placeholder {
+.selectItemLiteTextPendingErrorRTL::-moz-placeholder,
+.textAreaItemLitePending::-moz-placeholder,
+.textAreaItemLitePendingRTL::-moz-placeholder,
+.textAreaItemLitePendingFocused::-moz-placeholder,
+.textAreaItemLitePendingFocusedRTL::-moz-placeholder,
+.textAreaItemLitePendingError::-moz-placeholder,
+.textAreaItemLitePendingErrorRTL::-moz-placeholder {
   color: #0066cc;
   opacity: 1;
   text-overflow: ellipsis;
@@ -3298,7 +3384,13 @@ select[disabled] option {
 .selectItemLiteTextPendingFocused:-ms-input-placeholder,
 .selectItemLiteTextPendingFocusedRTL:-ms-input-placeholder,
 .selectItemLiteTextPendingError:-ms-input-placeholder,
-.selectItemLiteTextPendingErrorRTL:-ms-input-placeholder {
+.selectItemLiteTextPendingErrorRTL:-ms-input-placeholder,
+.textAreaItemLitePending:-ms-input-placeholder,
+.textAreaItemLitePendingRTL:-ms-input-placeholder,
+.textAreaItemLitePendingFocused:-ms-input-placeholder,
+.textAreaItemLitePendingFocusedRTL:-ms-input-placeholder,
+.textAreaItemLitePendingError:-ms-input-placeholder,
+.textAreaItemLitePendingErrorRTL:-ms-input-placeholder {
   color: #0066cc;
   opacity: 1;
   text-overflow: ellipsis;
@@ -3314,7 +3406,13 @@ select[disabled] option {
 .selectItemLiteTextPendingFocused::-webkit-input-placeholder,
 .selectItemLiteTextPendingFocusedRTL::-webkit-input-placeholder,
 .selectItemLiteTextPendingError::-webkit-input-placeholder,
-.selectItemLiteTextPendingErrorRTL::-webkit-input-placeholder {
+.selectItemLiteTextPendingErrorRTL::-webkit-input-placeholder,
+.textAreaItemLitePending::-webkit-input-placeholder,
+.textAreaItemLitePendingRTL::-webkit-input-placeholder,
+.textAreaItemLitePendingFocused::-webkit-input-placeholder,
+.textAreaItemLitePendingFocusedRTL::-webkit-input-placeholder,
+.textAreaItemLitePendingError::-webkit-input-placeholder,
+.textAreaItemLitePendingErrorRTL::-webkit-input-placeholder {
   color: #0066cc;
   opacity: 1;
   text-overflow: ellipsis;
@@ -3332,7 +3430,13 @@ select[disabled] option {
 .selectItemLiteControlPendingDisabled,
 .selectItemLiteControlPendingDisabledRTL,
 .selectItemLiteControlDisabledHint,
-.selectItemLiteControlDisabledHintRTL {
+.selectItemLiteControlDisabledHintRTL,
+.textAreaItemLiteDisabled,
+.textAreaItemLiteDisabledRTL,
+.textAreaItemLitePendingDisabled,
+.textAreaItemLitePendingDisabledRTL,
+.textAreaItemLiteDisabledHint,
+.textAreaItemLiteDisabledHintRTL {
   background-color: white;
   border: 1px solid #ababab;
 }
@@ -3348,7 +3452,13 @@ select[disabled] option {
 .selectItemLiteTextPendingDisabled,
 .selectItemLiteTextPendingDisabledRTL,
 .selectItemLiteTextDisabledHint,
-.selectItemLiteTextDisabledHintRTL {
+.selectItemLiteTextDisabledHintRTL,
+.textAreaItemLiteDisabled,
+.textAreaItemLiteDisabledRTL,
+.textAreaItemLitePendingDisabled,
+.textAreaItemLitePendingDisabledRTL,
+.textAreaItemLiteDisabledHint,
+.textAreaItemLiteDisabledHintRTL {
   color: #ababab;
 }
 .textItemLiteDisabled:-moz-placeholder,
@@ -3362,7 +3472,13 @@ select[disabled] option {
 .selectItemLiteTextPendingDisabled:-moz-placeholder,
 .selectItemLiteTextPendingDisabledRTL:-moz-placeholder,
 .selectItemLiteTextDisabledHint:-moz-placeholder,
-.selectItemLiteTextDisabledHintRTL:-moz-placeholder {
+.selectItemLiteTextDisabledHintRTL:-moz-placeholder,
+.textAreaItemLiteDisabled:-moz-placeholder,
+.textAreaItemLiteDisabledRTL:-moz-placeholder,
+.textAreaItemLitePendingDisabled:-moz-placeholder,
+.textAreaItemLitePendingDisabledRTL:-moz-placeholder,
+.textAreaItemLiteDisabledHint:-moz-placeholder,
+.textAreaItemLiteDisabledHintRTL:-moz-placeholder {
   color: #cccccc;
   opacity: 1;
   text-overflow: ellipsis;
@@ -3378,7 +3494,13 @@ select[disabled] option {
 .selectItemLiteTextPendingDisabled::-moz-placeholder,
 .selectItemLiteTextPendingDisabledRTL::-moz-placeholder,
 .selectItemLiteTextDisabledHint::-moz-placeholder,
-.selectItemLiteTextDisabledHintRTL::-moz-placeholder {
+.selectItemLiteTextDisabledHintRTL::-moz-placeholder,
+.textAreaItemLiteDisabled::-moz-placeholder,
+.textAreaItemLiteDisabledRTL::-moz-placeholder,
+.textAreaItemLitePendingDisabled::-moz-placeholder,
+.textAreaItemLitePendingDisabledRTL::-moz-placeholder,
+.textAreaItemLiteDisabledHint::-moz-placeholder,
+.textAreaItemLiteDisabledHintRTL::-moz-placeholder {
   color: #cccccc;
   opacity: 1;
   text-overflow: ellipsis;
@@ -3394,7 +3516,13 @@ select[disabled] option {
 .selectItemLiteTextPendingDisabled:-ms-input-placeholder,
 .selectItemLiteTextPendingDisabledRTL:-ms-input-placeholder,
 .selectItemLiteTextDisabledHint:-ms-input-placeholder,
-.selectItemLiteTextDisabledHintRTL:-ms-input-placeholder {
+.selectItemLiteTextDisabledHintRTL:-ms-input-placeholder,
+.textAreaItemLiteDisabled:-ms-input-placeholder,
+.textAreaItemLiteDisabledRTL:-ms-input-placeholder,
+.textAreaItemLitePendingDisabled:-ms-input-placeholder,
+.textAreaItemLitePendingDisabledRTL:-ms-input-placeholder,
+.textAreaItemLiteDisabledHint:-ms-input-placeholder,
+.textAreaItemLiteDisabledHintRTL:-ms-input-placeholder {
   color: #cccccc;
   opacity: 1;
   text-overflow: ellipsis;
@@ -3410,7 +3538,13 @@ select[disabled] option {
 .selectItemLiteTextPendingDisabled::-webkit-input-placeholder,
 .selectItemLiteTextPendingDisabledRTL::-webkit-input-placeholder,
 .selectItemLiteTextDisabledHint::-webkit-input-placeholder,
-.selectItemLiteTextDisabledHintRTL::-webkit-input-placeholder {
+.selectItemLiteTextDisabledHintRTL::-webkit-input-placeholder,
+.textAreaItemLiteDisabled::-webkit-input-placeholder,
+.textAreaItemLiteDisabledRTL::-webkit-input-placeholder,
+.textAreaItemLitePendingDisabled::-webkit-input-placeholder,
+.textAreaItemLitePendingDisabledRTL::-webkit-input-placeholder,
+.textAreaItemLiteDisabledHint::-webkit-input-placeholder,
+.textAreaItemLiteDisabledHintRTL::-webkit-input-placeholder {
   color: #cccccc;
   opacity: 1;
   text-overflow: ellipsis;
@@ -3420,7 +3554,9 @@ select[disabled] option {
 .textItemLiteHint,
 .textItemLiteHintRTL,
 .selectItemLiteTextHint,
-.selectItemLiteTextHintRTL {
+.selectItemLiteTextHintRTL,
+.textAreaItemLiteHint,
+.textAreaItemLiteHintRTL {
   color: #999;
 }
 
@@ -4750,6 +4886,97 @@ select[disabled] option {
   color: #ababab;
 }
 
+/* slider pointy arrows - start */
+
+.sliderValue,
+.sliderValueDisabled,
+.vSliderValue,
+.vSliderValueDisabled,
+.hSliderValue,
+.hSliderValueDisabled {
+    color: #333b41;
+	position: absolute;
+	background: #ffffff;
+	border: 1px solid #cdcdcd;
+    -moz-border-radius: 3px;
+    -webkit-border-radius: 3px;
+    border-radius: 3px;
+    padding: 3px 3px 0px 3px;
+    line-height: 14px;    
+    text-align: center;
+    display: inline-block;
+    margin-top: 2px;
+}
+
+.vSliderValue:after, .vSliderValue:before,
+.vSliderValueDisabled:after, .vSliderValueDisabled:before,
+.hSliderValue:after, .hSliderValue:before,
+.hSliderValueDisabled:after, .hSliderValueDisabled:before {
+	border: solid transparent;
+	content: "";
+	height: 0;
+	width: 0;
+	position: absolute;
+	pointer-events: none;
+}
+
+.vSliderValue:after, .vSliderValue:before,
+.vSliderValueDisabled:after, .vSliderValueDisabled:before {
+	left: 100%;
+	top: 50%;
+}
+
+.hSliderValue:after, .hSliderValue:before,
+.hSliderValueDisabled:after, .hSliderValueDisabled:before {
+	top: 100%;
+	left: 50%;
+}
+
+.vSliderValue:after,
+.vSliderValueDisabled:after {
+	border-color: rgba(136, 183, 213, 0);
+	border-left-color: #ffffff;
+	border-width: 4px;
+	margin-top: -4px;
+}
+.vSliderValue:before,
+.vSliderValueDisabled:before {
+	border-color: rgba(194, 225, 245, 0);
+	border-left-color: #cdcdcd;
+	border-width: 5px;
+	margin-top: -5px;
+}
+
+.hSliderValue:after,
+.hSliderValueDisabled:after {
+	border-color: rgba(136, 183, 213, 0);
+	border-top-color: #ffffff;
+	border-width: 4px;
+	margin-left: -4px;
+}
+.hSliderValue:before,
+.hSliderValueDisabled:before {
+	border-color: rgba(194, 225, 245, 0);
+	border-top-color: #cdcdcd;
+	border-width: 5px;
+	margin-left: -5px;
+}
+
+.vSliderValueDisabled,
+.hSliderValueDisabled {
+    background: #e2e2e2;
+    color: #94949a;
+}
+
+.vSliderValueDisabled:after {
+    border-left-color: #e2e2e2;
+}
+.hSliderValueDisabled:after {
+    border-top-color: #e2e2e2;
+}
+
+/* slider pointy arrows - end */
+
 /* CSS3 Mode */
 .hSliderTrack {
   background: whitesmoke;
@@ -4759,6 +4986,20 @@ select[disabled] option {
 .vSliderTrack {
   background: whitesmoke;
   border: 1px solid #d4d4d4;
+}
+
+.sliderTrackActive,
+.hSliderTrackActive,
+.vSliderTrackActive {
+  background: #b6e3ff;
+  border-radius: 10px;
+}
+
+.sliderTrackActiveDisabled,
+.hSliderTrackActiveDisabled,
+.vSliderTrackActiveDisabled {
+  background: #c4c4c4;
+  border-radius: 10px;
 }
 
 /* CSS3 Mode */
@@ -5711,6 +5952,7 @@ select[disabled] option {
   -moz-border-radius: 3px;
   -webkit-border-radius: 3px;
   border-radius: 3px;
+  padding: 2px;
 }
 
 .toolStripGroupTitle,
@@ -5767,6 +6009,8 @@ select[disabled] option {
 }
 
 .iconButtonOver,
+.iconButtonDown,
+.iconButtonSelected,
 .iconButtonSelectedOver,
 .iconButtonFocusedOver,
 .iconButtonSelectedFocusedOver {
@@ -5778,13 +6022,39 @@ select[disabled] option {
 .iconButtonSelectedFocused,
 .iconButtonSelectedDown,
 .iconButtonSelectedFocusedDown,
-.iconButtonSelectedOver,
 .iconButtonSelectedFocusedOver {
-  background-color: #fdaaaa;
+  background-color: #e5e5e5;
 }
 
 .iconButtonDisabled {
   color: #ababab;
+}
+
+/* IconButton icon and menuIcon styles - used for spacing top and bottom of the title in v-buttons */
+.iconButtonHIcon {
+    vertical-align:middle;
+}
+.iconButtonHMenuIcon {
+    vertical-align:middle; 
+    border:1px solid transparent; 
+    -moz-border-radius: 3px; 
+    -webkit-border-radius: 3px; 
+    -khtml-border-radius: 3px; 
+    border-radius: 3px;
+}
+
+.iconButtonVIcon {
+    vertical-align:middle;
+    margin-bottom: 5px;
+}
+.iconButtonVMenuIcon {
+    vertical-align:middle; 
+    border:1px solid transparent; 
+    -moz-border-radius: 3px; 
+    -webkit-border-radius: 3px; 
+    -khtml-border-radius: 3px; 
+    border-radius: 3px;
+    margin-top: 4px;
 }
 
 /*============================================================
@@ -7992,7 +8262,7 @@ a.calMonthEventLink:active {
   border: 1px solid #c8d9f4;
   font-family: Arial, Verdana, sans-serif;
   font-size: 9px;
-  padding: 0px;
+  padding: 1px;
   margin: 0px;
 }
 
@@ -8001,18 +8271,32 @@ a.calMonthEventLink:active {
 .eventWindowLabel {
   background-color: #d0dff6;
   color: #4d4d4d;
+  border: 1px solid #d0dff6;
   font-family: Arial, Verdana, sans-serif;
   font-size: 9px;
-  margin: 0px;
-  padding: 0px 3px 2px 3px;
+  margin: 1px;
+  padding: 2px 2px 0px 2px;
+}
+
+.eventWindowHeader,
+.eventWindowBody {
+  left:0px; 
+  right:0px;
+  overflow:hidden;
+  position:absolute;
+  -moz-box-sizing: border-box;
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
 }
 
 .eventWindowBody {
   background-color: aliceblue;
   color: black;
+  border: 1px solid aliceblue;
   font-family: Arial, Verdana, sans-serif;
   font-size: 9px;
-  padding: 3px;
+  margin-left: 1px;
+  margin-right: 1px;
 }
 
 .eventWindowResizer {
@@ -8031,8 +8315,8 @@ a.calMonthEventLink:active {
   display: inline-block;
   color: white;
   background-color: grey;
-  left: 0;
-  bottom: 0;
+  left: 0px;
+  bottom: 0px;
 }
 
 /* --- IndicatorCanvas --- */

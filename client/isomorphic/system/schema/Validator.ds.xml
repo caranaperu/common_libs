@@ -46,6 +46,10 @@
         <!-- for serverCondition if uses server scripting -->
         <scriptImport type="string"/>
 
+        <!-- isUnique validator only -->
+        <caseSensitive type="boolean"/>
+        <operationId type="string"/>
+
         <!-- custom server validator: Velocity expression or server-side script -->
         <serverCondition type="Object" idAllowed="true"/>
         <!-- custom server validator: Object invoked via DMI -->

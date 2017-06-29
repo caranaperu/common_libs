@@ -2,7 +2,7 @@
 /*
 
   SmartClient Ajax RIA system
-  Version v11.0p_2016-09-07/LGPL Deployment (2016-09-07)
+  Version v11.1p_2017-06-29/LGPL Deployment (2017-06-29)
 
   Copyright 2000 and beyond Isomorphic Software, Inc. All rights reserved.
   "SmartClient" is a trademark of Isomorphic Software, Inc.
@@ -39,9 +39,9 @@ else if(isc._preLog)isc._preLog[isc._preLog.length]=isc._pTM;
 else isc._preLog=[isc._pTM]}isc.definingFramework=true;
 
 
-if (window.isc && isc.version != "v11.0p_2016-09-07/LGPL Deployment" && !isc.DevUtil) {
+if (window.isc && isc.version != "v11.1p_2017-06-29/LGPL Deployment" && !isc.DevUtil) {
     isc.logWarn("SmartClient module version mismatch detected: This application is loading the core module from "
-        + "SmartClient version '" + isc.version + "' and additional modules from 'v11.0p_2016-09-07/LGPL Deployment'. Mixing resources from different "
+        + "SmartClient version '" + isc.version + "' and additional modules from 'v11.1p_2017-06-29/LGPL Deployment'. Mixing resources from different "
         + "SmartClient packages is not supported and may lead to unpredictable behavior. If you are deploying resources "
         + "from a single package you may need to clear your browser cache, or restart your browser."
         + (isc.Browser.isSGWT ? " SmartGWT developers may also need to clear the gwt-unitCache and run a GWT Compile." : ""));
@@ -156,6 +156,7 @@ isc.ListPropertiesSampleTile.addMethods({
 // Pane containing controls for editing the style of HTML lists in a +link{RichTextEditor}.
 // <p>
 // Cannot be directly used; shown in documentation only for skinning purposes.
+// @inheritsFrom Layout
 // @treeLocation Client Reference/Foundation/RichTextEditor
 // @visibility external
 //<
@@ -618,6 +619,7 @@ isc.ListPropertiesPane.registerStringMethods({
 // +link{ListPropertiesPane}.
 // <p>
 // Cannot be directly used; shown in documentation only for skinning purposes.
+// @inheritsFrom Window
 // @treeLocation Client Reference/Foundation/RichTextEditor
 // @visibility external
 //<
@@ -761,6 +763,7 @@ isc.ListPropertiesDialog.registerStringMethods({
 //
 // Canvas to be used for Rich Text Editing
 //
+// @inheritsFrom Canvas
 // @treeLocation Client Reference/Foundation/RichTextEditor
 // @visibility external
 //<
@@ -1537,13 +1540,13 @@ isc.RichTextCanvas.addMethods({
 
     _iFrameOnFocus : function () {
         if (this.destroyed) return;
-        isc.EH.focusInCanvas(this, true);
+        isc.EH.handleFocus(this, true);
         return true;
     },
 
     _iFrameOnBlur : function () {
         if (this.destroyed) return;
-        isc.EH.blurFocusCanvas(this, true);
+        isc.EH.handleBlur(this, true);
         return true;
     },
 
@@ -1554,6 +1557,7 @@ isc.RichTextCanvas.addMethods({
         if (key == this._$Tab) {
             // Move focus
             if (this.moveFocusOnTab) {
+
                 this._focusInNextTabElement(!isc.EH.shiftKeyDown());
 
             // Otherwise, insert a tab character
@@ -3076,6 +3080,7 @@ isc.RichTextCanvas.registerStringMethods({
 // value created on the client, we recommend values be sanitized on the server before
 // storing and displaying to other users.
 //
+// @inheritsFrom VLayout
 // @treeLocation Client Reference/Foundation
 // @visibility external
 // @example RichTextEditor
@@ -3156,13 +3161,13 @@ isc.RichTextEditor.addProperties({
     // Default width for control buttons
     controlButtonWidth: 20,
 
-    //> @attr richTextEditor.defaultControlConstructor (SCClassName : "Button" : IRA)
+    //> @attr richTextEditor.defaultControlConstructor (SCClassName : "IconButton" : IRA)
     // By default our 'controls' will be of this specified class. Override for specific
     // controls by either implementing a '[controlName]_autoMaker' function which returns the
     // control, or by specifying '[controlName]Constructor' as a pointer to an appropriate
     // SmartClient class.
     //<
-    defaultControlConstructor: isc.Button,
+    defaultControlConstructor: "IconButton",
 
     //> @type StandardControlGroup
     // @value "fontControls" +link{RichTextEditor.fontControls,Font controls}
@@ -3461,6 +3466,9 @@ isc.RichTextEditor.addProperties({
     //<
     alignLeftPrompt: "Left align selection",
     alignLeftDefaults: {
+        actionType: "radio",
+        radioGroup: "radioFormat",
+        showButtonTitle: false,
         icon: "[SKIN]/RichTextEditor/text_align_left.png",
         click : function () { this.creator.fireAction('justifySelection', 'left'); }
     },
@@ -3471,6 +3479,9 @@ isc.RichTextEditor.addProperties({
     //<
     alignCenterPrompt: "Center selection",
     alignCenterDefaults: {
+        actionType: "radio",
+        radioGroup: "radioFormat",
+        showButtonTitle: false,
         icon: "[SKIN]/RichTextEditor/text_align_center.png",
         click : function () { this.creator.fireAction('justifySelection', 'center'); }
     },
@@ -3481,6 +3492,9 @@ isc.RichTextEditor.addProperties({
     //<
     alignRightPrompt: "Right align selection",
     alignRightDefaults: {
+        actionType: "radio",
+        radioGroup: "radioFormat",
+        showButtonTitle: false,
         icon: "[SKIN]/RichTextEditor/text_align_right.png",
         click : function () { this.creator.fireAction('justifySelection', 'right'); }
     },
@@ -3491,6 +3505,9 @@ isc.RichTextEditor.addProperties({
     //<
     justifyPrompt: "Full justify selection",
     justifyDefaults: {
+        actionType: "radio",
+        radioGroup: "radioFormat",
+        showButtonTitle: false,
         icon: "[SKIN]/RichTextEditor/text_align_justified.png",
         click : function () { this.creator.fireAction('justifySelection', 'full'); }
     },
@@ -3518,6 +3535,7 @@ isc.RichTextEditor.addProperties({
     //<
     colorPrompt: "Set selection text color",
     colorDefaults: {
+        showButtonTitle: false,
         icon: "[SKIN]/RichTextEditor/text_color.gif",
         click : "this.creator.chooseTextColor()"
     },
@@ -3529,6 +3547,7 @@ isc.RichTextEditor.addProperties({
     //<
     backgroundColorPrompt: "Set selection background color",
     backgroundColorDefaults: {
+        showButtonTitle: false,
         icon: "[SKIN]/RichTextEditor/background_color.gif",
         click : "this.creator.chooseBackgroundColor()"
     },
@@ -3545,6 +3564,7 @@ isc.RichTextEditor.addProperties({
     //<
     linkPrompt: "Edit Hyperlink",
     linkDefaults: {
+        showButtonTitle: false,
         icon: "[SKIN]/RichTextEditor/link_new.png",
         click : "this.creator.createLink()"
     },
@@ -3568,6 +3588,7 @@ isc.RichTextEditor.addProperties({
     //<
     indentPrompt: "Increase indent",
     indentDefaults: {
+        showButtonTitle: false,
         icon: "[SKIN]/RichTextEditor/indent.png",
         click : "this.creator.indentSelection()"
     },
@@ -3579,6 +3600,7 @@ isc.RichTextEditor.addProperties({
     //<
     outdentPrompt: "Decrease indent",
     outdentDefaults: {
+        showButtonTitle: false,
         icon: "[SKIN]/RichTextEditor/outdent.png",
         click : "this.creator.outdentSelection()"
     },
@@ -3590,6 +3612,7 @@ isc.RichTextEditor.addProperties({
     //<
     orderedListPrompt: "Convert to a numbered list",
     orderedListDefaults: {
+        showButtonTitle: false,
         icon: "[SKIN]/RichTextEditor/text_list_numbers.png",
         click : "this.creator.convertToOrderedList()"
     },
@@ -3601,6 +3624,7 @@ isc.RichTextEditor.addProperties({
     //<
     unorderedListPrompt: "Convert to a bullet list",
     unorderedListDefaults: {
+        showButtonTitle: false,
         icon: "[SKIN]/RichTextEditor/text_list_bullets.png",
         click : "this.creator.convertToUnorderedList()"
     },
@@ -3612,6 +3636,7 @@ isc.RichTextEditor.addProperties({
     //<
     listPropertiesPrompt: "Configure the list",
     listPropertiesDefaults: {
+        showButtonTitle: false,
         icon: "[SKIN]/RichTextEditor/text_list_edit.png",
         click : "this.creator.editListProperties()"
     },
@@ -3681,33 +3706,16 @@ isc.RichTextEditor.addProperties({
             }
         if (this.toolbarHeight > 0) this._createToolArea();
 
-        var props = isc.addProperties({ backgroundColor: this.editAreaBackgroundColor },
-            this.editAreaProperties,
-            {
-                top: this.toolbarHeight, className: this.editAreaClassName,
-                left: 0, width: "100%", height: "*",
-                contents: this.value,
-                moveFocusOnTab: this.moveFocusOnTab,
-                // We pick up our tabIndex from the RichTextEditor directly when
-                // the RTE is written out.
+        var props = isc.addProperties({ backgroundColor:this.editAreaBackgroundColor },
+                this.editAreaProperties,
+                {  top:this.toolbarHeight, className:this.editAreaClassName,
+                  left:0, width:"100%", height:"*",
+                  contents:this.value,
+                  moveFocusOnTab:this.moveFocusOnTab,
 
-                tabIndex:-1,
-                getTabIndex : function () {
-                    var ti = (this.parentElement) ? this.parentElement.getTabIndex() : -1;
-                    this.tabIndex = ti;
-                    return ti;
-                },
+                  changed : isc.RichTextEditor._canvasContentsChanged,
 
-
-                _focusInNextTabElement : function (forward, mask) {
-                    if (this.parentElement != null) {
-                        return this.parentElement._focusInNextTabElement(forward,mask);
-                    } else {
-                        return this.Super("_focusInNextTabElement", arguments);
-                    }
-                },
-                changed : isc.RichTextEditor._canvasContentsChanged,
-                focusChanged : function (hasFocus) {
+                  focusChanged : function (hasFocus) {
                     if (hasFocus) {
                         this._resetSelection();
                         this._focussing = false;
@@ -3814,8 +3822,9 @@ isc.RichTextEditor.addProperties({
                     continue;
                 }
 
-                // Add separators between the groups.
-                if (c > 0) currentToolbar.addMember(this._createToolbarSeparator());
+                // Add separators between the groups - only add if internal attribute
+                // showGroupSeparators isn't false (Tahoe sets it to false)
+                if (c > 0 && this.showGroupSeparators != false) currentToolbar.addMember(this._createToolbarSeparator());
 
                 for (var j = 0; j < controlNames.length; ++j) {
                     var control = controlNames[j];
@@ -3892,12 +3901,6 @@ isc.RichTextEditor.addProperties({
         return editArea.setFocus(newFocus);
     },
 
-
-    _setTabIndex : function (tabIndex, auto) {
-        this.Super("_setTabIndex", arguments);
-        if (this.editArea) this.editArea._setTabIndex(this.getTabIndex(), auto);
-    },
-
     //> @method richTextEditor.setMoveFocusOnTab()
     // Setter for +link{moveFocusOnTab}.
     // @param moveFocusOnTab (boolean) new value for moveFocusOnTab
@@ -3933,10 +3936,8 @@ isc.RichTextEditor.addProperties({
             {
                 numCols: 1, cellPadding: 1,
                 items: [
-                    // Disable tabbing into the select items
-
                     isc.addProperties({
-                        type: "select", name: "fontname", showTitle: false, tabIndex: -1,
+                        type: "select", name: "fontname", showTitle: false,
 
                         pickListProperties: {
                             cellHeight: 16,
@@ -3975,7 +3976,7 @@ isc.RichTextEditor.addProperties({
                 numCols: 1, cellPadding: 1,
                 items:[
                     isc.addProperties({
-                        type: "select", name: "fontsize", showTitle: false, tabIndex: -1,
+                        type: "select", name: "fontsize", showTitle: false,
                         defaultValue: "_prompt",
                         valueMap: this._makeFontSizesMap(),
                         // See comments in fontSizeSelector_autoMaker for why we override
@@ -4011,23 +4012,36 @@ isc.RichTextEditor.addProperties({
     chooseColor : function (selectingTextColor) {
         this.colorChooser = isc.ColorPicker.getSharedColorPicker({
             creator: this,
+            showHeaderIcon: true,
+            headerIconProperties: { src: selectingTextColor ? this.color.icon : this.backgroundColor.icon, iconSize: 20 },
             ID: this.getID() + "_colorChooser",
             // Avoid showing the auto / transparent button for picking a null color
 
             showNullValue: false,
             colorSelected : function (color) {
+                this.creator.uncheckColorButton();
                 this.creator._colorSelected(color);
             },
 
-            // Override cancel to put focus back into the edit area
-            cancel : function () {
-                this.Super("cancel", arguments);
+
+            closeClick : function () {
+                this.Super("closeClick", arguments);
+                this.pickerCancelled();
+            },
+
+            pickerCancelled : function () {
+                this.creator.uncheckColorButton();
                 this.creator.editArea.focus();
             }
         })
 
         this._selectingTextColor = selectingTextColor;
         this.colorChooser.show();
+    },
+
+    uncheckColorButton : function () {
+        if (this._selectingTextColor) this.color.setSelected(false);
+        else this.backgroundColor.setSelected(false);
     },
 
     _colorSelected : function (color) {
@@ -4166,6 +4180,7 @@ isc.RichTextEditor.registerStringMethods({
 //>    @class    RichTextItem
 // FormItem for rich text (HTML) editing. Makes use of a +link{RichTextEditor} as the
 // editing interface.
+// @inheritsFrom CanvasItem
 // @visibility external
 //<
 
@@ -4357,7 +4372,7 @@ isc._debugModules = (isc._debugModules != null ? isc._debugModules : []);isc._de
 /*
 
   SmartClient Ajax RIA system
-  Version v11.0p_2016-09-07/LGPL Deployment (2016-09-07)
+  Version v11.1p_2017-06-29/LGPL Deployment (2017-06-29)
 
   Copyright 2000 and beyond Isomorphic Software, Inc. All rights reserved.
   "SmartClient" is a trademark of Isomorphic Software, Inc.

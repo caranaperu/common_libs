@@ -113,7 +113,7 @@ Validator.ds.xml
 	    <clientOnly type="boolean" title="Client Only" xmlAttribute="true"/>
 	    <testFileName type="URL" title="Test File Name" xmlAttribute="true"/>
         <dbImportFileName type="URL" xmlAttribute="true" />
-	    <testData type="Object" multiple="true"/>
+	    <testData type="Object" multiple="true" skipSerialization="true"/>
 	    <cacheData type="Object" multiple="true"/>
 	    <cacheAllData type="boolean" xmlAttribute="true"/>
 	    <cacheAcrossOperationIds type="boolean" xmlAttribute="true"/>
@@ -240,6 +240,8 @@ Validator.ds.xml
         <!-- must declare "string" type to enable localization support -->
         <maxFileSizeExceededMessage type="string" />
         
+        <requiredMessage type="string" title="Required Message" xmlAttribute="true"/>
+
     </fields>
 </Object>
 

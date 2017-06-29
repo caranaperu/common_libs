@@ -140,6 +140,9 @@ types (since it defines them!)
     <sideEnum inheritsFrom="enum">
         <valueMap left="left" right="right" top="top" bottom="bottom"/>
     </sideEnum>
+    <directionEnum inheritsFrom="enum">
+        <valueMap left="left" right="right" top="top"/>
+    </directionEnum>
 
     <!-- a CSS color value or color name -->
     <color inheritsFrom="string">

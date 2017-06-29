@@ -1046,6 +1046,7 @@ ul {
     border-left: 1px solid #FFFFFF;
     border-right: 1px solid #808080;
     border-top: 1px solid #FFFFFF;
+    padding: 2px;
 }
 
 .toolStripGroupTitle,
@@ -1098,9 +1099,12 @@ ul {
     padding: 4px;
 }
 
-.iconButtonFocusedOver,
+.iconButtonOver,
 .iconButtonDown,
-.iconButtonFocusedDown {
+.iconButtonSelected,
+.iconButtonSelectedOver,
+.iconButtonFocusedOver,
+.iconButtonSelectedFocusedOver {
     background: #CCCCCC;
     border-bottom: 1px solid #FFFFFF;
     border-left: 1px solid #808080;
@@ -1115,13 +1119,39 @@ ul {
 .iconButtonSelectedFocused,
 .iconButtonSelectedDown,
 .iconButtonSelectedFocusedDown,
-.iconButtonSelectedOver,
 .iconButtonSelectedFocusedOver {
-    background-color: pink;
+    background-color: #e5e5e5;
 }
 
 .iconButtonDisabled {
     color: #AAAAAA;
+}
+
+/* IconButton icon and menuIcon styles - used for spacing top and bottom of the title in v-buttons */
+.iconButtonHIcon {
+    vertical-align:middle;
+}
+.iconButtonHMenuIcon {
+    vertical-align:middle; 
+    border:1px solid transparent; 
+    -moz-border-radius: 3px; 
+    -webkit-border-radius: 3px; 
+    -khtml-border-radius: 3px; 
+    border-radius: 3px;
+}
+
+.iconButtonVIcon {
+    vertical-align:middle;
+    margin-bottom: 5px;
+}
+.iconButtonVMenuIcon {
+    vertical-align:middle; 
+    border:1px solid transparent; 
+    -moz-border-radius: 3px; 
+    -webkit-border-radius: 3px; 
+    -khtml-border-radius: 3px; 
+    border-radius: 3px;
+    margin-top: 4px;
 }
 
 /*============================================================
