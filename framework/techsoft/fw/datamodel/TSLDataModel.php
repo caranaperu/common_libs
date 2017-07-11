@@ -170,8 +170,13 @@ class TSLDataModel implements \TSLJsonAble {
             if (in_array($method, $methods)) {
                 $this->$method($value);
             } else {
-                $attr = "$key";
-                $this->$attr = $value;
+                $method = 'set_' . $key;
+                if (in_array($method, $methods)) {
+                    $this->$method($value);
+                } else {
+                    $attr = "$key";
+                    $this->$attr = $value;
+                }
             }
         }
        // return $this;
@@ -323,9 +328,13 @@ class TSLDataModel implements \TSLJsonAble {
      * Si se desea que un modelo este inactivo pero no eliminado
      * este campos era util para eso.
      *
+     * Importante no se usa el hint pro problemas en la interpretacion del bbol
+     * sobre todo cuando lo recuperamos de otro objeto y este es por un ejemplo
+     * un string con 'false' seria tomado como true
+     *
      * @param bool $activo , 1 o true , 0 o false
      */
-    public function setActivo(bool $activo) : void {
+    public function setActivo( $activo) : void {
         if ($activo !== 1 && $activo !== TRUE && strtoupper($activo) !== 'TRUE' && strtoupper($activo) != 'T') {
             $this->activo = FALSE;
         } else {
