@@ -76,7 +76,7 @@ abstract class TSLReportJasperController extends TSLReportController {
             // recogemos los que seran parametros del reporte y los parseamos
             // para generar el formato requerido.
             $input_params = &$this->getInputReportParamsList();
-            $report_params = &$this->getReportParams($input_params);
+            $report_params = &$this->getReportParams(array_keys($input_params));
 
             // El formato de salida del reporte.
             $output_params = array();
@@ -144,11 +144,4 @@ abstract class TSLReportJasperController extends TSLReportController {
         }
     }
 
-    /**
-     * Debera retornar un arreglo simple con la lista de nombres
-     * de los parametros que deberan usarse para el reporte.
-     *
-     * @return array Lista de parametros
-     */
-    abstract protected function &getInputReportParamsList() : array;
 }

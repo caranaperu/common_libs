@@ -47,31 +47,30 @@ abstract class TSLReportController extends CI_Controller {
      */
     protected function &getReportParams(array $reportParamNames) : array {
         $prefix = $this->getReportParameterPrefix();
+        $lprefix  = strlen($prefix);
         $report_params = array();
 
-        if (is_array($reportParamNames)) {
-            foreach ($reportParamNames as $str) {
-                $report_params[$prefix . $str] = '';
+        foreach ($reportParamNames as $str) {
+            $str_check = substr($str, 0, $lprefix);
+            // Comienza con prefix?
+            if ($str_check === $prefix) {
                 // Parche de parametros
-                foreach ($_POST as $i => $value) {
-                    // Comienza con?
-                    if (strpos($i, $str, 0) === 0) {
-                        $report_params[$prefix . $i] = $value;
-                    }
-                }
-            }
-        } else {
-            // Parche de parametros
-            foreach ($_POST as $i => $value) {
-                $report_params[$prefix . $reportParamNames] = '';
-                // Comienza con?
-                if (strpos($i, $reportParamNames, 0) === 0) {
-                    $report_params[$prefix . $i] = $value;
+                foreach ($_REQUEST as $i => $value) {
+                    if ($i == $str)
+                        $report_params[$i] = $value;
                 }
             }
         }
         return $report_params;
     }
+
+    /**
+     * Debera retornar un arreglo simple con la lista de nombres
+     * de los parametros que deberan usarse para el reporte.
+     *
+     * @return array Lista de parametros
+     */
+    abstract protected function &getInputReportParamsList() : array;
 
     /**
      * Retorna un string con la direccion URI que accesa
