@@ -52,7 +52,7 @@ isc.RestDataSourceExt.addProperties({
      * segun la base de datos.
      */
     _getBooleanFieldValue: function(value) {
-        if (value !== 't' && value !== 'T' && value !== 'Y' && value !== 'y' && value !== 'TRUE' && value !== 'true' && value !== true) {
+        if (value !== 't' && value !== 'T' && value !== 'Y' && value !== 'y' && value != '1' && value !== 'TRUE' && value !== 'true' && value !== true) {
             return false;
         } else {
             return true;
