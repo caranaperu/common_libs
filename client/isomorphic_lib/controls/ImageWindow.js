@@ -126,7 +126,18 @@ var canvasImageMgr = function(canvasId,image,top,left,width,height,canCreateHove
     };
 
 
-    // Registro los listeners al manejador de eventos ev_canvas
+    // Dado que algunas imagenes tienen trasparencia , con double click perkitimos
+    // cambiar el background entre blanco y negro para poder ver la imagen.
+    // TODO: Leer el background original en caso este no sea blanco o negro.
+    canvas.ondblclick = function() {
+        console.log("paso");
+        if (canvas.style.background !== 'black') {
+            canvas.style.background = 'black';
+        } else {
+            canvas.style.background = 'white';
+        }
+    }
+
     if (canCreateHovers == true) {
         canvas.addEventListener('mousedown', canvas.ev_canvas, false);
         canvas.addEventListener('mousemove', canvas.ev_canvas, false);

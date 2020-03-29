@@ -437,7 +437,7 @@ abstract class TSLBasicRecordDAO implements TSLIBasicRecordDAO {
 
                         if ($this->isDuplicateKeyError($error['code'], $error['message']) == TRUE) {
                             $ret = DB_ERR_RECORDEXIST;
-                            //    $needRereadRecord = TRUE;
+                            //$needRereadRecord = TRUE;
                         } else if ($this->isForeignKeyError($error['code'], $error['message']) == TRUE) {
                             $ret = DB_ERR_FOREIGNKEY;
                         } else {
