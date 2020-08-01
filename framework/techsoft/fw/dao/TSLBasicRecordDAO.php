@@ -29,6 +29,7 @@ if (!defined('BASEPATH'))
  * @version $Id: TSLBasicRecordDAO.php 191 2014-06-23 19:48:07Z aranape $
  * @since 08-AGO-2012
  * @history 10/08/13 Se agrego soporte para foreign key
+ *          01-08-2020 getLastSequenceOrIdentityQuery puede retornar null
  *
  * 18 JUL 2016 Se agrego a los metodos get,add y update el parametro $subOperation por si se requiriera
  * acciones especiales durante una de estas operaciones basado en las operaciones a realizar.
@@ -603,7 +604,7 @@ abstract class TSLBasicRecordDAO implements TSLIBasicRecordDAO {
      *
      * @return string por default retornamos null
      */
-    protected function getLastSequenceOrIdentityQuery(\TSLDataModel &$record = NULL) : string {
+    protected function getLastSequenceOrIdentityQuery(\TSLDataModel &$record = NULL) : ?string {
         return NULL;
     }
 

@@ -10,6 +10,7 @@ if (!defined('BASEPATH'))
  * @author $Author: aranape $
  * @since 17-May-2012
  * @version $Id: TSLISessionController.php 4 2014-02-11 03:31:42Z aranape $
+ * @history 01-08-2020 getUserCode puede retornar null
  *
  * $Date: 2014-02-10 22:31:42 -0500 (lun, 10 feb 2014) $
  * $Rev: 4 $
@@ -24,7 +25,7 @@ interface TSLISessionController  {
      * @return string con el codigo del usuario conectado a la session
      *
      */
-    public function getUserCode() : string ;
+    public function getUserCode() : ?string ;
 
     /**
      * Retorna el id del usuario logeado , debe ser -1

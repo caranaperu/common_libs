@@ -19,7 +19,7 @@ if (!defined('BASEPATH'))
  * @author  $Author: aranape $
  * @since   06-FEB-2013
  * @version $Id: TSLAppDefaultController.php 193 2014-06-23 19:50:39Z aranape $
- * @history ''
+ * @history 01-08-2020 getUserCode puede retornar null
  *
  * $Date: 2014-06-23 14:50:39 -0500 (lun, 23 jun 2014) $
  * $Rev: 193 $
@@ -113,7 +113,7 @@ class TSLAppDefaultController extends \TSLBaseController implements \TSLISession
     /**
      * @inheritDoc
      */
-    public function getUserCode() : string {
+    public function getUserCode() : ?string {
         if ($this->session->userdata('usuario_code') !== FALSE) {
             return $this->session->userdata('usuario_code');
         } else {
