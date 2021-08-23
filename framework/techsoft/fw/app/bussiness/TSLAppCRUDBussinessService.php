@@ -92,7 +92,7 @@ abstract class TSLAppCRUDBussinessService extends \TSLStandardBussinessService {
      * @see \TSLBasicRecordDAO
      *
      */
-    private function fetch(\TSLIDataTransferObj $dto) : void {
+    protected function fetch(\TSLIDataTransferObj $dto) : void {
 
         $tmg = NULL;
         // Obtengo la referencia al mensaje de salida.
@@ -143,7 +143,7 @@ abstract class TSLAppCRUDBussinessService extends \TSLStandardBussinessService {
      * @see \TSLIBasicRecordDAO
      * @see \TSLBasicRecordDAO
      */
-    private function read(\TSLIDataTransferObj $dto) : void {
+    protected function read(\TSLIDataTransferObj $dto) : void {
         /* var TSLDataModel */
         $model = &$this->getEmptyModel();
 
@@ -233,7 +233,7 @@ abstract class TSLAppCRUDBussinessService extends \TSLStandardBussinessService {
      * @see \TSLIBasicRecordDAO
      * @see \TSLBasicRecordDAO
      */
-    private function delete(\TSLIDataTransferObj $dto) : void {
+    protected function delete(\TSLIDataTransferObj $dto) : void {
 
         /* @var $outMessage \TSLOutMessage */
         $outMessage = &$dto->getOutMessage();
@@ -300,7 +300,7 @@ abstract class TSLAppCRUDBussinessService extends \TSLStandardBussinessService {
      * @see \TSLIBasicRecordDAO
      * @see \TSLBasicRecordDAO
      */
-    private function update(\TSLIDataTransferObj $dto) : void {
+    protected function update(\TSLIDataTransferObj $dto) : void {
 
         $model = &$this->getModelToUpdate($dto);
 
@@ -372,7 +372,7 @@ abstract class TSLAppCRUDBussinessService extends \TSLStandardBussinessService {
      * @see \TSLIBasicRecordDAO
      * @see \TSLBasicRecordDAO
      */
-    private function add(\TSLIDataTransferObj $dto) : void {
+    protected function add(\TSLIDataTransferObj $dto) : void {
         // Obtengo referencia a los constraints
         $constraints = &$dto->getConstraints();
 
