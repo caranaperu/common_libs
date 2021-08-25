@@ -92,7 +92,9 @@ isc.DefaultController.addProperties({
 
 
             // atachamos los eventos a este controlador
-            this.observe(this._formWindow.getFormButton('save'), "click", "observer._saveRecord();");
+            if (this._formWindow.useSaveButton == true) {
+                this.observe(this._formWindow.getFormButton('save'), "click", "observer._saveRecord();");
+            }
             this.observe(this._formWindow.getFormButton('exit'), "click", "observer._formWindow.close();");
             if (this._formWindow.useDeleteButton == true) {
                 this.observe(this._formWindow.getFormButton('delete'), "click", "observer._deleteRecord();");
@@ -111,7 +113,10 @@ isc.DefaultController.addProperties({
                 if (this._formWindow.getDetailGridForm() === undefined) {
                     this.observe(this._detailGrid, "rowEditorEnter", "observer._detailGridRowEditorEnter(record, editValues, rowNum);");
                     this.observe(this._detailGrid, "editComplete", "observer._detailGridAfterGridRecordSaved(rowNum, colNum, newValues, oldValues, editCompletionEvent, dsResponse);");
-                    this.observe(this._formWindow.getDetailGridButton('add'), "click", "observer._detailGridAddItem();");
+                    // si la grilla es solo para visualizar no podra agregarse nada , por ende este boton estan  desactivado y no podra observarse.
+                    if (this._formWindow.onlyForListGrid == false) {
+                        this.observe(this._formWindow.getDetailGridButton('add'), "click", "observer._detailGridAddItem();");
+                    }
                     this.observe(this._formWindow.getDetailGridButton('refresh'), "click", "observer._detailGridRefresh();");
                 } else {
                     // Si la grilla es editable via un form
@@ -528,8 +533,10 @@ isc.DefaultController.addProperties({
         }
     },
     _mantFormItemChanged: function (item, newValue) {
-        // Manejo el status del boton grabar si luego del cambio del item de la forma hay valores invalidos en la misma.
-        this._formWindow.getFormButton('save').setDisabled(this._mantForm.valuesHaveChanged() == false || !this._mantForm.valuesAreValid(false));
+        if (this._formWindow.useSaveButton == true) {
+            // Manejo el status del boton grabar si luego del cambio del item de la forma hay valores invalidos en la misma.
+            this._formWindow.getFormButton('save').setDisabled(this._mantForm.valuesHaveChanged() == false || !this._mantForm.valuesAreValid(false));
+        }
         if (this._formWindow.useDeleteButton == true) {
             this._formWindow.getFormButton('delete').setDisabled(this._mantForm.isNewRecord() === true);
         }

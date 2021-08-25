@@ -42,6 +42,19 @@ isc.WindowBasicFormExt.addProperties({
      */
     useDeleteButton: false,
     /**
+     * @cfg {boolean} useSaveButton
+     * Si la forma requiere que los campos de la forma no sean modificables
+     * se podra usar esta opcion para evitar que se graben cambios.
+     */
+    useSaveButton: true,
+    /**
+     * @cfg {string} titleFirstTab
+     * Dado que esta ventana creara por default el primer tab , que usaulmente es la forma de mantenimiento
+     * el titulo defaul del primer tab automaticamente creado sera obviamente 'Mantenimiento', en el caso
+     * que no se deseara este titulo por default esta variable permitira modificarlo.
+     */
+    titleFirstTab : 'Mantenimiento',
+    /**
      * @cfg {array de objetos} joinKeyFields
      * Un arreglo conteiendo las llaves de join entre la forma
      * y el grid de detalle.
@@ -117,7 +130,7 @@ isc.WindowBasicFormExt.addProperties({
         if (btnType === 'exit') {
             //return btnExit;
             return this._formButtons.getMember('btnExit' + this.ID);
-        } else if (btnType === 'save') {
+        } else if (btnType === 'save' && this.useSaveButton === true) {
             //return btnSave;
             return this._formButtons.getMember('btnSave' + this.ID);
         } else if (btnType === 'delete' && this.useDeleteButton === true) {
@@ -587,14 +600,23 @@ isc.WindowBasicFormExt.addProperties({
                     autoDraw: false,
                     title: "Salir"
                 }),
-                isc.Button.create({
+                /*isc.Button.create({
                     ID: "btnSave" + this.ID,
                     width: '100',
                     autoDraw: false,
                     title: "Grabar"
-                })
+                })*/
             ]
         });
+
+        if (this.useSaveButton === true) {
+            this._formButtons.addMember(isc.Button.create({
+                ID: "btnSave" + this.ID,
+                width: '100',
+                autoDraw: false,
+                title: "Grabar"
+            }));
+        }
 
         if (this.useDeleteButton === true) {
             this._formButtons.addMember(isc.Button.create({
@@ -611,7 +633,7 @@ isc.WindowBasicFormExt.addProperties({
         this._form.align = 'center';
 
         this._tabSet = isc.TabSetExt.create({ID: "ts" + this.ID});
-        this._tabSet.createFormTab(this._form, this._detailGridContainer, this._formButtons);
+        this._tabSet.createFormTab(this._form, this.titleFirstTab,this._detailGridContainer, this._formButtons);
         this.addItem(this._tabSet);
         this.addAdditionalTabs(this._tabSet);
 

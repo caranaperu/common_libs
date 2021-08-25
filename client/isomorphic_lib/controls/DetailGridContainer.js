@@ -10,6 +10,7 @@
  * $Rev: 182 $
  */
 isc.defineClass("DetailGridContainer", "SectionStack");
+
 isc.DetailGridContainer.addProperties({
     autoSize: false,
     autoDraw: false,
@@ -17,11 +18,15 @@ isc.DetailGridContainer.addProperties({
     overflow: "hidden",
     headerHeight: 24,
     /**
-     * @private
      * @cfg {string} sectionTitle
      * Titulo que tendra la cabecera del container de la grilla de items
      */
     sectionTitle: '',
+    /**
+     * @cfg {boolean} onlyForListGrid
+     * La grilla se usara solo para visualizacion no habra edicion alguna.
+     */
+    onlyForListGrid : false,
     /**
      * @private
      * No debe manipularse externamente usar el getter
@@ -179,10 +184,20 @@ isc.DetailGridContainer.addProperties({
      * @return {isc.Button} instancia del boton.
      */
     getButton: function (btn) {
-        if (btn === 'add') {
-            return this.sections[0].controls[0];
-        } else if (btn === 'refresh') {
-            return this.sections[0].controls[1];
+        // Si la grilla no es editable y solo para listas
+        // solo se activa el boton de refres de lo contrario se activan
+        // ambos tanto el de refresh como el de add
+        if (this.onlyForListGrid === false) {
+            if (btn === 'add') {
+                return this.sections[0].controls[0];
+            } else if (btn === 'refresh') {
+                return this.sections[0].controls[1];
+            }
+        }else {
+
+            if (btn === 'refresh') {
+                return this.sections[0].controls[0];
+            }
         }
         return undefined;
     },
@@ -204,12 +219,16 @@ isc.DetailGridContainer.addProperties({
     initWidget: function () {
         this.Super("initWidget", arguments);
 
-        var abtn = isc.ImgButton.create({
-            ID: "addButton" + this.ID,
-            autoDraw: false,
-            src: "[SKIN]actions/add.png", size: 16,
-            showFocused: false, showRollOver: false, showDown: false
-        });
+        // Si solo es para visualizacion no podra agregarse por ende
+        // el boton de agregar no debe existir.
+        if (this.onlyForListGrid === false) {
+            var abtn = isc.ImgButton.create({
+                ID: "addButton" + this.ID,
+                autoDraw: false,
+                src: "[SKIN]actions/add.png", size: 16,
+                showFocused: false, showRollOver: false, showDown: false
+            });
+        }
 
 
         var rbtn = isc.ImgButton.create({
@@ -219,62 +238,81 @@ isc.DetailGridContainer.addProperties({
             showFocused: false, showRollOver: false, showDown: false
         });
 
-        // Agregamos la seccion
-        this.addSection({title: this.sectionTitle, expanded: true,canCollapse: false, controls: [abtn, rbtn]});
+        // Agregamos la seccion, si solo es para vista tendra un boton que es el de refresh , de lo contrario tendra
+        // ambos.
+        if (this.onlyForListGrid === false) {
+            this.addSection({title: this.sectionTitle, expanded: true, canCollapse: false, controls: [abtn, rbtn]});
+        } else {
+            this.addSection({title: this.sectionTitle, expanded: true, canCollapse: false, controls: [rbtn]});
+        }
 
         var grid = this._createGrid(arguments[0].gridProperties);
 
-        this._childForm = this.getFormComponent();
+        // Si la grilla no es solo para visualizacion procedemos a la creacion de la forma
+        // de edicion, de lo contrario agragamos solo la grilla.
+        if (this.onlyForListGrid === false) {
+            this._childForm = this.getFormComponent();
 
-        if (this._childForm !== undefined) {
-            var me = this;
-            // Botones principales del header
-            this._gridFormButtons = isc.HStack.create({
-                membersMargin: 10,
-                height: 24, // width: '100%',
-                layoutAlign: "center", padding: 5, autoDraw: false,
-                align: 'center',
-                members: [isc.Button.create({
+            if (this._childForm !== undefined) {
+                var me = this;
+                // Botones principales del header
+                this._gridFormButtons = isc.HStack.create({
+                    membersMargin: 10,
+                    height: 24, // width: '100%',
+                    layoutAlign: "center", padding: 5, autoDraw: false,
+                    align: 'center',
+                    members: [isc.Button.create({
                         ID: "btnExit" + me.ID,
                         width: '100',
                         autoDraw: false,
                         title: "Salir"
                     }),
-                    isc.Button.create({
-                        ID: "btnSave" + me.ID,
-                        width: '100',
-                        autoDraw: false,
-                        title: "Grabar"
-                    })
-                ]
-            });
-            this._childForm.saveButton = this._gridFormButtons.members[1];
+                              isc.Button.create({
+                                  ID: "btnSave" + me.ID,
+                                  width: '100',
+                                  autoDraw: false,
+                                  title: "Grabar"
+                              })
+                    ]
+                });
+                this._childForm.saveButton = this._gridFormButtons.members[1];
 
-            this._gridLayout = isc.VLayout.create({members: [
-                    grid,
-                    isc.VLayout.create({
-                        visibility: "hidden",
-                        members: [this._childForm,this._gridFormButtons]
-                    })
-                ],
-                defaultLayoutAlign: "center"});
+                this._gridLayout = isc.VLayout.create({
+                    members: [
+                        grid,
+                        isc.VLayout.create({
+                            visibility: "hidden",
+                            members: [this._childForm, this._gridFormButtons]
+                        })
+                    ],
+                    defaultLayoutAlign: "center"
+                });
 
-            // agregamos la grilla a la seccion
-            this.addItem(0, this._gridLayout, 0);
+                // agregamos la grilla a la seccion
+                this.addItem(0, this._gridLayout, 0);
+            } else {
+                // Preparamos los atributos default requeridos
+                grid.canAdd = true;
+                grid.canEdit = true;
+                grid.waitForSave = true;
+                grid.validateByCell = true;
+                grid.stopOnErrors = true;
+                grid.modalEditing = true;
+                grid.rowEndEditAction = "same";
+                grid.enterKeyEditAction = "nextCell";
+
+                this.addItem(0, grid, 0);
+            }
         } else {
+            // la grilla es solo visualizable
+
             // Preparamos los atributos default requeridos
-            grid.canAdd= true;
-            grid.canEdit= true;
-            grid.waitForSave= true;
-            grid.validateByCell= true;
-            grid.stopOnErrors= true;
-            grid.modalEditing= true;
-            grid.rowEndEditAction= "same";
-            grid.enterKeyEditAction= "nextCell";
+            grid.canAdd = false;
+            grid.canEdit = false;
+            grid.modalEditing = false;
 
-            this.addItem(0,grid,0);
+            this.addItem(0, grid, 0);
         }
-
         // Iniciamos en forma no visible , se encendera segun el modo sea agregar
         // o editar.
         this.hide();

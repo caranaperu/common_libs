@@ -58,12 +58,14 @@ isc.TabSetExt.addProperties({
      * @param DynamicFormExt mantForm o container de la forma que contiene el formato
      * de mantenimiento de los datos.
      *
+     * @param String mantFormTitle, el titulo del tab creado automaticamente que contendra la forma de mantenimiento,
+     *
      * @param Object objeto visual el cuanl debe contenr la grilla de datos de detalle de la forma
      * principal.
      *
      * @param Object objecto visual que contendra los botones de la forma.
      */
-    createFormTab: function(mantForm, detailGridContainer, buttons) {
+    createFormTab: function(mantForm, mantFormTitle,detailGridContainer, buttons) {
         var pane;
         // Agregamos las partes creando el pane completo  luego lo agregamos
         // al tab set.
@@ -78,7 +80,7 @@ isc.TabSetExt.addProperties({
                 members: [mantForm, buttons]
             });
         }
-        this.addTab({pane: pane, title: 'Mantenimiento', });
+        this.addTab({pane: pane, title: mantFormTitle, });
     },
     /**
      * Metodo llamado por la ventana contenedora de este tabset si se desea agragar
