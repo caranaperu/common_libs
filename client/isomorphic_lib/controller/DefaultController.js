@@ -510,26 +510,38 @@ isc.DefaultController.addProperties({
 
     },
     _printReport: function (format) {
-        var reportURL = this._mainWindow.getReportURL() + (format == 'XLS' ? '&format=XLS' : '&format=PDF');
 
-        // Si hay reporte definido procedemos.
+        var reportURL = this._mainWindow.getReportURL(undefined,format);
         if (reportURL !== undefined) {
-            var criteria = this._mainWindow.getGridList().getFilterEditorCriteria();
-            RPCManager.sendRequest({
-                params: criteria,
-                actionURL: reportURL,
-                useSimpleHttp: true,
-                downloadResult: true,
-                downloadToNewWindow: true,
-                showPrompt: true,
-                callback: function (data) {
-                    if (data.httpResponseCode !== 200) {
-                        isc.say(((data.httpResponseText && data.httpResponseText.length > 2) ? data.httpResponseText : 'Error interno...'));
-                    } else {
-                        window.location.href = data.httpResponseText;
-                    }
+            // Si la pantalla principal que contiene la lista soporta la impresion
+            // llamamos a dicha funcion.
+            if (typeof this._mainWindow.printReport === 'function') {
+                this._mainWindow.printReport(reportURL,format);
+            } else {
+                if (format !== undefined) {
+                    reportURL += (format == 'XLS' ? '&output=xlsx' : '&output=pdf');
                 }
-            });
+
+                // Si hay reporte definido procedemos.
+                if (reportURL !== undefined) {
+                    var criteria = this._mainWindow.getGridList().getFilterEditorCriteria();
+                    RPCManager.sendRequest({
+                        params: criteria,
+                        actionURL: reportURL,
+                        useSimpleHttp: true,
+                        downloadResult: true,
+                        downloadToNewWindow: true,
+                        showPrompt: true,
+                        callback: function (data) {
+                            if (data.httpResponseCode !== 200) {
+                                isc.say(((data.httpResponseText && data.httpResponseText.length > 2) ? data.httpResponseText : 'Error interno...'));
+                            } else {
+                                window.location.href = data.httpResponseText;
+                            }
+                        }
+                    });
+                }
+            }
         }
     },
     _mantFormItemChanged: function (item, newValue) {

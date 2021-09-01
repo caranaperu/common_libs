@@ -24,6 +24,32 @@ isc.IControlledCanvas.addInterfaceProperties({
     _gridList: undefined,
     /**
      * @public
+     * Metodo a ser llamado si se solicita la impresion de un registro de la grilla
+     * contenida.
+     * Por default no retorna ninguna definicion.
+     *
+     * @param Object record de donde extraera los datos el url si es necesario, si se envia
+     * undefined , esta funcion debera saber de donde extraer klos datos.
+     * @param string format con el formato de salida "PDF" o "XLS".
+     *
+     */
+    getReportURL: function(record,format) {
+        return undefined;
+    },
+    /**
+     * @public
+     * Metodo a ser llamado si se solicita la impresion de un registro de la grilla
+     * contenida.
+     * Por default no esta definido , pero si la impresion no sigue el proceso default
+     * del controlador , puede definirse esta funcion para ejecutar la tarea.
+     *
+     * @param string url con el url a inmvocar para ejecutar el reporte
+     * @param string format con el formato de salida "PDF" o "XLS".
+     *
+     */
+    printReport:undefined,
+    /**
+     * @public
      * Metodo a ser llamado por el controlador luego de que en la forma de mantenimiento
      * se agregue o se haga un update en la forma principal de edicion , NO ES LLAMADA
      * por cambios en la grilla de detalle de dicha forma , en ese caso es llamada
