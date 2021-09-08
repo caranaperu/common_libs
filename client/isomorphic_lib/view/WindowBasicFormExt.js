@@ -210,6 +210,18 @@ isc.WindowBasicFormExt.addProperties({
         }
     },
     /**
+     * Retorna si la grilla contenida es solo para visualizar o no.
+     *
+     * @returns {boolean} true si lo es false de lo contrario..
+     */
+    isDetaillGridOnlyForList: function () {
+        if (this._detailGridContainer !== undefined) {
+            return this._detailGridContainer.onlyForListGrid;
+        } else {
+            return false;
+        }
+    },
+    /**
      * Muestra la grilla de detalles.
      */
     showDetailGridList: function () {

@@ -113,8 +113,9 @@ isc.DefaultController.addProperties({
                 if (this._formWindow.getDetailGridForm() === undefined) {
                     this.observe(this._detailGrid, "rowEditorEnter", "observer._detailGridRowEditorEnter(record, editValues, rowNum);");
                     this.observe(this._detailGrid, "editComplete", "observer._detailGridAfterGridRecordSaved(rowNum, colNum, newValues, oldValues, editCompletionEvent, dsResponse);");
+
                     // si la grilla es solo para visualizar no podra agregarse nada , por ende este boton estan  desactivado y no podra observarse.
-                    if (this._formWindow.onlyForListGrid == false) {
+                    if (this._formWindow.isDetaillGridOnlyForList() === false) {
                         this.observe(this._formWindow.getDetailGridButton('add'), "click", "observer._detailGridAddItem();");
                     }
                     this.observe(this._formWindow.getDetailGridButton('refresh'), "click", "observer._detailGridRefresh();");
