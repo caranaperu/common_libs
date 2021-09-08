@@ -139,8 +139,14 @@ class TSLAppPerfilDetalleDAO_postgre extends \app\common\dao\TSLAppBasicRecordDA
      * @inheritdoc
      */
     protected function getRecordQuery($id,\TSLRequestConstraints &$constraints = NULL, string $subOperation = NULL) : string {
-        return 'select perfdet_id,perfil_id,perfdet_accessdef,perfdet_accleer,perfdet_accagregar,perfdet_accactualizar,perfdet_acceliminar,' .
-                'perfdet_accimprimir,activo,xmin as "versionId" from tb_sys_perfil_detalle where perfdet_id =' . $id;
+        return 'select perfdet_id,perfil_id,'.
+                'perfdet_accessdef,'.
+                'case when perfdet_accleer = \'f\' then 0 else 1 end as perfdet_accleer,'.
+                'case when perfdet_accagregar = \'f\' then 0 else 1 end as perfdet_accagregar,'.
+                'case when perfdet_accactualizar = \'f\' then 0 else 1 end as perfdet_accactualizar,'.
+                'case when perfdet_acceliminar = \'f\' then 0 else 1 end as perfdet_acceliminar,'.
+                'case when perfdet_accimprimir = \'f\' then 0 else 1 end as perfdet_accimprimir,'.
+                'activo,xmin as "versionId" from tb_sys_perfil_detalle where perfdet_id =' . $id;
     }
 
     /**

@@ -71,7 +71,7 @@ class TSLAppPerfilDetalleModel extends \TSLDataModel {
      *
      * @param string $perfdet_accessdef
      */
-    public function set_perfdet_accessdef(string $perfdet_accessdef) : void {
+    public function set_perfdet_accessdef(?string $perfdet_accessdef) : void {
         if (!isset($perfdet_accessdef) || $perfdet_accessdef = null) {
             $this->perfdet_accessdef = 'A';
         } else {
