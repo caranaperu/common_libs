@@ -103,6 +103,9 @@ class TSLAppPerfilDetalleDAO_postgre extends \app\common\dao\TSLAppBasicRecordDA
         if ($this->activeSearchOnly == TRUE) {
             // Solo activos
             $sql .= ' where pd.activo=TRUE ';
+            if ($subOperation === 'fetchWithAccess') {
+                $sql .= ' and m.activo=TRUE ';
+            }
         }
 
         $where = $constraints->getFilterFieldsAsString();
