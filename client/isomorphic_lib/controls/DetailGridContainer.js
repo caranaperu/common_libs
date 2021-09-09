@@ -294,7 +294,7 @@ isc.DetailGridContainer.addProperties({
             } else {
                 //  Preparamos los atributos default requeridos
                 //  grid.canAdd = true; // Esto lo debe decidir el usuario
-                //  grid.canEdit = true; // Esto lo debe definir el usuario
+                grid.canEdit = true; // Esto lo debe definir el usuario
                 grid.waitForSave = true;
                 grid.validateByCell = true;
                 grid.stopOnErrors = true;
