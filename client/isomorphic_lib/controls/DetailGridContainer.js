@@ -247,7 +247,6 @@ isc.DetailGridContainer.addProperties({
         }
 
         var grid = this._createGrid(arguments[0].gridProperties);
-        console.log("PreCanAdd = "+grid.canAdd)
 
         // Si la grilla no es solo para visualizacion procedemos a la creacion de la forma
         // de edicion, de lo contrario agragamos solo la grilla.
@@ -316,7 +315,6 @@ isc.DetailGridContainer.addProperties({
         }
         // Iniciamos en forma no visible , se encendera segun el modo sea agregar
         // o editar.
-        console.log("CanAdd = "+grid.canAdd)
         this.hide();
     }
 });
