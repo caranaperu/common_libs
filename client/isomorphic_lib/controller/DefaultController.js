@@ -819,7 +819,13 @@ isc.DefaultController.addProperties({
             onlyFormWindow = false;
         }
         if (onlyFormWindow === true) {
-            this._openMantForm(null, formInitParams);
+            // Si en los parametros de inicio se encuentra definido el mode , respetamos lo indicado alli.
+            if (formInitParams !== null && (formInitParams.mode !== undefined && formInitParams.mode !== null)) {
+                    this._openMantForm(formInitParams.mode, formInitParams);
+            } else {
+                    this._openMantForm(null, formInitParams);
+            }
+
         } else if (this._mainWindow === null) {
             // Creacion dinamica de la forma
             this._mainWindow = Class.evaluate('isc.' + this.mainWindowClass + '.create();');
