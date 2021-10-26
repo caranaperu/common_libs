@@ -141,7 +141,7 @@ class TSLUtilsHelper {
      * @param string $url la URL a sanitizar
      * @return string con El url sanitizado.
      */
-    function esc_url(string $url) : string {
+    public static function esc_url(string $url) : string {
 
         if ('' == $url) {
             return $url;
@@ -170,6 +170,33 @@ class TSLUtilsHelper {
         } else {
             return $url;
         }
+    }
+
+    /**
+     * Metodo que eliminara uno o mas archivos dependiendo , si no se indica directoria en el
+     * $FilePath o como parte del $filePattern se borrara los archivos en el directorio actual
+     * de lo contrario en el indicado.
+     *
+     * Tratara de eliminar todos los que pueda asi alguno de error al eliminar.
+     *
+     * @param string      $filePattern por ejemplo "*.jpg" o "/var/*.txt"
+     *
+     * @return bool true si todos los archivos fueron borrados , false si al menos uno no pudo
+     * ser borrado , como seria el caso que este abierto por otro proceso.
+     */
+    public static function removeDirFiles(string $filePattern) : bool {
+        if (isset($filePattern)) {
+
+            $ret = true;
+            // Eliminara tosdos los archivos que pueda aunque encuentre error eliminado alguno , por ejemplo
+            // por estar usado o abierto,.
+            foreach (glob($filePattern) as $filename) {
+                if (unlink($filename) == false) {
+                    $ret = false;
+                }
+            }
+        }
+        return $ret;
     }
 
 }

@@ -48,6 +48,12 @@ isc.WindowBasicFormExt.addProperties({
      */
     useSaveButton: true,
     /**
+     * @cfg {boolean} useOwnSaveLogic
+     * Si se desea que la logica de grabacion no sea la standard definida este valor debe ser true
+     * por default es false.
+     */
+    useOwnDetailGridAddLogic: false,
+    /**
      * @cfg {string} titleFirstTab
      * Dado que esta ventana creara por default el primer tab , que usaulmente es la forma de mantenimiento
      * el titulo defaul del primer tab automaticamente creado sera obviamente 'Mantenimiento', en el caso
@@ -238,8 +244,9 @@ isc.WindowBasicFormExt.addProperties({
                 this._detailGridContainer.getDetailGrid().show();
             }
             // Se reajusta el tamaño de la ventana para que soporte la aparicion de la grilla
-            console.log(this.minHeight);
-            console.log(this._detailGridContainer.getHeight());
+
+            //console.log(this.minHeight);
+            //console.log(this._detailGridContainer.getHeight());
             this.resizeTo(this.getWidth(), this.minHeight + this._detailGridContainer.getHeight());
         }
     },
@@ -363,10 +370,10 @@ isc.WindowBasicFormExt.addProperties({
      *
      */
     _close: function (checkMainForm, doRealClose) {
-        console.log('//////////////////////////////////////////////////////////')
-        console.log(this._form.getOldValues())
-        console.log(this._form.getValues())
-        console.log(this._form.getChangedValues())
+        //console.log('//////////////////////////////////////////////////////////')
+        //console.log(this._form.getOldValues())
+        //console.log(this._form.getValues())
+        //console.log(this._form.getChangedValues())
 
         var me = this;
         var existChanges = false;

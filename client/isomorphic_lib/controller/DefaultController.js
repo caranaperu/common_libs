@@ -109,8 +109,8 @@ isc.DefaultController.addProperties({
             if (this._detailGrid !== undefined) {
                 this.observe(this._detailGrid, "onFetchData", "observer._detailGridOnFetchData(criteria,requestProperties);");
 
-                // Si la grilla es editable por linea
-                if (this._formWindow.getDetailGridForm() === undefined) {
+                // Si la grilla es editable por linea si no hay form asociado o si no se ha solicitado metodo propio para agregar items.
+                if (this._formWindow.getDetailGridForm() === undefined && this._formWindow.useOwnDetailGridAddLogic == false) {
                     this.observe(this._detailGrid, "rowEditorEnter", "observer._detailGridRowEditorEnter(record, editValues, rowNum);");
                     this.observe(this._detailGrid, "editComplete", "observer._detailGridAfterGridRecordSaved(rowNum, colNum, newValues, oldValues, editCompletionEvent, dsResponse);");
 
@@ -124,11 +124,15 @@ isc.DefaultController.addProperties({
                     this.observe(this._formWindow.getDetailGridButton('add'), "click", "observer._detailGridFormAdd(true);");
                     this.observe(this._formWindow.getDetailGridButton('refresh'), "click", "observer._detailGridRefresh();");
                     this.observe(this._detailGrid, "recordDoubleClick", "observer._detailGridFormEdit(viewer, record, recordNum, field, fieldNum, value, rawValue);");
-                    this.observe(this._formWindow.getDetailGridForm(), "itemChanged",
-                        "observer._formWindow.getDetailGridFormButton('save').setDisabled(!observer._formWindow.getDetailGridForm().valuesAreValid(false));return true;"
-                    );
-                    this.observe(this._formWindow.getDetailGridFormButton('exit'), "click", "observer._formWindow.detailGridFormClose();");
-                    this.observe(this._formWindow.getDetailGridFormButton('save'), "click", "observer._detailGridFormSave();");
+                    // Si no hay logica propia para agregar registros a la grilla de detalle se crean los observables a los botones
+                    // de la forma standard.
+                    if (this._formWindow.useOwnDetailGridAddLogic == false) {
+                        this.observe(this._formWindow.getDetailGridForm(), "itemChanged",
+                            "observer._formWindow.getDetailGridFormButton('save').setDisabled(!observer._formWindow.getDetailGridForm().valuesAreValid(false));return true;"
+                        );
+                        this.observe(this._formWindow.getDetailGridFormButton('exit'), "click", "observer._formWindow.detailGridFormClose();");
+                        this.observe(this._formWindow.getDetailGridFormButton('save'), "click", "observer._detailGridFormSave();");
+                    }
                 }
             }
         } else {
@@ -165,41 +169,44 @@ isc.DefaultController.addProperties({
                     this._mantForm.editSelectedData(list);
                     this._mantForm.postSetFieldsToEdit();
 
-                    // Si la ventana principal tiene lista de detalles
-                    // leemos la data de los items, siempre y cuando
-                    // haya cambiado la llave principal.
-                    if (this._detailGrid !== undefined) {
-                        // al dinamic form se le solicita las llaves de join a detalles
-                        this._joinKeyFieldsCopyTo(this._formWindow.joinKeyFields, 'form', this._formWindow, undefined);
-                        // Se cancela cualquier pendiente de grabacion
-                        this._detailGrid.cancelEditing();
-
-                        // Actualizamos la ultima joinKey y fetch de datos , en el caso que haya cambio
-                        // de llave de enlace o el falg de lectura eficiente este prendido,
-                        //  de lo contrario reactualizamos datos incondicionalmente.
-                        if (this._formWindow.efficientDetailGrid === true ||
-                            JSON.stringify(this._lastJoinKeys) !== JSON.stringify(this._formWindow.joinKeyFields)) {
-                            this._lastJoinKeys = JSON.parse(JSON.stringify(this._formWindow.joinKeyFields));
-
-                            if (this._formWindow.isRequiredReadDetailGridData() === true) {
-                                this._detailGrid.fetchData(this._detailGridGetCriteria(this._formWindow.joinKeyFields));
-                            }
-                        } else {
-                            // ultima oportunidad de no releer por gusto los datos
-                            // de la grilla de detalle , no siempre es necesario hacerlo cuando el efficientDetailGrid es false.
-                            if (this._formWindow.isRequiredReadDetailGridData() === true) {
-                                // Releemos siempre , en la practica hay casos
-                                this._detailGrid.invalidateCache();
-                            }
-                        }
-
-                    }
-
                 } else {
                     return;
                 }
             } else {
                 this._mantForm.getInitialFormData();
+            }
+
+            // 14/10/2021 - Ahora es comun a ambos casos , tenga mainwindow o no , importante cambio ya que si tenia una
+            // forma que no era invocado por un main window con un list no actualizaba la grilla de detalle de la forma de edicion
+            // o adicion.
+            // Si la ventana principal tiene lista de detalles
+            // leemos la data de los items, siempre y cuando
+            // haya cambiado la llave principal.
+            if (this._detailGrid !== undefined) {
+                // al dinamic form se le solicita las llaves de join a detalles
+                this._joinKeyFieldsCopyTo(this._formWindow.joinKeyFields, 'form', this._formWindow, undefined);
+
+                // Se cancela cualquier pendiente de grabacion
+                this._detailGrid.cancelEditing();
+
+                // Actualizamos la ultima joinKey y fetch de datos , en el caso que haya cambio
+                // de llave de enlace o el falg de lectura eficiente este prendido,
+                //  de lo contrario reactualizamos datos incondicionalmente.
+                if (this._formWindow.efficientDetailGrid === true ||
+                    JSON.stringify(this._lastJoinKeys) !== JSON.stringify(this._formWindow.joinKeyFields)) {
+                    this._lastJoinKeys = JSON.parse(JSON.stringify(this._formWindow.joinKeyFields));
+
+                    if (this._formWindow.isRequiredReadDetailGridData() === true) {
+                        this._detailGrid.fetchData(this._detailGridGetCriteria(this._formWindow.joinKeyFields));
+                    }
+                } else {
+                    // ultima oportunidad de no releer por gusto los datos
+                    // de la grilla de detalle , no siempre es necesario hacerlo cuando el efficientDetailGrid es false.
+                    if (this._formWindow.isRequiredReadDetailGridData() === true) {
+                        // Releemos siempre , en la practica hay casos
+                        this._detailGrid.invalidateCache();
+                    }
+                }
 
             }
 
@@ -673,6 +680,11 @@ isc.DefaultController.addProperties({
      * haciendola visible , preparando los campos join de existir.
      * Si la forma esta abierta y verifyIsOpen es true se indicara un error y no se tomara
      * accion alguna.
+     *
+     * En caso que useOwnDetailGridAddLogic este indicada en la ventana contenedora del mantenimiento
+     * este trabajo sera derivado a la grilla misma llamandose al metodo detailGridFormAdd el cual debera
+     * estar definida.
+     *
      * IMPORTANTE: L grilla debe aceptar agregar registros (canAdd == true)
      *
      * @private
@@ -681,20 +693,29 @@ isc.DefaultController.addProperties({
      */
     _detailGridFormAdd: function (verifyisOpen) {
         if (this._detailGrid.canAdd === true) {
-            var gridForm = this._formWindow.getDetailGridForm();
-            // Solo si la forma interna de la grilla es visible o se indica se proceda
-            // sin verificar su visibilidad procedemos a mostrar la forma.
-            if (gridForm.isVisible() === false || verifyisOpen === false) {
-                // Ponemos mode add , copiamos los key fields que se requieren para unir la forma
-                // principal al registro nuevo de la forma interna y finalmente mostramos.
-                gridForm.setEditMode('add');
-                this._joinKeyFieldsCopyTo(this._formWindow.joinKeyFields, 'gridForm', gridForm, null);
-                this._formWindow.detailGridFormShow();
-
+            if (this._formWindow.useOwnDetailGridAddLogic == true) {
+                var detailGrid = this._formWindow.getDetailGrid();
+                if (typeof (detailGrid.detailGridFormAdd) === 'function') {
+                    detailGrid.detailGridFormAdd();
+                } else {
+                    isc.say('Error : Se ha indicado logica propia para la forma del detail grid pero no se ha definido la funcion detailGridFormAdd.');
+                }
             } else {
-                // Indicamos esta abierta.
-                if (verifyisOpen === true) {
-                    isc.say('La forma ya esta abierta');
+                var gridForm = this._formWindow.getDetailGridForm();
+                // Solo si la forma interna de la grilla es visible o se indica se proceda
+                // sin verificar su visibilidad procedemos a mostrar la forma.
+                if (gridForm.isVisible() === false || verifyisOpen === false) {
+                    // Ponemos mode add , copiamos los key fields que se requieren para unir la forma
+                    // principal al registro nuevo de la forma interna y finalmente mostramos.
+                    gridForm.setEditMode('add');
+                    this._joinKeyFieldsCopyTo(this._formWindow.joinKeyFields, 'gridForm', gridForm, null);
+                    this._formWindow.detailGridFormShow();
+
+                } else {
+                    // Indicamos esta abierta.
+                    if (verifyisOpen === true) {
+                        isc.say('La forma ya esta abierta');
+                    }
                 }
             }
         } else {
@@ -718,14 +739,23 @@ isc.DefaultController.addProperties({
      *
      */
     _detailGridFormEdit: function (viewer, record, recordNum, field, fieldNum, value, rawValue) {
-        var gridForm = this._formWindow.getDetailGridForm();
+        if (this._formWindow.useOwnDetailGridAddLogic == true) {
+            var detailGrid = this._formWindow.getDetailGrid();
+            if (typeof (detailGrid.detailGridFormEdit) === 'function') {
+                detailGrid.detailGridFormEdit();
+            } else {
+                isc.say('No son registro editables, elimine y agregue en todo caso');
+            }
+        } else {
+            var gridForm = this._formWindow.getDetailGridForm();
 
-        // Ponemos modo update , mostramos la forma y seleccionamos el registor
-        // actual seleccionado en la grilla de detalle para su edicion.
-        gridForm.setSaveOperationType('update');
-        this._formWindow.detailGridFormShow();
-        gridForm.setEditMode('edit');
-        gridForm.editSelectedData(viewer);
+            // Ponemos modo update , mostramos la forma y seleccionamos el registor
+            // actual seleccionado en la grilla de detalle para su edicion.
+            gridForm.setSaveOperationType('update');
+            this._formWindow.detailGridFormShow();
+            gridForm.setEditMode('edit');
+            gridForm.editSelectedData(viewer);
+        }
     },
     /**
      * Metodo llamado para grabar un registro editandose o agregandose.
