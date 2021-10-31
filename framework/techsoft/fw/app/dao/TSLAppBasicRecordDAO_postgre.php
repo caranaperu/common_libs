@@ -76,4 +76,16 @@ abstract class TSLAppBasicRecordDAO_postgre extends \TSLBasicRecordDAO {
         return FALSE;
     }
 
+    /**
+     * Retiramos el CONTEXT: de existir en el mensaje , esto es habitual en los mensajes de exception
+     * que vienen de la base de datos , esto vienen apendeado al mensaje al usuario.
+     *
+     * @inheritDoc
+     */
+    public function getTerseDbMessage(string $message): string {
+        $pos = strpos($message,'CONTEXT:');
+        $message = substr($message,0,$pos);
+        return $message;
+    }
+
 }

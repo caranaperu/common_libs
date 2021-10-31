@@ -103,7 +103,7 @@ abstract class TSLBasicRecordDAO implements TSLIBasicRecordDAO {
             } else {
                 $error = '????';
             }
-            throw new TSLDbException($ret == DB_ERR_CANTEXECUTE ? $error['message'] : null, $ret);
+            throw new TSLDbException($ret == DB_ERR_CANTEXECUTE ? $this->getTerseDbMessage($error['message'] ): null, $ret);
         }
 
         return $ret;
@@ -164,7 +164,7 @@ abstract class TSLBasicRecordDAO implements TSLIBasicRecordDAO {
             } else {
                 $error = '????';
             }
-            throw new TSLDbException($ret == DB_ERR_CANTEXECUTE ? $error['message'] : null, $ret);
+            throw new TSLDbException($ret == DB_ERR_CANTEXECUTE ? $this->getTerseDbMessage($error['message'] ): null, $ret);
         }
 
         return $ret;
@@ -220,7 +220,7 @@ abstract class TSLBasicRecordDAO implements TSLIBasicRecordDAO {
             } else {
                 $error = '????';
             }
-            throw new TSLDbException($ret == DB_ERR_CANTEXECUTE ? $error['message'] : null, $ret);
+            throw new TSLDbException($ret == DB_ERR_CANTEXECUTE ? $this->getTerseDbMessage($error['message'] ): null, $ret);
         }
         return $results;
     }
@@ -282,7 +282,7 @@ abstract class TSLBasicRecordDAO implements TSLIBasicRecordDAO {
             } else {
                 $error = '????';
             }
-            throw new TSLDbException($ret == DB_ERR_CANTEXECUTE ? $error['message'] : null, $ret);
+            throw new TSLDbException($ret == DB_ERR_CANTEXECUTE ? $this->getTerseDbMessage($error['message'] ): null, $ret);
         }
 
         return $ret;
@@ -370,7 +370,7 @@ abstract class TSLBasicRecordDAO implements TSLIBasicRecordDAO {
             } else {
                 $error = '????';
             }
-            throw new TSLDbException($ret == DB_ERR_CANTEXECUTE ? $error['message'] : null, $ret);
+            throw new TSLDbException($ret == DB_ERR_CANTEXECUTE ? $this->getTerseDbMessage($error['message'] ): null, $ret);
         }
 
         return $ret;
@@ -487,10 +487,20 @@ abstract class TSLBasicRecordDAO implements TSLIBasicRecordDAO {
 
             if ($ret != DB_ERR_ALLOK && $ret != DB_ERR_RECORDEXIST && $ret != DB_ERR_RECORDINACTIVE && $ret != DB_ERR_FOREIGNKEY) {
                 $error = $DB->error();
-                throw new TSLDbException($ret == DB_ERR_CANTEXECUTE ? $error['message'] . '-' .$error['code'] : null, $ret);
+                throw new TSLDbException($ret == DB_ERR_CANTEXECUTE ? $this->getTerseDbMessage($error['message'] ). '-' .$error['code'] : null, $ret);
             }
         }
         return $ret;
+    }
+
+    /**
+     * @inheritDoc
+     *
+     * Por default retornamos lo mismo , las especificas deberan overload
+     * esta si requiere tratamiento especial.
+     */
+    public function getTerseDbMessage(string $message): string {
+        return $message;
     }
 
     /**

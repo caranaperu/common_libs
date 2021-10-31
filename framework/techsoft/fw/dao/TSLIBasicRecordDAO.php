@@ -189,4 +189,16 @@ interface TSLIBasicRecordDAO {
      * @return bool TRUE si es error de registro modificado, FALSE de lo contrario
      */
     public function isRecordModifiedError(int $errorCode, string $errorMsg) : bool;
+
+
+    /**
+     * Dado que alkgunas bases de datos cuando envian una excepcion agregan al mensaje nornal
+     * datos adicionales como el CONTEXT: y otros , aqui tenemos un hook para permitir
+     * tener una opcion de removemorlos.
+     *
+     * @param string $message mensaje original
+     *
+     * @return mixed mensaje procesado mas apto para ser leido sin datos de la db innecesarios.
+     */
+    public function getTerseDbMessage(string $message) : string;
 }
