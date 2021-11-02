@@ -188,22 +188,22 @@ isc.IControlledCanvas.addInterfaceProperties({
             members: [
                 isc.ToolStripButton.create({
                     ID: "btnNewRecord" + this.ID,
-                    icon: "[ISOMORPHIC]/../assets/images/add.png",
+                    icon: "[SKIN]/actions/add.png",
                     prompt: "Agregar"
                 }),
                 isc.ToolStripButton.create({
                     ID: "btnEditRecord" + this.ID,
-                    icon: "[ISOMORPHIC]/../assets/images/edit.png",
+                    icon: "[SKIN]/actions/edit.png",
                     prompt: "Editar"
                 }), isc.ToolStripButton.create({
                     ID: "btnDelRecord" + this.ID,
-                    icon: "[ISOMORPHIC]/../assets/images/delete.png",
+                    icon: "[SKIN]/actions/remove.png",
                     prompt: "Eliminar"
                 }), "separator",
                 isc.IconMenuButton.create({
                     ID: "btnPrintReport" + this.ID,
                     title: "",
-                    icon: "[ISOMORPHIC]/../assets/images/print.png",
+                    icon: "[SKIN]/actions/print.png",
                     menu: {
                         autoDraw: false,
                         defaultWidth: 10,
@@ -220,7 +220,7 @@ isc.IControlledCanvas.addInterfaceProperties({
                 }), "separator",
                 isc.ToolStripButton.create({
                     ID: "btnRefreshRecord" + this.ID,
-                    icon: "[ISOMORPHIC]/../assets/images/refresh.png",
+                    icon: "[SKIN]/actions/refresh.png",
                     prompt: "Actualizar Lista"
                 })]
         });
