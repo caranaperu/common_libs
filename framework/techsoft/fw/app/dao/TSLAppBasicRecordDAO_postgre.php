@@ -83,8 +83,8 @@ abstract class TSLAppBasicRecordDAO_postgre extends \TSLBasicRecordDAO {
      * @inheritDoc
      */
     public function getTerseDbMessage(string $message): string {
-        $pos = strpos($message,'CONTEXT:');
-        $message = substr($message,0,$pos);
+        //$pos = strpos($message,'CONTEXT:');
+       // $message = substr($message,0,$pos);
         return $message;
     }
 

@@ -309,6 +309,7 @@ isc.DetailGridContainer.addProperties({
             // Preparamos los atributos default requeridos
             grid.canAdd = false;
             grid.canEdit = false;
+            grid.canRemove = false;
             grid.modalEditing = false;
 
             this.addItem(0, grid, 0);

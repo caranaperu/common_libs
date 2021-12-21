@@ -9,7 +9,9 @@
  * @since 1.00
  * $Author: aranape $
  * $Date: 2014-06-24 00:38:53 -0500 (mar, 24 jun 2014) $
- * $Rev: 230 $
+ * @history
+ *          Modificacion 17-11-2021 - Si la grilla indica que no se puede
+ *          agregar o editar se desabilitan los correspondiente botones del toolbar
  */
 isc.defineClass("WindowGridListExt", "Window", "IControlledCanvas");
 
@@ -27,9 +29,26 @@ isc.WindowGridListExt.addProperties({
             gridList.fetchOperation = 'fetch';
         }
         gridList.reselectOnUpdate = true;
-        gridList.showHeaderMenuButton = false,
-
-            this.addItem(toolStrip);
+        gridList.showHeaderMenuButton = false;
+        this.addItem(toolStrip);
         this.addItem(gridList);
+
+
+        // Modificacion 17-11-2021
+        // Si la grilla indica que no se puede agregar o editar se desabilitan los
+        // correspondiente botones del toolbar
+
+        // Modificacion 04-12-2021
+        // Si la grilla indica que no se puede eliminar se desabilitan boton
+        // correspondiente.
+        if (gridList.canAdd == false) {
+            this.getToolbarControl('add').setDisabled(true);
+        }
+        if (gridList.canEdit == false) {
+            this.getToolbarControl('edit').setDisabled(true);
+        }
+        if (gridList.canRemove == false) {
+            this.getToolbarControl('del').setDisabled(true);
+        }
     }
 });

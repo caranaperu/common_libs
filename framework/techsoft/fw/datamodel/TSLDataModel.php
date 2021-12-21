@@ -440,7 +440,7 @@ class TSLDataModel implements TSLJsonAble {
         if (is_bool($value)) {
             return $value;
         } else {
-            if ($value === 'Y' or $value === 'y' or $value === 't' or $value === 'T' or $value === 'true' or $value === 'TRUE') {
+            if ($value === 'Y' or $value === 'y' or $value === 't' or $value === 'T' or $value === 'true' or $value === 'TRUE' or $value == 1 or $value == '1') {
                 return true;
             } else {
                 return false;

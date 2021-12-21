@@ -254,6 +254,10 @@ isc.DefaultController.addProperties({
         var me = this;
         var glist = me._mainWindow.getGridList();
 
+        // Si la grilla indica globaklmente que no se puede eliminar , retornamos-
+        if (glist.canRemove == false) {
+            return;
+        }
 
         // Debe haber un item seleccionado
         if (glist.anySelected() === true) {
@@ -865,7 +869,7 @@ isc.DefaultController.addProperties({
             this.observe(this._mainWindow.getToolbarControl('add'), "click", "observer._openMantForm('add');");
             this.observe(this._mainWindow.getToolbarControl('del'), "click", "observer._deleteGridRecord();");
             this.observe(this._mainWindow.getToolbarControl('refresh'), "click", "observer._refreshMainList();");
-            this.observe(this._mainWindow.getToolbarControl('print'), "click", "observer._printReport('PDF');");
+            this.observe(this._mainWindow.getToolbarControl('print'), "click", "observer._printReport('SCR');");
             this.observe(this._mainWindow.getToolbarControl('printPDF'), "click", "observer._printReport('PDF');");
             this.observe(this._mainWindow.getToolbarControl('printXLS'), "click", "observer._printReport('XLS');");
 
@@ -900,7 +904,7 @@ isc.DefaultController.addProperties({
             this.observe(this._mainWindow.getToolbarControl('add'), "click", "observer._openMantForm('add');");
             this.observe(this._mainWindow.getToolbarControl('del'), "click", "observer._deleteGridRecord();");
             this.observe(this._mainWindow.getToolbarControl('refresh'), "click", "observer._refreshMainList();");
-            this.observe(this._mainWindow.getToolbarControl('print'), "click", "observer._printReport('PDF');");
+            this.observe(this._mainWindow.getToolbarControl('print'), "click", "observer._printReport('SCR');");
             this.observe(this._mainWindow.getToolbarControl('printPDF'), "click", "observer._printReport('PDF');");
             this.observe(this._mainWindow.getToolbarControl('printXLS'), "click", "observer._printReport('XLS');");
 
