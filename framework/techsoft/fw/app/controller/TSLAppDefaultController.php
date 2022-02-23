@@ -31,6 +31,12 @@ if (!defined('BASEPATH'))
  */
 class TSLAppDefaultController extends \TSLBaseController implements \TSLISessionController, \TSLIConstrainedController {
 
+    /**
+     * @var bool si es true no se validara el login , esto es util cuando el controlador
+     * es llamado pro un proceso interno automatico o algun caso similar.
+     */
+    protected $relaxLoginCheck = false;
+
     public function __construct() {
         parent::__construct();
         // Dos posibilidades
@@ -186,10 +192,15 @@ class TSLAppDefaultController extends \TSLBaseController implements \TSLISession
      *
      */
     public function isLoggedIn() : bool {
-        if ($this->session->userdata('isLoggedIn') !== FALSE) {
-            return $this->session->userdata('isLoggedIn') ?? false;
+        if ($this->relaxLoginCheck == false) {
+            if ($this->session->userdata('isLoggedIn') !== FALSE) {
+                return $this->session->userdata('isLoggedIn') ?? false;
+            } else {
+                return false;
+            }
         } else {
-            return false;
+            // fake login
+            return true;
         }
     }
 

@@ -75,9 +75,12 @@ isc.DefaultController.addProperties({
      * @param {string} mode  'add','edit' si es null se usara
      */
     _openMantForm: function (mode) {
-        // Si no hay nada seleccionado regresamos sin hacer nada a menos que se vaya a agregar un registro
-        if (this._mainWindow && this._mainWindow.getGridList().anySelected() === false && mode !== 'add') {
-            return;
+        if (this._mainWindow) {
+            // Si no puede editarse no se abrira la forma.
+            // Si no hay nada seleccionado regresamos sin hacer nada a menos que se vaya a agregar un registro
+            if (this._mainWindow.getGridList().canEdit == false || (this._mainWindow.getGridList().anySelected() === false && mode !== 'add')) {
+                return;
+            }
         }
 
         // Si la ventana no esta creada la creamos primero y atachamos a esta clase para que observe

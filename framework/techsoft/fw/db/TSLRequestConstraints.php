@@ -19,6 +19,7 @@ class TSLRequestConstraints {
 
     // Contantes de filtro
     private static $_FILTER_EXACT = 'exact';
+    private static $_FILTER_NEQUAL = 'notEqual';
     private static $_FILTER_PARTIAL = 'partial';
     private static $_FILTER_GREATERTHAN = 'greaterThan';
     private static $_FILTER_LESSTHAN = 'lessThan';
@@ -344,7 +345,13 @@ class TSLRequestConstraints {
                     } else {
                         $str .= ' and "' . $field . '" =\'' . $value . '\' ';
                     }
-                } else if ($this->filterFields[$field . 'Type'] == TSLRequestConstraints::$_FILTER_GREATERTHAN) {
+                } else if ($this->filterFields[$field . 'Type'] == TSLRequestConstraints::$_FILTER_NEQUAL) {
+                    if ($str === '') {
+                        $str .= ' "' . $field . '" !=\'' . $value . '\'';
+                    } else {
+                        $str .= ' and "' . $field . '" !=\'' . $value . '\' ';
+                    }
+                }else if ($this->filterFields[$field . 'Type'] == TSLRequestConstraints::$_FILTER_GREATERTHAN) {
                     if ($str === '') {
                         $str .= ' "' . $field . '" >\'' . $value . '\'';
                     } else {
@@ -400,6 +407,8 @@ class TSLRequestConstraints {
             // Por ahora se soporta exact y parcial
             if (strcasecmp($typeFilter, 'exact') == 0 || strcasecmp($typeFilter, 'equals') == 0) {
                 $this->filterFields[$filterField . 'Type'] = TSLRequestConstraints::$_FILTER_EXACT;
+            } else if (strcasecmp($typeFilter, 'notEqual') == 0 ) {
+                $this->filterFields[$filterField . 'Type'] = TSLRequestConstraints::$_FILTER_NEQUAL;
             } else if (strcasecmp($typeFilter, 'greaterThan') == 0 ) {
                 $this->filterFields[$filterField . 'Type'] = TSLRequestConstraints::$_FILTER_GREATERTHAN;
             } else if (strcasecmp($typeFilter, 'lessThan') == 0 ) {

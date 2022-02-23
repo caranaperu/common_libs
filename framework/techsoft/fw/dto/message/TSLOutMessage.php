@@ -143,6 +143,14 @@ class TSLOutMessage {
     }
 
     /**
+     * Retorna los datos resultado.
+     * @return mixed con los resultados.
+     */
+    public function clearResultData() : void {
+        $this->m_resultData = null;
+    }
+
+    /**
      * Si se requiriera enviar un mensaje en caso de un error que no es
      * de proceso o validaion de modelo o un mensaje de salida comoe
      * "Operacion Realizada con exito" dicho mensaje podria ser

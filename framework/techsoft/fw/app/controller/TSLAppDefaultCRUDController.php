@@ -112,6 +112,15 @@ abstract class TSLAppDefaultCRUDController extends TSLAppDefaultController {
     protected function preExecuteOperation(string $operationCode) : void {}
 
     /**
+     * Por default este metodo no hace nada , las clases que requieran deberan
+     * hacer el override.
+     *
+     * @param string $operationCode con la operacion sobre la que se ejecutara la accion
+     * por ejemplo 'add','delete'.
+     */
+    protected function postExecuteOperation(string $operationCode) : void {}
+
+    /**
      * Metodo donde se ejecuta el proceso default del controller de acuerdo a la operacion
      * solicitada.
      * Inicia procesando la validaion , de ser correcta se procede a pasar los parametros al DTO ,
@@ -162,6 +171,9 @@ abstract class TSLAppDefaultCRUDController extends TSLAppDefaultController {
                 // Ir al Bussiness Object
                 //$service = $this->getBussinessService();
                 $this->getBussinessService()->executeService($operationCode, $this->DTO);
+
+                // Se llama el hook de post executio
+                $this->postExecuteOperation($operationCode);
             }
         } catch (\Throwable $ex) {
             $outMessage = &$this->DTO->getOutMessage();

@@ -24,19 +24,19 @@ abstract class TSLAppCRUDBussinessService extends \TSLStandardBussinessService {
      * El Nombre que identifica al DAO.
      * @var String
      */
-    private $IdDAOName;
+    protected $IdDAOName;
 
     /**
      * El nombre en la definicion de lenguaje para los mensajes de error o informacion,
      * @var String
      */
-    private $IdMSGLanguage;
+    protected $IdMSGLanguage;
 
     /**
      * Prefijo a usarse para rescatar los mensajes en el lenguaje adecuado.
      * @var String
      */
-    private $msgPrefix;
+    protected $msgPrefix;
 
     /**
      * Inicializa la clase indicandosele el dao a usar, el lenguaje y el prefijo

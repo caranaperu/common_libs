@@ -115,7 +115,9 @@ class TSLResponseProcessorSmartclientJson implements TSLIResponseProcessor {
                 }
             } else {
                 // STATUS_OK = 0
-                $out = '"status":0';
+                if ($out == null) {
+                    $out = '"status":0';
+                }
             }
             // Si tiene parametros de salida los agregamos  antres de la data.
             $outParams = &$outMessage->getOutputparameters();
