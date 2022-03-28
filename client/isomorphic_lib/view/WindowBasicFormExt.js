@@ -175,7 +175,6 @@ isc.WindowBasicFormExt.addProperties({
      * @param {string} mode 'add','edit'
      */
     showWithMode: function (mode) {
-        this._form.setEditMode(mode);
 
         // Si existe grilla de items se muestra o nodependiendo
         // si esta permitido
@@ -188,6 +187,11 @@ isc.WindowBasicFormExt.addProperties({
             }
         }
         this.show();
+        // Se paso del inicio del metod al final , ya que en la libreria 12 a mas
+        // la accion de colocar el cursor en setEditMode solo funciona cuando ya es
+        // visible la forma , esto es contrario  a la version 11 hacia atras.
+        // 28-02-2022
+        this._form.setEditMode(mode);
     },
     /**
      * Metodo QUE DEBERA Sobrescribirse en el cual se

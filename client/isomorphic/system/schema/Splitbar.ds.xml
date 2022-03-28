@@ -1,10 +1,11 @@
 <DataSource	ID="Splitbar"	Constructor="Splitbar" inheritsFrom="StretchImg">
 	<fields>
 		<field name="canCollapse" type="boolean"/>
+		<field name="canCollapseOnTap" type="boolean"/>
         <field name="canDrag" type="boolean"/>
         <field name="capSize" type="integer"/>
         <field name="gripImgSuffix" type="string"/>
-        <field name="src" type="string"/>
+        <field name="src" type="string" title="Image"/>
         <field name="hSrc" type="string"/>
         <field name="vSrc" type="string"/>
         <field name="showGrip" type="boolean"/>

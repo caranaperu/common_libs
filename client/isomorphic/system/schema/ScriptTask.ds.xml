@@ -1,6 +1,7 @@
 <DataSource ID="ScriptTask" inheritsFrom="Task" Constructor="ScriptTask">
-	<fields>
-        <isAsync type="boolean" />
-	</fields>
+    <fields>
+        <field name="isAsync" type="boolean" xmlAttribute="true" />
+        <field name="execute" type="string" />
+    </fields>
 </DataSource>
 

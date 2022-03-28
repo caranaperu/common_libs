@@ -54,39 +54,46 @@ window.consoleOperationsEnabled=false;
 </SCRIPT>
 <!--  -->
 
-<SCRIPT src=../development/ISC_FileLoader.js?isc_version=v11.1p_2017-06-29.js></SCRIPT>
+<SCRIPT src=../development/ISC_History.js?isc_version=v12.1p_2022-02-22.js></SCRIPT>
+<SCRIPT src=../development/ISC_FileLoader.js?isc_version=v12.1p_2022-02-22.js></SCRIPT>
 <SCRIPT>isc.FileLoader.modulesDir = "system/development/";window.modulesDirExplicitlySet=true;</SCRIPT>
-<SCRIPT src=../development/ISC_Core.js?isc_version=v11.1p_2017-06-29.js></SCRIPT>
-<SCRIPT src=../development/ISC_Foundation.js?isc_version=v11.1p_2017-06-29.js></SCRIPT>
-<SCRIPT src=../development/ISC_Containers.js?isc_version=v11.1p_2017-06-29.js></SCRIPT>
-<SCRIPT src=../development/ISC_Grids.js?isc_version=v11.1p_2017-06-29.js></SCRIPT>
-<SCRIPT src=../development/ISC_Forms.js?isc_version=v11.1p_2017-06-29.js></SCRIPT>
-<SCRIPT src=../development/ISC_DataBinding.js?isc_version=v11.1p_2017-06-29.js></SCRIPT>
-<SCRIPT src=../development/ISC_RealtimeMessaging.js?isc_version=v11.1p_2017-06-29.js></SCRIPT>
-
-<SCRIPT src="../../DataSourceLoader?dataSource=$systemSchema"></SCRIPT>
-<SCRIPT src="../development/ISC_Drawing.js?isc_version=v11.1p_2017-06-29.js"></SCRIPT>
-<SCRIPT src="../development/ISC_Tools.js?isc_version=v11.1p_2017-06-29.js"></SCRIPT>
+<SCRIPT src=../development/ISC_Core.js?isc_version=v12.1p_2022-02-22.js></SCRIPT>
+<SCRIPT src=../development/ISC_Foundation.js?isc_version=v12.1p_2022-02-22.js></SCRIPT>
+<SCRIPT src=../development/ISC_Containers.js?isc_version=v12.1p_2022-02-22.js></SCRIPT>
+<SCRIPT src=../development/ISC_Grids.js?isc_version=v12.1p_2022-02-22.js></SCRIPT>
+<SCRIPT src=../development/ISC_Forms.js?isc_version=v12.1p_2022-02-22.js></SCRIPT>
+<SCRIPT src=../development/ISC_DataBinding.js?isc_version=v12.1p_2022-02-22.js></SCRIPT>
+<SCRIPT src=../development/ISC_RealtimeMessaging.js?isc_version=v12.1p_2022-02-22.js></SCRIPT>
+<SCRIPT src="../development/ISC_Drawing.js?isc_version=v12.1p_2022-02-22.js"></SCRIPT>
+<SCRIPT src="../development/ISC_Tools.js?isc_version=v12.1p_2022-02-22.js"></SCRIPT>
 
 <!--  -->
-<SCRIPT src=../../skins/Enterprise/load_skin.js?isc_version=v11.1p_2017-06-29.js></SCRIPT>
+<SCRIPT src=../../skins/Enterprise/load_skin.js?isc_version=v12.1p_2022-02-22.js></SCRIPT>
+<SCRIPT src=../development/ISC_SystemSchema.js?isc_version=v12.1p_2022-02-22.js></SCRIPT>
+<SCRIPT src="../../login/reloginFlow.js?isc_version=v12.1p_2022-02-22.js"></SCRIPT>
 </HEAD>
 
 <BODY ONBLUR='if(window.saveState) saveState()' STYLE="margin:0px;background-color:#DDDDDD;overflow:hidden">
 <SCRIPT>
 isc.deferAutoDraw = true;
 
+if (window.opener && window.opener.isc && window.opener.isc.RPCManager) {
+    // steal username/password fields for relogin - but only for directBinding because doesn't
+    // make sense for remoting
+    isc.RPCManager.loginUsernameFieldName = window.opener.isc.RPCManager.loginUsernameFieldName;
+    isc.RPCManager.loginPasswordFieldName = window.opener.isc.RPCManager.loginPasswordFieldName;
+}
 
-if (window.opener && !(isc.loadSkin || window.loadSkin)) {
+if (window.opener && window.opener.isc && window.opener.isc.Page && !(isc.loadSkin || window.loadSkin)) {
      isc.FileLoader.loadSkin(window.opener.isc.Page.getSkin());
 }
-var toolsDir = (window.opener && window.opener.isc ? window.opener.isc : isc).Page.getToolsDir();
+var toolsDir = (window.opener && window.opener.isc && window.opener.isc.Page ? window.opener.isc : isc).Page.getToolsDir();
 isc.FileLoader.loadJSFiles([
           
     toolsDir+"adminConsoleOperations.jsp?checkPresent=true",
     toolsDir+"developerConsoleOperations.jsp?checkPresent=true"
 ]);
-//    "../development/ISC_DeveloperConsole.js?isc_version=v11.1p_2017-06-29.js"
+//    "../development/ISC_DeveloperConsole.js?isc_version=v12.1p_2022-02-22.js"
 isc.FileLoader.loadModule("DeveloperConsole");
 </SCRIPT>
 

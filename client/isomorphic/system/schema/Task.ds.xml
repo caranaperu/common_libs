@@ -1,9 +1,10 @@
-<DataSource ID="Task" inheritsFrom="ProcessElement" Constructor="Process">
-	<fields>
-        <field name="inputField" type="string" />
+<DataSource ID="Task" inheritsFrom="ProcessElement" Constructor="Task">
+    <fields>
+        <field name="inputField" type="string" xmlAttribute="true" />
         <field name="inputFieldList" type="string" multiple="true" />
-        <field name="outputField" type="string" />
+        <field name="outputField" type="string" xmlAttribute="true" />
         <field name="outputFieldList" type="string" multiple="true" />
-	</fields>
+        <field name="outputExpression" type="string" multiple="true" />
+    </fields>
 </DataSource>
 

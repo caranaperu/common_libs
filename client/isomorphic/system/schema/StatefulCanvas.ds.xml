@@ -24,7 +24,7 @@
 		<field name="redrawOnStateChange"		type="boolean" inapplicable="true"/>
 
         <!-- for all button subclasses of StatefulCanvas -->
-		<field name="icon"			    type="string" />
+		<field name="icon"			    type="string" title="Icon URL"/>
 		<field name="iconSize"	        type="positiveInteger" />
 		<field name="iconWidth"	        type="positiveInteger" />
 		<field name="iconHeight"        type="positiveInteger" />
@@ -39,6 +39,8 @@
 
         <field name="autoFit"   type="boolean"/>
         <field name="selected"  type="boolean"/>
+
+        <field name="showMenuOnClick" type="boolean" />
 
         <!-- deprecated -->
         <field name="showFocus"      type="boolean"/>

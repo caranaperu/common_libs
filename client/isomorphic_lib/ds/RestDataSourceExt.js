@@ -12,6 +12,10 @@
 isc.defineClass("RestDataSourceExt", isc.RestDataSource);
 
 isc.RestDataSourceExt.addProperties({
+    showPrompt: true,
+    dataFormat: "json",
+    jsonPrefix: '',
+    jsonSuffix: '',
 
     /**
      * Este metodo puede ser sobreescrito por la clase que impelenta.
@@ -52,7 +56,8 @@ isc.RestDataSourceExt.addProperties({
      * segun la base de datos.
      */
     _getBooleanFieldValue: function(value) {
-        if (value !== 't' && value !== 'T' && value !== 'Y' && value !== 'y' && value != '1' && value !== 'TRUE' && value !== 'true' && value !== true) {
+        if (value !== 't' && value !== 'T' && value !== 'Y' && value !== 'y' && value != '1' && value !== 'TRUE' && value !== 'true' && value !== true &&
+            value !== 1 && value !== "1") {
             return false;
         } else {
             return true;

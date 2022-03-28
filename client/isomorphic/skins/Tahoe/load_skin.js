@@ -9,21 +9,30 @@ with (theWindow) {
 
 
 //----------------------------------------
-// Specify skin directory
+// Register skin
 //----------------------------------------
-    // must be relative to your application file or isomorphicDir
-    isc.Page.setSkinDir("[ISOMORPHIC]/skins/Tahoe/")
+    var currentSkin = isc.setCurrentSkin({
+        // name is autoderived to be the containing folder
+        name: "autoDetect", 
+        series: "Flat",
+        // base font-list
+        fonts: ["corbel", "corbel-bold", "calibri", "RobotoLight"]
+    });
 
 
 //----------------------------------------
 // Load skin style sheet(s)
 //----------------------------------------
-    isc.Page.loadStyleSheet("[SKIN]/skin_styles.css", theWindow)
+    // if loadStyleSheet() returns false, callback will fire when the CSS is loaded
+    var cssLoaded = isc.Page.loadStyleSheet("[SKIN]/skin_styles.css", theWindow, 
+                                            "isc.FontLoader.loadCustomFonts()");
 
     isc.Page.checkBrowserAndRedirect("[SKIN]/unsupported_browser.html");
     
     isc.Class.modifyFrameworkStart();
     
+    // Standard Framework icons - no changes, this skin is the basis for the standard
+
     // Register icons to resize with controls / fonts
     isc.Canvas.registerIconSizingAttributes(
         "fonts",
@@ -39,24 +48,34 @@ with (theWindow) {
             CheckboxItem:[
                 ["valueIconHeight","valueIconWidth"]
             ],
+            TreeGrid: [
+                "openerIconSize"
+            ],
             ListGrid:[
                 ["checkboxFieldImageHeight", "checkboxFieldImageWidth"],
                 ["booleanImageHeight","booleanImageWidth"],
                 "removeIconSize"
             ],
-            MiniDateRangeItem:[
-                ["pickerIconHeight", "pickerIconWidth"]
-            ],
             ToolStripButton:[
                 "height", 
                 "iconSize"
             ],
+            ToolStrip:["height"],
             MenuButton:[
                 ["iconHeight","iconWidth"],
                 "iconSize"
             ],
             TabSet:[
                 "defaultTabIconSize"
+            ],
+            SpinnerItem:[
+                ["stackedIconsHeight", "stackedIconsWidth"]
+            ],
+            NotifySettings:[
+                ["messageIconHeight", "messageIconWidth"]
+            ],
+            IconButton:[
+                "iconSize", "largeIconSize"
             ]
         }
     );
@@ -73,11 +92,24 @@ with (theWindow) {
             RelativeDateItem:[
                 ["pickerIconHeight","pickerIconWidth"]
             ],
+            MiniDateRangeItem:[
+                ["pickerIconHeight", "pickerIconWidth"]
+            ],
             ColorItem:[
                 ["pickerIconHeight", "pickerIconWidth"]
+            ],
+            ListGrid: [
+                "defaultEditableDateFieldWidth", 
+                "defaultEditableDateTimeFieldWidth"
             ]
         }
     );
+
+    isc.Canvas.registerIconSizingAttributes("controls",  {
+        Snapbar: [
+            ["gripBreadth", "gripLength"]
+        ]
+    }, 1/3);
     
     isc.Canvas.setAutoResizeIcons(true);
     
@@ -95,13 +127,20 @@ with (theWindow) {
     
     isc.Canvas.setAutoResizeAutoChildAttributes(true);    
 
+    // register style declarations with padding that should track font size
+    isc.Canvas.registerFontScaledPaddingStyles(
+        [        "tabButtonTop",         "tabButtonBottom"], 
+        ["iconOnlyTabButtonTop", "iconOnlyTabButtonBottom"],
+        3
+    );
+
     // -----------------------------------------------------   
-    // css3 and spriting are required for the Tahoe skin
+    // css3 and spriting are required for the current skin
     var useCSS3 = isc.Browser.useCSS3,
         useSpriting = isc.Browser.useSpriting;
         
     if (!useCSS3 || !useSpriting) {
-        isc.logWarn("Tahoe skin makes use of HTML5 features which may be " +
+        isc.logWarn(currentSkin.name+" skin makes use of HTML5 features which may be " +
             "unsupported in this browser. The appearance of components cannot " +
             "be guaranteed. See the 'Skinning' documentation topic for more information.");
     }
@@ -130,7 +169,7 @@ with (theWindow) {
 
     isc.Scrollbar.addProperties({
         baseStyle:"scrollbar",
-        btnSize:18,
+        btnSize:16,
         hSrc:"[SKIN]hscroll.png",
         hThumbClass:isc.HSimpleScrollThumb,
         showRollOver:true,
@@ -227,7 +266,7 @@ with (theWindow) {
         baseStyle:"headerButton"
     });
 
-    // Have IMenuButton be just a synonym for IMenuButton
+    // Have IMenuButton be just a synonym for MenuButton
     if (isc.MenuButton) {
         isc.ClassFactory.overwriteClass("IMenuButton", "MenuButton");
 
@@ -241,6 +280,7 @@ with (theWindow) {
         }
 
         isc.MenuButton.addProperties({
+            height: 22,
             baseStyle:"menuButton",
             flipOpenedMenuButtonImage:true,
             showOpened:true,
@@ -267,7 +307,8 @@ with (theWindow) {
 
 
     isc.Label.addProperties({
-        showFocused:false
+        showFocused:false,
+        showFocusOutline:true
     });
 
     //----------------------------------------
@@ -278,6 +319,7 @@ with (theWindow) {
         resizeBarSize: 7,
         resizeBarClass: "Snapbar"
     });
+    isc.overwriteClass("LayoutResizeBar", "LayoutResizeSnapbar");
 
     isc.StretchImgSplitbar.addProperties({
         capSize:10,
@@ -290,23 +332,93 @@ with (theWindow) {
         hBaseStyle:"hSplitbar",
         vBaseStyle:"vSplitbar",
         showGrip:true,
-        gripBreadth:3,
-        //border:0,
-        gripLength:20,
-        hSrc:"[SKIN]hsplit.png",
+        gripBreadth:7,
+        gripLength:41,
+        autoApplyDownState:false,
+        hSrc:{
+            _base:      "sprite:[SKIN]sprited_grips.png;offset:-56,-28;size:82,14",
+            Over:       "sprite:[SKIN]sprited_grips.png;offset:-56,-56;size:82,14",
+            closed:     "sprite:[SKIN]sprited_grips.png;offset:-56,-14;size:82,14",
+            OverClosed: "sprite:[SKIN]sprited_grips.png;offset:-56,-42;size:82,14"
+        },
+        vSrc:{
+            _base:      "sprite:[SKIN]sprited_grips.png;offset: -14,0;size:14,82",
+            Over:       "sprite:[SKIN]sprited_grips.png;offset:-42,0;size:14,82",
+            closed:     "sprite:[SKIN]sprited_grips.png;offset:  0,0;size:14,82",
+            OverClosed: "sprite:[SKIN]sprited_grips.png;offset:-28,0;size:14,82"
+        },
         items:[
             {name:"blank", width:"*", height:"*"}
         ],
-        showClosedGrip:false,
         showDown:false,
         showDownGrip:false,
-        showRollOver:false,
-        vSrc:"[SKIN]vsplit.png"
+        showRollOver:false
     });
 
     //----------------------------------------
     // 4) Dialogs
     //----------------------------------------
+    if (isc.Dialog) {
+        isc.Dialog.addProperties({
+            layoutMargin: 0,
+            bodyColor: null,
+            bodyStyle:"dialogBody",
+            leaveHeaderGap:true,
+            layoutBottomMargin:0,
+            showModalMask: true,
+            modalMaskOpacity:10,
+            membersMargin:0,
+            styleName:"dialogBackground",
+            showHeaderBackground:false,
+            showFooter:false,
+            footerHeight: 30
+        });
+
+        // even though Dialog inherits from Window, we need a separate changeDefaults block
+        // because Dialog defines its own toolbarDefaults
+        isc.Dialog.changeDefaults("toolbarDefaults", {
+            buttonConstructor:"IButton",
+            height:42, // 10px margins + 22px button
+            membersMargin:10,
+            styleName: "dialogToolbar"
+        });
+
+        
+        isc.Dialog.changeDefaults("bodyDefaults", {
+            layoutTopMargin:10,
+            layoutLeftMargin:15,
+            layoutRightMargin:15,
+            layoutBottomMargin:10
+        });
+
+        if (isc.Dialog.Warn && isc.Dialog.Warn.toolbarDefaults) {
+            isc.addProperties(isc.Dialog.Warn.toolbarDefaults, {
+                buttonConstructor:"IButton",
+                height:42,
+                membersMargin:10
+            });
+        }
+
+        // Modify the prompt dialog to show a header
+        // In the css3-off mode header media is part of the background image, so
+        // a header appears to show even though there's no true header widget.
+        if (isc.Dialog.Prompt) {
+            isc.addProperties(isc.Dialog.Prompt, {
+                showHeader:true,
+                showTitle:false,
+                showCloseButton:false,
+                bodyStyle:"dialogBody"
+
+            });
+        }
+        if (isc.Dialog.Warn) {
+            if (isc.Browser.isTouch) isc.Dialog.Warn.showModalMask = true;
+        }
+        if (isc.Dialog.Prompt) {
+            if (isc.Browser.isTouch) isc.Dialog.Prompt.showModalMask = true;
+        }
+    }
+        
     if (isc.MultiGroupDialog) {
         isc.MultiGroupDialog.addProperties({
             height: 295,
@@ -338,6 +450,10 @@ with (theWindow) {
         });
     }
 
+    if (isc.DateRangeDialog) {
+        isc.DateRangeDialog.changeDefaults("headerIconProperties", { src:"[SKIN]/DynamicForm/date_control.png" });
+        isc.DateRangeDialog.changeDefaults("mainLayoutDefaults", { width: 450 });
+    }
 
     //----------------------------------------
     // 5) TabSets
@@ -345,7 +461,7 @@ with (theWindow) {
     if (isc.TabBar) {
         isc.TabBar.changeDefaults("baseLineDefaults", {
             _constructor: "Canvas",
-            backgroundColor: "#9C9C9C"
+            styleName: "tabBarBaseLine"
         });
         isc.TabBar.changeDefaults("tabDefaults", {
             showFocusOutline: false
@@ -385,13 +501,12 @@ with (theWindow) {
             tabPickerHMarginSize: 1,
             tabPickerVMarginSize: 1,
             getTabPickerSrc : function () {
-                return "[SKINIMG]/blank.gif";
+                return "sprite:cssClass:tabPicker" + (this.tabPicker ? this.tabPicker.getStateSuffix() : "") + this.tabBarPosition;
             }
         });
         isc.TabSet.changeDefaults("scrollerDefaults", {
             renderStretchImgInTable: false,
-            backgroundColor: "#e6e6e6",
-            padding: 2
+            backgroundColor: "#e6e6e6"
         });
         isc.TabSet.changeDefaults("scrollerBackImg", {
             baseStyleKey: "scrollerPosition",
@@ -415,18 +530,10 @@ with (theWindow) {
         });
         isc.TabSet.changeDefaults("tabPickerDefaults", {
             baseStyle: "tabPicker",
-            statelessImage: true,
-            redrawOnStateChange: false,
-            backgroundColor: "#e6e6e6"
+            statelessImage: false,
+            redrawOnStateChange: false
         });
         isc.TabSet.changeDefaults("tabBarControlLayoutDefaults", { styleName: "tabBar" });
-
-        // In Netscape Navigator 4.7x, set the backgroundColor directly since the css
-        // background colors are not reliable
-        if (isc.Browser.isNav) {
-            isc.TabSet.addProperties({paneContainerDefaults:{backgroundColor:"#FFFFFF"}});
-        }
-
 
         isc.TabBar.addProperties({
             baseLineThickness:1,
@@ -462,8 +569,9 @@ with (theWindow) {
         isc.Window.addProperties({
             showHeaderIcon: false,
             backgroundColor:null,
+            bodyColor: null,
             bodyStyle:"windowBody",
-            layoutBottomMargin:2,
+            layoutBottomMargin:0,
             edgeMarginSize: 8,
             layoutMargin: 0,
             modalMaskOpacity:10,
@@ -483,9 +591,8 @@ with (theWindow) {
         });
         
         isc.Window.changeDefaults("bodyDefaults", {
-            layoutLeftMargin:2,
-            layoutRightMargin:2,
-            layoutBottomMargin:2,
+            // clear the layoutMargin (stylesheet has padding & paddingAsLayoutMargin is true)
+            layoutMargin: null,
             cursor: "inherit"
         });
         isc.Window.changeDefaults("resizerDefaults", { src:"[SKIN]/Window/resizer.png" });
@@ -499,13 +606,18 @@ with (theWindow) {
         isc.Window.changeDefaults("restoreButtonDefaults", {
             showDown:false,
             showRollOver:true,
+            showTriggerArea:true,
+            triggerAreaLeft:3, triggerAreaRight:3,
             src:"[SKIN]/headerIcons/cascade.png",
-            width: 24
+            width: 24, height:21,
+            margin:5
         });
 
         isc.Window.changeDefaults("closeButtonDefaults", {
             showDown:false,
             showRollOver:true,
+            showTriggerArea:true,
+            triggerAreaLeft:3, triggerAreaRight:3,
             src:"[SKIN]/headerIcons/close.png",
             imageType:"stretch",
             width:21, height:21,
@@ -514,6 +626,8 @@ with (theWindow) {
 
         isc.Window.changeDefaults("maximizeButtonDefaults", {
             showRollOver:true,
+            showTriggerArea:true,
+            triggerAreaLeft:3, triggerAreaRight:3,
             src:"[SKIN]/headerIcons/maximize.png",
             imageType:"stretch",
             width:21, height:21,
@@ -523,6 +637,8 @@ with (theWindow) {
         isc.Window.changeDefaults("minimizeButtonDefaults", {
             showDown:false,
             showRollOver:true,
+            showTriggerArea:true,
+            triggerAreaLeft:3, triggerAreaRight:3,
             src:"[SKIN]/headerIcons/minimize.png",
             imageType:"stretch",
             width:21, height:21,
@@ -535,211 +651,127 @@ with (theWindow) {
             layoutMargin:0,
             layoutRightMargin: 4
         });
-        
-        if (isc.Dialog) {
-            isc.Dialog.addProperties({
-                layoutMargin: 0
-            });
-        }
-            
+    }
 
     //----------------------------------------
     // 7) Pickers
     //----------------------------------------
-    if (isc.ColorItem) {
-        
-        isc.ColorItem.addProperties({
-            showEmptyPickerIcon: true,
-            pickerIconHeight:22,
-            pickerIconWidth:22
-        });
-        isc.ColorItem.changeDefaults("pickerIconDefaults", {
-            showRTL: true
-        });
-    }
-    
     if (isc.MultiFilePicker) {
         isc.MultiFilePicker.addProperties({
             showInWindow: true
         });
     }
     
-        if (isc.ColorPicker) {
-            isc.ColorPicker.addProperties({
-                layoutMargin:0,
-                layoutLeftMargin:0,
-                layoutRightMargin:0,
-                layoutTopMargin:0,
-                membersMargin: 0,
-                colorButtonSize: 22,
-                headerStyle: "colorPickerHeader",
-                hiliteHeaderStyle: "colorPickerHeader",
-                headerHeight: 14,
-                styleName: "colorPicker",
-                bodyConstructor: "VLayout",
-                bodyStyle: "colorPickerBody",
-                showShadow: true,
-                shadowDepth: 10,
-                shadowColor: "#f0f0f0"
-            });
-            isc.ColorPicker.changeDefaults("headerLabelDefaults", {                
-                styleName: "colorPickerHeaderText"
-            });
-            isc.ColorPicker.changeDefaults("bodyDefaults", {
-                layoutMargin: 0,
-                layoutLeftMargin:0,
-                layoutRightMargin:0,
-                layoutTopMargin:0,
-                margin: 0,
-                padding: 0
-            });
-            
-            isc.ColorPicker.changeDefaults("closeButtonDefaults", {
-                src: "[SKIN]ColorPicker/close_button.png"
-            });
-            isc.ColorPicker.changeDefaults("headerIconDefaults", {
-                width: 18, height: 18,
-                top: 12,
-                align: "absmiddle",
-                valign: "center"
-            });
-            
-            isc.ColorPicker.changeDefaults("okButtonDefaults", { width: 90 })
-            isc.ColorPicker.changeDefaults("cancelButtonDefaults", { width: 90 })
-            isc.ColorPicker.changeDefaults("modeToggleButtonDefaults", { width: 90 })
-
-            
-            isc.ColorPicker.changeDefaults("buttonLayoutDefaults", {
-                membersMargin: 5,
-                paddingTop: 5,
-                styleName: "colorPickerButtonLayout",
-                layoutAlign: "left",
-                width: "100%"
-            });
-            isc.ColorPicker.changeDefaults("contentLayoutDefaults", {
-                layoutMargin: 10,
-                membersMargin: 8
-            });
-            isc.ColorPicker.changeDefaults("innerContentLayoutDefaults", {
-                styleName: "colorPickerInnerContent",
-                membersMargin: 10
-            });
-        }
-        
-        if (isc.ColorItem) {
-            isc.ColorItem.addProperties({
-                width: 220,
-                // not clear why this is being switched off
-                supportsTransparency: true
-            });
-        }
-        
-        if (isc.HiliteRule) {
-            isc.HiliteRule.changeDefaults("hiliteFormDefaults", {
-                titleOrientation: "top",
-                titleSuffix: "",
-                numCols: 3,
-                width: 270,
-                colWidths: [105, 105, 60]
-            });
-            isc.HiliteRule.changeDefaults("clauseDefaults", {
-                layoutAlign: "bottom",
-                width: 400
-            });
-        }
-
-        if (isc.AdvancedHiliteEditor) {
-            isc.AdvancedHiliteEditor.changeDefaults("hiliteFormDefaults", {
-                titleOrientation: "top",
-                titleSuffix: "",
-                numCols: 4,
-                colWidths: [150, 105, 105, 60],
-                width: "100%"
-            });
-            isc.AdvancedHiliteEditor.changeDefaults("filterBuilderDefaults", {
-                fieldPickerWidth: 150
-            });
-        }
-        
-        if (isc.Canvas) {
-            isc.Canvas.changeDefaults("hiliteWindowDefaults", {
-                width: 850
-            });
-        }
-
-    }
-
-    if (isc.Dialog) {
-        isc.Dialog.addProperties({
-            bodyColor:"#FFFFFF",
-            bodyStyle:"windowBody",
-            leaveHeaderGap:true,
-
-            modalMaskOpacity:10,
-            membersMargin:0,
-            styleName:"windowBackground",
-            showHeaderBackground:false,
-            showFooter:false,
-            footerHeight: 30
+    if (isc.ColorPicker) {
+        isc.ColorPicker.addProperties({
+            layoutMargin:0,
+            layoutLeftMargin:0,
+            layoutRightMargin:0,
+            layoutTopMargin:0,
+            membersMargin: 0,
+            colorButtonSize: 22,
+            headerStyle: "colorPickerHeader",
+            hiliteHeaderStyle: "colorPickerHeader",
+            headerHeight: 14,
+            styleName: "colorPicker",
+            bodyConstructor: "VLayout",
+            bodyStyle: "colorPickerBody",
+            opacityBoxStyle: "colorPickerOpacityBox",
+            swatchImageStyle: "colorPickerSwatchImage"
         });
-
-        // even though Dialog inherits from Window, we need a separate changeDefaults block
-        // because Dialog defines its own toolbarDefaults
-        isc.Dialog.changeDefaults("toolbarDefaults", {
-            buttonConstructor:"IButton",
-            height:42, // 10px margins + 22px button
-            membersMargin:10
+        isc.ColorPicker.changeDefaults("headerLabelDefaults", {                
+            styleName: "colorPickerHeaderText"
         });
+        isc.ColorPicker.changeDefaults("bodyDefaults", {
+            layoutMargin: 0,
+            layoutLeftMargin:0,
+            layoutRightMargin:0,
+            layoutTopMargin:0,
+            margin: 0,
+            padding: 0
+        });
+        
+        isc.ColorPicker.changeDefaults("closeButtonDefaults", {
+            src: "[SKIN]ColorPicker/close_button.png"
+        });
+        isc.ColorPicker.changeDefaults("headerIconDefaults", {
+            width: 18, height: 18,
+            top: 12,
+            align: "absmiddle",
+            valign: "center"
+        });
+        
+        isc.ColorPicker.changeDefaults("okButtonDefaults", { width: 90 })
+        isc.ColorPicker.changeDefaults("cancelButtonDefaults", { width: 90 })
+        isc.ColorPicker.changeDefaults("modeToggleButtonDefaults", { width: 90 })
 
         
-        isc.Dialog.changeDefaults("bodyDefaults", {
-            layoutTopMargin:10,
-            layoutLeftMargin:15,
-            layoutRightMargin:15,
-            layoutBottomMargin:10
+        isc.ColorPicker.changeDefaults("buttonLayoutDefaults", {
+            membersMargin: 5,
+            paddingTop: 5,
+            styleName: "colorPickerButtonLayout",
+            layoutAlign: "left",
+            width: "100%"
         });
-
-        if (isc.Dialog.Warn && isc.Dialog.Warn.toolbarDefaults) {
-            isc.addProperties(isc.Dialog.Warn.toolbarDefaults, {
-                buttonConstructor:"IButton",
-                height:42,
-                membersMargin:10
-            });
-        }
-
-        // Modify the prompt dialog to show a header
-        // In the css3-off mode header media is part of the background image, so
-        // a header appears to show even though there's no true header widget.
-        if (isc.Dialog.Prompt) {
-            isc.addProperties(isc.Dialog.Prompt, {
-                showHeader:true,
-                showTitle:false,
-                showTitleAsHeaderContents:false,
-                showCloseButton:false,
-                bodyStyle:"windowBody"
-
-            });
-        }
-        if (isc.Dialog.Warn) {
-            if (isc.Browser.isTouch) isc.Dialog.Warn.showModalMask = true;
-        }
-        if (isc.Dialog.Prompt) {
-            if (isc.Browser.isTouch) isc.Dialog.Prompt.showModalMask = true;
-        }
-
+        isc.ColorPicker.changeDefaults("contentLayoutDefaults", {
+            layoutMargin: 10,
+            membersMargin: 8
+        });
+        isc.ColorPicker.changeDefaults("innerContentLayoutDefaults", {
+            styleName: "colorPickerInnerContent",
+            membersMargin: 10
+        });
     }
     
+    if (isc.HiliteRule) {
+        isc.HiliteRule.changeDefaults("hiliteFormDefaults", {
+            titleOrientation: "top",
+            titleSuffix: "",
+            numCols: 3,
+            width: 270,
+            colWidths: [105, 105, 60]
+        });
+        isc.HiliteRule.changeDefaults("clauseDefaults", {
+            layoutAlign: "bottom",
+            width: 400
+        });
+    }
+
+    if (isc.AdvancedHiliteEditor) {
+        isc.AdvancedHiliteEditor.changeDefaults("hiliteFormDefaults", {
+            titleOrientation: "top",
+            titleSuffix: "",
+            numCols: 4,
+            colWidths: [150, 105, 105, 60],
+            width: "100%"
+        });
+        isc.AdvancedHiliteEditor.changeDefaults("filterBuilderDefaults", {
+            fieldPickerWidth: 150
+        });
+    }
+    
+    if (isc.Canvas) {
+        isc.Canvas.changeDefaults("hiliteWindowDefaults", {
+            width: 850
+        });
+    }
+
+    if (isc.HiliteEditor) {
+        isc.HiliteEditor.addProperties({
+            padding: 5
+        });
+    }
+
+
     //----------------------------------------
     // 8) Menus
     //----------------------------------------
     if (isc.Menu) {
         isc.Menu.addProperties({
             styleName: "menuBorder",
-            iconFillSpaceStyleName: "menuFill"
-        });
-    }
-    if (isc.Menu) {
-        isc.Menu.addProperties({
+            iconFillSpaceStyleName: "menuFill",
+            
+            activeParentStyle:"Selected",
             bodyBackgroundColor:null,
             bodyStyleName:"gridBody",
             alternateFieldStyles:false,
@@ -773,10 +805,8 @@ with (theWindow) {
     //----------------------------------------
     if (isc.ListGrid) {
         isc.ListGrid.addProperties({
-            expansionFieldImageShowRTL: true
-        });
-
-        isc.ListGrid.addProperties({
+            expansionFieldImageShowRTL: true,
+            
             booleanTrueImage: "sprite:cssClass:checkboxTrue;size:25,25",
             booleanFalseImage: "sprite:cssClass:checkboxFalse;size:25,25",
             booleanPartialImage: "sprite:cssClass:checkboxPartial;size:25,25",
@@ -784,30 +814,20 @@ with (theWindow) {
             printBooleanBaseStyle: "printCheckbox",
             printBooleanTrueImage: "[SKINIMG]/DynamicForm/cb-checked-normal.png",
             printBooleanFalseImage: "[SKINIMG]/DynamicForm/cb-uncheck-normal.png",
-            printBooleanPartialImage: "[SKINIMG]/DynamicForm/cb-anything-normal.png"
-        });
+            printBooleanPartialImage: "[SKINIMG]/DynamicForm/cb-anything-normal.png",
 
-        // TreeGrid does not support booleanBaseStyle.
-        if (isc.TreeGrid) {
-            isc.TreeGrid.addProperties({
-                booleanTrueImage: "sprite:cssClass:checkboxTrue;size:25,25",
-                booleanFalseImage: "sprite:cssClass:checkboxFalse;size:25,25",
-                booleanPartialImage: "sprite:cssClass:checkboxPartial;size:25,25"
-            });
-        }
-    }
-    if (isc.ListGrid) {
-        isc.ListGrid.addProperties({
             alternateRecordStyles:true,
             alternateFieldStyles:true,
             baseStyle:null,
             suffixEditorTypeBaseStyle:"EditorType",
-            embeddedComponentIndent:34,
-            embeddedComponentIndentOtherMargins:5,
+            embeddedComponentMargin:5,
             alternateBodyStyleName:null,
             backgroundColor:null,
+            bodyBackgroundColor:null,
+            bodyStyleName:"gridBody",
+            minimumCellHeight:24,
             cellHeight:22,
-            filterEditorHeight:22,
+            filterEditorHeight:24,
             checkboxFieldImageHeight:22,
             checkboxFieldImageWidth:22,
             booleanImageWidth:22,
@@ -823,13 +843,26 @@ with (theWindow) {
             groupIcon:"[SKINIMG]/ListGrid/group.png",
             groupIconPadding:7,
             groupLeadingIndent:10,
+            groupNodeStyle: null,
+            groupNodeBaseStyle: "groupNode",
             showHeaderShadow:false,
+            headerBarStyle: "headerBar",
             headerBackgroundColor:null,
             headerBaseStyle:"headerButton",
+            spannedHeaderBaseStyle: "spannedHeaderButton",
+            spannedHeaderMenuBaseStyle: "spannedHeaderButton",
             headerHeight:28,//38
             headerMenuButtonIcon:"[SKINIMG]ListGrid/sort_descending.png",
             headerMenuButtonConstructor:"HeaderMenuButton",
             headerMenuButtonWidth:17,
+
+            // default Date, Time, and DateTime listGridField widths
+            defaultDateFieldWidth: 65,
+            defaultDateTimeFieldWidth: 98,
+            defaultEditableDateFieldWidth: 114,
+            defaultEditableDateTimeFieldWidth: 150,
+            defaultTimeFieldWidth: 75,
+
             normalCellHeight:22,
             showHeaderMenuButton:true,
             sortAscendingImage:{src:"[SKINIMG]ListGrid/sort_ascending.png", width:9, height:6},
@@ -841,17 +874,29 @@ with (theWindow) {
             showRollOverInExpansion: true,
             removeIconSize:13
         });
+
+        isc.ListGrid.changeDefaults("defaultFieldWidthScaleFactors", { 
+            EditableDate: 5, EditableDateTime: 7 
+        });
         
         isc.ListGrid.changeDefaults("rollOverCanvasDefaults", { styleName: "gridSelectionOver" });
+        isc.ListGrid.changeDefaults("operatorIconDefaults", { width: 18 });
 
         isc.ListGrid.changeDefaults("sorterDefaults", {
             baseStyle:"sorterButton",
             showRollOver:false
         });
 
+        isc.ListGrid.changeDefaults("headerMenuButtonDefaults", {
+            showFocusedAsOver:true
+        });
+
         isc.ListGrid.changeDefaults("headerButtonDefaults", {
             showFocusedAsOver:true
         });
+        isc.ListGrid.changeDefaults("headerSpanDefaults", {
+            baseStyle:"headerSpanButton"
+        });        
     }
     
     if (isc.GridRenderer) {
@@ -862,16 +907,17 @@ with (theWindow) {
     }
 
     if (isc.RecordEditor) {
-        isc.RecordEditor.changeDefaults("actionButtonDefaults", {
-            border:"1px solid #b8b8b8"
+        isc.RecordEditor.addProperties({
+            actionButtonStyle: "gridActionButton"
         });
         isc.RecordEditor.changeDefaults("editFormDefaults", {
             // Enable auto-child pattern customization of FormItems on the edit form.
             autoChildItems:true,            
             CheckboxItemDefaults : {
-                textBoxStyle:"checkboxItemLite",
                 sizeToCheckboxImage:false,
-                applyHeightToTextBox:true
+                applyHeightToTextBox:true,
+                clipValue:true,
+                textBoxStyle:"checkboxItemLite"
             }
         });
     }
@@ -884,42 +930,60 @@ with (theWindow) {
     if (isc.TreeGrid) {
         isc.TreeGrid.addProperties({
             alternateRecordStyles:false,
+            alternateFieldStyles:false,
             folderIcon:"[SKIN]folder.png",
             manyItemsImage:"[SKIN]folder_file.png",
             nodeIcon:"[SKIN]file.png",
+            backgroundColor:null,
+            bodyBackgroundColor:null,
+            bodyStyleName:"treeBody",
+            baseStyle: "treeCell",
             normalBaseStyle:"treeCell",
             applyRowNumberStyle:false,
-            openerIconSize:22,
+            openerIconSize:19,
             openerImage:"[SKIN]opener.png",
             sortAscendingImage:{src:"[SKINIMG]ListGrid/sort_ascending.png", width:9, height:6},
             sortDescendingImage:{src:"[SKINIMG]ListGrid/sort_descending.png", width:9, height:6},
-            tallBaseStyle:"treeTallCell"
-        });
-    }    
-        
+            //tallBaseStyle:"treeTallCell",
 
+            // TreeGrid does not support booleanBaseStyle.
+            booleanTrueImage: "sprite:cssClass:checkboxTrue;size:25,25",
+            booleanFalseImage: "sprite:cssClass:checkboxFalse;size:25,25",
+            booleanPartialImage: "sprite:cssClass:checkboxPartial;size:25,25"
+        });
+        isc.TreeGrid.changeDefaults("rollOverCanvasDefaults", { styleName: "treeSelectionOver" });
+    }
+    
     //----------------------------------------
     // 11) Form controls
     //----------------------------------------
     if (isc.FormItem) {
+        isc.FormItem.addClassProperties({
+            defaultPickerIconSpace: 4 
+        });
         isc.FormItem.addProperties({
-            showRTL: true
+            showRTL: true,
+            showOver: true,
+            showFocusedErrorState: true,
+            defaultIconSrc:"[SKIN]/DynamicForm/default_formItem_icon.png",
+            errorIconSrc:"[SKINIMG]actions/exclamation.png",
+            iconHeight:18,
+            iconVAlign:"middle",
+            iconWidth:18
         });
     }
 
     if (isc.CheckboxItem) {
-    
         isc.CheckboxItem.addProperties({
+            height: 22,
             valueIconWidth: 22,
             valueIconHeight: 22,
             showValueIconOver: true,
-            showValueIconFocused: true
-        });
-
-        isc.CheckboxItem.addProperties({
+            showValueIconFocused: true,
+            
             checkedImage: "sprite:cssClass:checkboxTrue;size:25,25",
             uncheckedImage: "sprite:cssClass:checkboxFalse;size:25,25",
-            // For Tahoe there is no default "unset" image
+            // For this theme there is no default "unset" image
             unsetImage: "sprite:cssClass:checkboxPartial;size:25,25",
             partialSelectedImage: "sprite:cssClass:checkboxPartial;size:25,25",
 
@@ -933,7 +997,24 @@ with (theWindow) {
 
     if (isc.ComboBoxItem) {
         isc.ComboBoxItem.addProperties({
-            pickListTallBaseStyle: "tallPickListCell"
+            //pickListTallBaseStyle: "tallPickListCell",
+            pickerIconSrc:"sprite:cssClass:comboBoxItemPicker;size:16,32;offset:0,12;",
+            pickerIconHeight:20,
+            pickerIconWidth:10,
+            pickerIconStyle:"selectItemPickerIcon",
+            // we have 'showOver' explicitly set to true for the picker-icon
+            // This will hilight the chevron as the user rolls over that icon only
+            showOver:true,
+            updateTextBoxOnOver:false,
+            updateControlOnOver:true,
+            
+            height:22,
+            pickListHeaderHeight:28,
+            showFocusedPickerIcon:false,
+            
+            pendingTextBoxStyle:"selectItemLiteTextPending",
+            textBoxStyle:"selectItemLiteText",
+            controlStyle:"selectItemLiteControl"
         });
         
         isc.ComboBoxItem.changeDefaults("pickerIconDefaults", {
@@ -943,13 +1024,6 @@ with (theWindow) {
         
         isc.ComboBoxItem.changeDefaults("separateValuesListDefaults", {
             showOverAsSelected: false
-        });
-        
-        isc.ComboBoxItem.addProperties({
-            pickerIconSrc:"sprite:cssClass:comboBoxItemPicker;size:16,8",
-            pickerIconWidth:10,
-            pickerIconHeight:5,
-            pickerIconStyle:"selectItemPickerIcon"
         });
         
         if (!isc.Browser.isIE || isc.Browser.isIE11) {
@@ -976,14 +1050,15 @@ with (theWindow) {
 
     if (isc.MultiComboBoxItem) {
         isc.MultiComboBoxItem.addProperties({
-            pendingButtonStyle: "buttonRoundedPending",
-            deselectedButtonStyle: "buttonRoundedDeselected",
+            pendingButtonStyle: "buttonPending",
+            deselectedButtonStyle: "buttonDeselected",
             valueLayoutProperties: {
                 membersMargin: 1,
                 tileMargin: 1
             }
         });
         isc.MultiComboBoxItem.changeDefaults("buttonDefaults", {
+            baseStyle: "buttonItem",
             icon: "[SKIN]DynamicForm/drop.png",
             iconWidth: 12,
             iconHeight: 12,
@@ -993,17 +1068,42 @@ with (theWindow) {
 
     if (isc.PickTreeItem) {
         isc.PickTreeItem.addProperties({
-            pendingButtonStyle: "menuButtonPending"
+            pendingButtonStyle: "buttonPending"
         });
         isc.PickTreeItem.changeDefaults("buttonDefaults", {
+            baseStyle: "buttonItem",
             height: 21
         });
     }
 
     if (isc.SelectItem) {
         isc.SelectItem.addProperties({
-            pickListTallBaseStyle: "tallPickListCell"
+            //pickListTallBaseStyle: "tallPickListCell",
+            // Media is 14w by 8h - making the image element taller and and slightly wider
+            // while maintaining scale and v-centering so there's a larger clickable area
+            pickerIconSrc:"sprite:cssClass:comboBoxItemPicker;size:16,32;offset:0,12;",
+            pickerIconHeight:20,
+            pickerIconWidth:10,
+            pickerIconStyle:"selectItemPickerIcon",
+
+            showOver:true,
+            updateTextBoxOnOver:false,
+            updateControlOnOver:true,
+            
+            height:22,
+            pickListHeaderHeight:28,
+            valueIconSize:20,
+            showFocusedPickerIcon:false,
+            textBoxStyle:"selectItemLiteText",
+            controlStyle:"selectItemLiteControl",
+            pendingValueStyle: "selectItemLiteMultiValuePending",
+            // We only show the text box in print view - ensure it styles with a border
+            printTextBoxStyle:"textItemLite",
+            printReadOnlyTextBoxStyle:"staticTextItem",
+
+            width: 220
         });
+
         isc.SelectItem.changeDefaults("pickerIconDefaults", {
             showOver: true,
             showRTL: true
@@ -1011,140 +1111,85 @@ with (theWindow) {
         isc.SelectItem.changeDefaults("separateValuesListDefaults", {
             showOverAsSelected: false
         });
-                
-        isc.SelectItem.addProperties({
-            // Media is 14w by 8h - we're adding a couple of px for h-padding
-            pickerIconSrc:"sprite:cssClass:comboBoxItemPicker;size:16,8",
-            pickerIconWidth:10,
-            pickerIconHeight:5,
-            pickerIconStyle:"selectItemPickerIcon"
-        });
+
+        if (isc.NativeSelectItem) {
+            isc.NativeSelectItem.addProperties({
+                width: 220
+            });
+        }
     }
 
     if (isc.SpinnerItem) {
         isc.SpinnerItem.addProperties({
+            width: 220,
             height:22,
-            textBoxStyle:"spinnerItemLiteText",
-            controlStyle:"spinnerItemLiteControl",
-            unstackedTextBoxStyle: "textItemLite"
-        });
-        
-        isc.SpinnerItem.addProperties({
+            stackedIconsWidth:14,
+            stackedIconsHeight:20,
+            
             showOver:true,
             updateTextBoxOnOver:false,
             updateControlOnOver:true,
-            width: 220
+            textBoxStyle:"selectItemLiteText",
+            controlStyle:"selectItemLiteControl",
+            unstackedTextBoxStyle: "textItemLite",
+            getUpdateTextBoxOnOver : function () {
+                return !this.usingStackedMode();
+            },
+            getUpdateControlOnOver : function () {
+                return this.usingStackedMode();
+            }
         });
 
         isc.SpinnerItem.changeDefaults("increaseIconDefaults", {
-            width:16,
-            height:14,        
+            src:"sprite:cssClass:spinnerItemIncrease;size:16,16",
             showOver:true,
             showFocused:true,
             showFocusedWithItem:false,
             showRTL:true
         });
         isc.SpinnerItem.changeDefaults("decreaseIconDefaults", {
-            width:16,
-            height:14,
+            src:"sprite:cssClass:spinnerItemDecrease;size:16,16",
             showOver:true,
             showFocused:true,
             showFocusedWithItem:false,
             showRTL:true
         });
-
         isc.SpinnerItem.changeDefaults("unstackedIncreaseIconDefaults", {
-            width: 36,
-            height: 30,
+            src: "blank",
+            baseStyle: "unstackedSpinnerItemIncrease",
+            width: 30,
+            height: 20,
             showFocused: true,
             showRTL: true
         });
         isc.SpinnerItem.changeDefaults("unstackedDecreaseIconDefaults", {
-            width: 36,
-            height: 30,
+            src: "blank",
+            baseStyle: "unstackedSpinnerItemDecrease",
+            width: 30,
+            height: 20,
             showFocused: true,
             showRTL: true
         });
-
-        isc.SpinnerItem.changeDefaults("increaseIconDefaults", {
-            src:"blank",
-            baseStyle:"spinnerItemIncrease"
-        });
-        isc.SpinnerItem.changeDefaults("decreaseIconDefaults", {
-            src:"blank",
-            baseStyle:"spinnerItemDecrease"
-        });
-
-        isc.SpinnerItem.changeDefaults("unstackedIncreaseIconDefaults", {
-            src: "blank",
-            baseStyle: "unstackedSpinnerItemIncrease"
-        });
-        isc.SpinnerItem.changeDefaults("unstackedDecreaseIconDefaults", {
-            src: "blank",
-            baseStyle: "unstackedSpinnerItemDecrease"
-        });
-        
     }
 
     if (isc.RelativeDateItem) {
         isc.RelativeDateItem.addProperties({
             width: 220,
-            valueFieldProperties: {width: 180},
-            quantityFieldWidth: 50,
+            valueFieldWidth:190,
+            quantityFieldWidth: 60,
             pickerIconWidth: 20, pickerIconHeight: 20            
         });
         isc.RelativeDateItem.changeDefaults("pickerIconDefaults", {
             neverDisable: false,
+            showOver: true,
             src: "[SKIN]/DynamicForm/date_control.png"
         });
     }
 
-    if (isc.RichTextEditor) {
-        isc.RichTextEditor.addProperties({
-            showEdges:false,
-            styleName:"richTextEditorBorder",
-            toolbarBackgroundColor: "#f0f0f0"
-            ,
-            defaultControlConstructor: 'ToolStripButton'
-            //. styleName
-        });
-        isc.RichTextEditor.changeDefaults("toolbarDefaults", {
-            layoutMargin: 6,
-            membersMargin: 6
-        });
-        
-        isc.RichTextEditor.changeDefaults("boldSelectionDefaults", {
-            icon: "[SKIN]/RichTextEditor/text_bold.png",
-            title: null
-        });
-        isc.RichTextEditor.changeDefaults("italicSelectionDefaults", {
-            icon: "[SKIN]/RichTextEditor/text_italic.png",
-            title: null
-        });
-        isc.RichTextEditor.changeDefaults("underlineSelectionDefaults", {
-            icon: "[SKIN]/RichTextEditor/text_underline.png",
-            title: null
-        });
-        
-        isc.RichTextEditor.changeDefaults("editAreaDefaults", {
-            padding: 10
-        });
-    }
-    
     if (isc.SectionHeader) {
         isc.SectionHeader.addProperties({
             icon:"[SKIN]/SectionHeader/opener.png"
             //iconOrientation:"right"
-        });
-    }
-
-    if (isc.FormItem) {
-        isc.FormItem.addProperties({
-            defaultIconSrc:"[SKIN]/DynamicForm/default_formItem_icon.png",
-            errorIconSrc:"[SKINIMG]actions/exclamation.png",
-            iconHeight:18,
-            iconVAlign:"middle",
-            iconWidth:18
         });
     }
 
@@ -1162,65 +1207,19 @@ with (theWindow) {
     if (isc.TextAreaItem) {
         isc.TextAreaItem.addProperties({
             showFocused:true,
-            textBoxStyle:"textAreaItemLite"
-        });
-        isc.TextAreaItem.addProperties({
+            textBoxStyle:"textAreaItemLite",
+            pickerIconHeight:18,
+
             width: 220
         });
     }
 
-    if (isc.SelectItem) {
-
-        isc.SelectItem.addProperties({
-            showOver:true,
-            updateTextBoxOnOver:false,
-            updateControlOnOver:true,
-            
-            height:22,
-            pickListHeaderHeight:28,
-            valueIconSize:20,
-            showFocusedPickerIcon:false,
-            textBoxStyle:"selectItemLiteText",
-            controlStyle:"selectItemLiteControl"
-        });
-        
-        
-        isc.SelectItem.addProperties({
-            width: 220
-        });
-        
-        if (isc.NativeSelectItem) {
-            isc.NativeSelectItem.addProperties({
-                width: 220
-            });
-        }
-    }
-    
-    if (isc.ComboBoxItem) {
-        isc.ComboBoxItem.addProperties({
-            // we have 'showOver' explicitly set to true for the picker-icon
-            // This will hilight the chevron as the user rolls over that icon only
-            showOver:true,
-            updateTextBoxOnOver:false,
-            updateControlOnOver:true,
-            
-            height:22,
-            pickListHeaderHeight:28,
-            showFocusedPickerIcon:false,
-            
-            pendingTextBoxStyle:"selectItemLiteTextPending",
-            textBoxStyle:"selectItemLiteText",
-            controlStyle:"selectItemLiteControl"
-        });
-    
-    }
-    // used by SelectItem and ComboBoxItem for picklist
+    // used by SelectItem and ComboBoxItem for flat list data
     if (isc.ScrollingMenu) {
         isc.ScrollingMenu.addProperties({
-        shadowDepth:5,
-        showShadow:false,
-        showSelectedRollOverCanvas:false
-        
+            shadowDepth:5,
+            showShadow:false,
+            showSelectedRollOverCanvas:false
         });
     }
 
@@ -1229,11 +1228,32 @@ with (theWindow) {
             skinUsesCSSTransitions: true,
             alternateFieldStyles:false,
             alternateRecordStyles:false,
-            showOverAsSelected: false
-
+            showOverAsSelected: false,
+            // enforce baseStyle, so that tallCell doesn't get used with the rollOverCanvas
+            baseStyle: "pickListCell",
+            styleName: "pickListMenu",
+            bodyStyleName: "pickListMenuBody"
         });
     }
     
+    // used by SelectItem and ComboBoxItem for tree data
+    if (isc.ScrollingTreeMenu) {
+        isc.ScrollingTreeMenu.addProperties({
+            shadowDepth:5,
+            showShadow:false,
+            showSelectedRollOverCanvas:false
+        });
+    }
+
+    if (isc.PickTreeMenu) {
+        isc.PickTreeMenu.addProperties({
+            skinUsesCSSTransitions: true,
+            alternateFieldStyles:false,
+            alternateRecordStyles:false,
+            showOverAsSelected: false
+        });
+    }
+
     if (isc.PickList) {
         isc.PickList.addInterfaceProperties({
             pickListCellHeight:17
@@ -1257,31 +1277,53 @@ with (theWindow) {
             monthSelectorProperties: {width:63},
             daySelectorProperties: {width:51},
             yearSelectorProperties: {width:69},
-            pickerIconWidth:24,
-            pickerIconHeight:24,
+            pickerIconWidth:20,
+            pickerIconHeight:20,
             pickerIconSrc:"[SKIN]/DynamicForm/date_control.png",
             showOver:true,
-            showFocused:true
-        });
-        isc.DateItem.addProperties({
+            showFocused:true,
+
             textBoxStyle:"textItemLite"
         });
+
+        // remove the default black border from the DateChooser
+        isc.DateItem.changeDefaults("pickerProperties", { border: null });
+
+        if (isc.NativeDateItem) {
+            isc.NativeDateItem.addProperties({
+                textBoxStyle:"textItemLite"
+            });
+        }
+        if (isc.NativeTimeItem) {
+            isc.NativeTimeItem.addProperties({
+                textBoxStyle:"textItemLite"
+            });
+        }
+        if (isc.NativeDatetimeItem) {
+            isc.NativeDatetimeItem.addProperties({
+                textBoxStyle:"textItemLite"
+            });
+        }
     }
     if (isc.MiniDateRangeItem) {
         isc.MiniDateRangeItem.addProperties({
             "pickerIconSrc": "[SKIN]/DynamicForm/date_control.png",
-            pickerIconWidth:21,
-            pickerIconHeight:21,
+            pickerIconWidth:20,
+            pickerIconHeight:20,
             width: 218,
-            textBoxStyle:"spinnerItemLiteText",
-            controlStyle:"spinnerItemLiteControl" 
+            height: 22,
+            showOver:true,
+            updateTextBoxOnOver:false,
+            updateControlOnOver:true,
+            textBoxStyle:"selectItemLiteText",
+            controlStyle:"selectItemLiteControl" 
         });
     }
     
     if (isc.TimeItem) {
         isc.TimeItem.addProperties({
             width: 220,
-           // height:22
+            height:22,
             hourItemProperties: {width:70},
             minuteItemProperties: {width:70},
             secondItemProperties: {width:70}
@@ -1301,26 +1343,52 @@ with (theWindow) {
             popUpIconWidth:16
         });
     }
-    if (isc.ButtonItem && isc.IButton) {isc.ButtonItem.addProperties({
-        showFocused:true,
-        showFocusedAsOver:false,
-        showFocusOutline:false,
-        buttonConstructor:isc.IButton,
-        height:22
-    })}
-
+    if (isc.ButtonItem && isc.IButton) {
+        isc.ButtonItem.addProperties({
+            showFocused:true,
+            showFocusedAsOver:false,
+            showFocusOutline:false,
+            buttonConstructor:isc.IButton,
+            height:22
+        });
+    }
 
     if (isc.ToolbarItem && isc.IAutoFitButton) {
         isc.ToolbarItem.addProperties({
             buttonConstructor:isc.IAutoFitButton,
-            buttonProperties:{ autoFitDirection:isc.Canvas.BOTH }
+            buttonProperties:{ autoFitDirection:isc.Canvas.HORIZONTAL }
         });
     }
 
-    if (isc.DateRangeDialog) {
-        isc.DateRangeDialog.changeDefaults("headerIconProperties", { src:"[SKIN]/DynamicForm/date_control.png" });
+    if (isc.LinkItem) {
+        isc.LinkItem.addProperties({ linkTextClass: "linkText" });
     }
-   
+
+    if (isc.UploadItem) {
+        isc.UploadItem.addProperties({ showOver: false });
+    }
+
+    if (isc.ColorItem) {
+        
+        isc.ColorItem.addProperties({
+            showEmptyPickerIcon: true,
+            overlayPickerImage: true,
+            pickerIconHeight:22,
+            pickerIconWidth:22,
+            
+            width: 220,
+            // not clear why this is being switched off
+            supportsTransparency: true,
+            showOverIcons: false,
+            updatePickerIconOnOver: false
+        });
+        isc.ColorItem.changeDefaults("pickerIconDefaults", {
+            showRTL: true,
+            showFocused: false,
+            showOver: false
+        });
+    }
+    
     //----------------------------------------
     // 12) DateChooser
     //----------------------------------------
@@ -1329,7 +1397,8 @@ with (theWindow) {
         isc.DateGrid.addProperties({
             minFieldWidth:33,
             cellHeight:27,
-            alternateFieldStyles: false
+            alternateFieldStyles: false,
+            fiscalYearColWidth: 45
         });
     }
  
@@ -1340,7 +1409,7 @@ with (theWindow) {
             baseNavButtonStyle:"dateChooserNavButton",
             baseWeekdayStyle:"dateChooserWeekday",
             baseWeekendStyle:"dateChooserWeekend",
-            baseBottomButtonStyle:"dateChooserBorderedBottomButton",
+            baseBottomButtonStyle:"button",
             headerStyle:"dateChooserButton",
             nextMonthIcon:"[SKINIMG]/DateChooser/arrow_right.png",
             nextMonthIconHeight:16,
@@ -1357,30 +1426,59 @@ with (theWindow) {
             showDoubleYearIcon:false,
             showEdges:false,
             skinImgDir:"images/DateChooser/",
-            todayButtonHeight:20,
             weekendHeaderStyle:"dateChooserWeekendButton",
             styleName:"dateChooserBorder",
             borderCalendar:0,
             width:236,
             timeLayoutIsVisibleWidth:336,
             timeLayoutIsVisibleMinFieldWidth:47,
-            monthMenuFormat:"MMMM"
+            monthMenuFormat:"MMMM",
+            weekHeaderStyle: "dateChooserButton",
+            fiscalYearHeaderStyle: "dateChooserButton"
+
         });
+
         isc.DateChooser.changeDefaults("timeLayoutDefaults", { 
             styleName:"dateChooserBorderTop", width: "100%", align:"center"
         });
+        isc.DateChooser.changeDefaults("todayButtonDefaults", { 
+            autoFit: false,
+            overflow: "visible",
+            width: 98,
+            minWidth: 98
+        });
+        isc.DateChooser.changeDefaults("cancelButtonDefaults", { 
+            autoFit: false,
+            overflow: "visible",
+            width: 98,
+            minWidth: 98
+        });
+        isc.DateChooser.changeDefaults("applyButtonDefaults", { 
+            autoFit: false,
+            overflow: "visible",
+            width: 98,
+            minWidth: 98
+        });
         isc.DateChooser.changeDefaults("buttonLayoutDefaults", { 
-            membersMargin:15, layoutTopMargin:2, styleName:"dateChooserBorderTop",
-            height:44, width:"100%", align:"center", defaultLayoutAlign:"center" });
-        isc.DateChooser.changeDefaults("navigationLayoutDefaults", { backgroundColor:"#f0f0f0", 
-                                                                    styleName:"dateChooserBorderBottom",
-                                                                    height:42, width:"100%" });
-        isc.DateChooser.changeDefaults("previousYearButtonDefaults", { height:45, width:30, align:"right" });
-        isc.DateChooser.changeDefaults("previousMonthButtonDefaults", { height:45, width:30, align:"left" });
+            membersMargin:10, 
+            layoutMargin: 0, 
+            layoutTopMargin:4, 
+            styleName:"dateChooserBorderTop",
+            height:44
+        });
+        isc.DateChooser.changeDefaults("navigationLayoutDefaults", { 
+            styleName:"dateChooserBorderBottom",
+            height:42,
+            layoutMargin: 0
+        });
+        isc.DateChooser.changeDefaults("weekChooserButtonDefaults", { height:45, minWidth: 30, width:30, align:"right", showFocusedAsOver: true });
+        isc.DateChooser.changeDefaults("fiscalYearChooserButtonDefaults", { height:45, minWidth: 45, width:45, align:"right", showFocusedAsOver: true });
+        isc.DateChooser.changeDefaults("previousYearButtonDefaults", { height:45, width:30, align:"right", showFocusedAsOver: true });
+        isc.DateChooser.changeDefaults("previousMonthButtonDefaults", { height:45, width:30, align:"left", showFocusedAsOver: true });
         isc.DateChooser.changeDefaults("monthChooserButtonDefaults", { height:45 });
         isc.DateChooser.changeDefaults("yearChooserButtonDefaults", { height:45 });
-        isc.DateChooser.changeDefaults("nextMonthButtonDefaults", { height:45, width:30, align:"right" });
-        isc.DateChooser.changeDefaults("nextYearButtonDefaults", { height:45, width:30, align:"left" });
+        isc.DateChooser.changeDefaults("nextMonthButtonDefaults", { height:45, width:30, align:"right", showFocusedAsOver: true });
+        isc.DateChooser.changeDefaults("nextYearButtonDefaults", { height:45, width:30, align:"left", showFocusedAsOver: true });
     }
    
     //----------------------------------------
@@ -1392,13 +1490,16 @@ with (theWindow) {
             defaultLayoutAlign:"center",
             verticalStyleName: "vToolStrip",
             membersMargin: 2,
-            height:27
+            // ToolStripButton default height is 22 - add 10 for 4px padding plus 1px border
+            // per side
+            height:32
         });
         isc.ToolStrip.changeDefaults("formWrapperDefaults",{cellPadding:3});
         
         if (isc.RibbonBar) {
             isc.RibbonBar.addProperties({ 
                 styleName: "ribbonBar",
+                verticalStyleName: "ribbonBar",
                 layoutMargin: 8,
                 membersMargin: 10
             });
@@ -1439,8 +1540,6 @@ with (theWindow) {
         isc.overwriteClass("ToolStripButton", "Button").addProperties({
             autoFit:true,
             baseStyle:"toolStripButton",
-            iconSize: 15,
-            height:17,
             labelVPad:0,
             showTitle:false,
             showRollOver:true,
@@ -1462,15 +1561,8 @@ with (theWindow) {
     // 14) Sliders
     //----------------------------------------
     if (isc.Slider) {
-        isc.Slider.changeDefaults("rangeLabelDefaults", {
-            showDisabled: true
-        });
-        isc.Slider.changeDefaults("valueLabelDefaults", {
-            showDisabled: true
-        });
-    }
-    if (isc.Slider) {
         isc.Slider.addProperties({
+            styleName: "slider",
             hThumbStyle:"hSliderThumb",
             hTrackStyle:"hSliderTrack",
             thumbConstructor:"StatefulCanvas",
@@ -1497,6 +1589,12 @@ with (theWindow) {
                 return (isc.Browser.isTouch ? "touch" : this.customState);
             }
         });
+        isc.Slider.changeDefaults("rangeLabelDefaults", {
+            showDisabled: true
+        });
+        isc.Slider.changeDefaults("valueLabelDefaults", {
+            showDisabled: true
+        });
     }
 
    
@@ -1506,7 +1604,7 @@ with (theWindow) {
     if (isc.TileGrid) {
         isc.TileGrid.addProperties({
             showEdges:false,
-            styleName:null,
+            //styleName:null,
             valuesShowRollOver:true
         });
     }
@@ -1516,9 +1614,43 @@ with (theWindow) {
     // 16) RichTextEditor
     //----------------------------------------
     if (isc.RichTextEditor) {
-        isc.RichTextEditor.addProperties({ showGroupSeparators: false });
-        isc.RichTextEditor.changeDefaults("toolAreaDefaults", { styleName: "richTextEditorToolArea" });
-        isc.RichTextEditor.changeDefaults("toolbarDefaults", { layoutMargin: 0, membersMargin: 0 });
+        isc.RichTextEditor.addProperties({
+            showEdges:false,
+            styleName:"richTextEditorBorder",
+            defaultControlConstructor: 'ToolStripButton',
+            showGroupSeparators: false,
+            // clear out the backgroundColor so the one from the style gets used
+            editAreaBackgroundColor: null,
+            editAreaClassName: "richTextEditorEditArea",
+            // clear the toolArea background, it's now in the richTextEditorToolArea css class
+            toolbarBackgroundColor: null
+        });
+        isc.RichTextEditor.changeDefaults("toolbarDefaults", {
+            layoutMargin: 0,
+            membersMargin: 0
+        });
+        
+        isc.RichTextEditor.changeDefaults("toolAreaDefaults", { 
+            styleName: "richTextEditorToolArea" 
+        });
+
+        isc.RichTextEditor.changeDefaults("editAreaDefaults", {
+            //styleName: "richTextEditorEditArea",
+            padding: 10
+        });
+
+        isc.RichTextEditor.changeDefaults("boldSelectionDefaults", {
+            icon: "[SKIN]/RichTextEditor/text_bold.png",
+            title: null
+        });
+        isc.RichTextEditor.changeDefaults("italicSelectionDefaults", {
+            icon: "[SKIN]/RichTextEditor/text_italic.png",
+            title: null
+        });
+        isc.RichTextEditor.changeDefaults("underlineSelectionDefaults", {
+            icon: "[SKIN]/RichTextEditor/text_underline.png",
+            title: null
+        });
         
         isc.RichTextEditor.changeDefaults("colorDefaults", { 
             showSelected: true, 
@@ -1544,17 +1676,26 @@ with (theWindow) {
         });
 
         isc.Calendar.changeDefaults("controlsBarDefaults", {
-            height:10,
-            layoutBottomMargin:10
+            height: 10,
+            padding: 4
         });
 
-        isc.EventWindow.changeDefaults("resizerDefaults", {
-            src:"[SKIN]/Window/v_resizer.png"
-        });
-        isc.TimelineWindow.changeDefaults("resizerDefaults", {
-            src:"[SKIN]/Window/h_resizer.png"
-        })
-
+        if (isc.EventWindow) {
+            isc.EventWindow.changeDefaults("resizerDefaults", {
+                src:"[SKIN]/Window/v_resizer.png"
+            });
+        }
+        if (isc.TimelineWindow) {
+            isc.TimelineWindow.changeDefaults("resizerDefaults", {
+                src:"[SKIN]/Window/h_resizer.png"
+            })
+        }
+        if (isc.CalendarView) {
+            isc.CalendarView.addProperties({
+                headerBarStyle: "calendarHeaderBar"
+            });
+            isc.CalendarView.changeDefaults("rollOverCanvasDefaults", { styleName: null });
+        }
     }
 
     //----------------------------------------
@@ -1565,6 +1706,7 @@ with (theWindow) {
             alternateFieldStyles:false,
             arrowIconSize:14
         });
+        isc.CubeGrid.changeDefaults("rollOverCanvasDefaults", { styleName: "cubeSelectionOver" });
     }    
     
     // -------------------------------------------
@@ -1621,12 +1763,13 @@ with (theWindow) {
     // -------------------------------------------
     if (isc.Gauge) {
         isc.Gauge.addProperties({
-            fontSize: 11
+            fontSize: 11,
+            needleColor: "#4e4e4e"
         });
         isc.Gauge.changeDefaults("valueLabelDefaults", {
             fontFamily: "Arial",
             fontWeight: "normal",
-            lineColor: "#000000"
+            lineColor: "#4e4e4e"
         });
     }
 
@@ -1635,7 +1778,7 @@ with (theWindow) {
     // -------------------------------------------
     if (isc.FacetChart) {
         isc.FacetChart.addProperties({
-             // General Chart changes
+            // General Chart changes
             padding: 0,       
             titleProperties: {
                 fontFamily: "Arial",
@@ -1658,20 +1801,20 @@ with (theWindow) {
                 lineWidth: 1
             }, 
             titleRectHeight: 32, 
-             legendAlign: "right",
-             drawLegendBoundary: true,
-             legendBoundaryProperties: {
+            legendAlign: "right",
+            drawLegendBoundary: true,
+            legendBoundaryProperties: {
                 lineColor: "#cccccc",
                 lineWidth: 1
             }, 
-             legendRectProperties : {
+            legendRectProperties : {
                 lineWidth:1,
                 lineOpacity:0,
                 lineColor: "#cccccc"
-             },
-             legendPadding:12,
-             // Just replace the border with a white border to give the impression there isn't one
-             legendSwatchProperties : {
+            },
+            legendPadding:12,
+            // Just replace the border with a white border to give the impression there isn't one
+            legendSwatchProperties : {
                 lineWidth:0,
                 lineColor:"#FFFFFF"
             },
@@ -1682,26 +1825,26 @@ with (theWindow) {
             // Change the Background Banding Color
             backgroundBandProperties : {
                 excludeFromQuadTree:true,
-            lineOpacity: 0,
-            fillColor:"#f7f7f7"
-        },
-        gradationLineProperties: {
-            excludeFromQuadTree: true,
-            lineWidth: 1,
-            lineColor: "#e4e4e4"
-        },
-        // Don't use color gradients, shadows or borders around the chart elements
-        showShadows: false,
-        useAutoGradients:false,
-        barProperties: {
-            lineColor: this.lineColor, 
-            lineWidth:1
-        }, 
-        // Pad the Y Axis Data Label 3px from the outer container border
-        yAxisLabelPadding : 3,
-        matchBarChartDataLineColor: true,
-        brightenPercent: 50,
-        brightenAllOnHover: true
+                lineOpacity: 0,
+                fillColor:"#f7f7f7"
+            },
+            gradationLineProperties: {
+                excludeFromQuadTree: true,
+                lineWidth: 1,
+                lineColor: "#e4e4e4"
+            },
+            // Don't use color gradients, shadows or borders around the chart elements
+            showShadows: false,
+            useAutoGradients:false,
+            barProperties: {
+                lineColor: null, 
+                lineWidth:1
+            }, 
+            // Pad the Y Axis Data Label 3px from the outer container border
+            yAxisLabelPadding : 3,
+            matchBarChartDataLineColor: true,
+            brightenPercent: 50,
+            brightenAllOnHover: true
         });
     }
     
@@ -1710,6 +1853,10 @@ with (theWindow) {
     //----------------------------------------
     
     if (isc.FilterBuilder) {
+        isc.FilterBuilder.addProperties({
+            fieldPickerWidth:120,
+            operatorPickerWidth:180
+        });
         isc.FilterBuilder.changeDefaults("topOperatorFormDefaults", {
             width: 130
         });
@@ -1770,14 +1917,57 @@ with (theWindow) {
             layoutAlign: "center"
         });
     }
-    
+
+    //----------------------------------------
+    // 26) Progressbar
+    //----------------------------------------
+    if (isc.Progressbar) {
+        isc.Progressbar.addProperties({
+            backgroundColor: null,
+            useCssStyles: true,
+            titleStyle: "progressbarTitle"
+        })
+    }
     //----------------------------------------
     // Misc
     //----------------------------------------
 
     if (isc.RPCManager) {
         isc.RPCManager.addClassProperties({
-            promptStyle:"cursor"
+            promptStyle:"cursor",
+            loginWindowProperties: {
+                showModalMask: true
+            },
+            loginFormProperties: {
+                styleName: "loginForm",
+                titleOrientation: "top",
+                border: "none",
+                titleSuffix: "",
+                autoParent:"none",
+                numCols: 1,
+                cellPadding: 7,
+                width: 355,
+                height: 240,
+                fields : [
+                    isc.addProperties(isc.RPCManager.loginFailureFieldDefaults, {
+                        textBoxStyle:"loginErrorLabel"
+                    }),
+                    isc.addProperties(isc.RPCManager.loginUsernameFieldDefaults, {
+                        titleStyle: "loginItemTitle",
+                        textBoxStyle: "loginTextItemLite",
+                        width: "100%", height: 38
+                    }),
+                    isc.addProperties(isc.RPCManager.loginPasswordFieldDefaults, { 
+                        titleStyle: "loginItemTitle",
+                        textBoxStyle: "loginTextItemLite",
+                        width: "100%", height: 38
+                    }),
+                    isc.addProperties(isc.RPCManager.loginButtonDefaults, {
+                        width: "100%", height: 38,           
+                        baseStyle: "loginButton"
+                    })
+                ]
+            }
         });
     }
 
@@ -1792,14 +1982,168 @@ with (theWindow) {
     isc.pickerImgType = "png";
     isc.transferImgType = "png";
     isc.headerImgType = "png";
-    
-    
-    // remember the current skin so we can detect multiple skins being loaded
-    if (isc.setCurrentSkin) isc.setCurrentSkin("Tahoe");
+
+
+
+    /* Customizations for the showcase */
+    if (isc.ExampleViewer) {
+        // override installSkinCustomizations to set up the showcase classes for this skin - 
+        // the showcase calls this method after setting up its own defaults
+        isc.ExampleViewer.installSkinCustomizations = function () {
+            var skin = isc.getCurrentSkinName();
+
+            // use dedicated skin directory (icons, thumbnails, etc.)
+            isc.Page.setIsomorphicDocsSkinDir("skin/" + skin + "/");
+
+            isc.VersionLabel.addProperties({
+                styleName: "versionLabel" + skin
+            });
+
+            // Title page 
+            isc.TitlePagePane.addProperties({
+                layoutMargin:0
+            });
+            isc.TitlePagePane.changeDefaults("titlePageHeaderDefaults", {
+                height: isc.SectionStack.getPrototype().headerHeight,
+                styleName: "explorerTitlePageTitle" + skin
+            });
+            isc.TitlePagePane.changeDefaults("folderListDefaults", {
+                styleName: "explorerFolderList" + skin
+            });
+
+            // Example Viewer
+            isc.ExampleViewer.changeDefaults("optionsMenuButtonDefaults", {
+                width: 50
+            });
+            isc.ExampleViewer.changeDefaults("skinSwitcherDefaults", {
+                margin: 3
+            });
+            isc.ExampleViewer.changeDefaults("densitySwitcherDefaults", {
+                margin: 3
+            });
+            isc.ExampleViewer.changeDefaults("screenshotDefaults", {
+                showEdges: false,
+                border: "1px solid #ccc"
+            });
+
+            isc.ExampleViewerSectionHeader.addProperties({
+                baseStyle: "centerPane" + skin + "Header"
+            });
+            
+            // Feature Explorer
+            isc.FeatureExplorer.changeDefaults("exampleTreeDefaults", {
+                showConnectors:true,
+                baseStyle: "etreeCell" + skin,
+                styleName: "etree",
+                cellHeight: 22 + isc.FeatureExplorer.getPrototype().currentSizeIncrease 
+            });
+            isc.FeatureExplorer.changeDefaults("homeInterfacePageDefaults", {
+                styleName: "homeInterfacePage" + skin,
+                border: null // use border from styleName
+            });
+            isc.FeatureExplorer.changeDefaults("homeInterfaceDefaults", {
+                styleName: "homeInterface" + skin,
+                membersMargin: 15,
+                layoutTopMargin: isc.Browser.isDesktop    ? 12 : 0,
+                layoutRightMargin: isc.Browser.isDesktop  ? 15 : 0,
+                layoutLeftMargin: isc.Browser.isDesktop   ? 15 : 0,
+                layoutBottomMargin: isc.Browser.isDesktop ? 15 : 0,
+                closeIconSize: 16
+            });
+
+            // Home page
+            isc.HomeInterface.changeDefaults("customTileGridDefaults", {
+                valuesShowDown: true,
+                // mobile height is not half of "normal" because there needs to be room for the
+                // label, especially since the labels tend to wrap, so they require 2-3 lines
+                tileWidth:  isc.Browser.isDesktop ? 135 : 70,
+                tileHeight: isc.Browser.isDesktop ? 135 : 90
+            });
+            if (isc.Browser.isDesktop) {
+                isc.HomeInterface.changeDefaults("customTileGridDefaults", {
+                    styleName: "showcaseTileGrid" + skin
+                });
+            }
+            isc.HomeInterface.changeDefaults("filtersFormDefaults", {
+                styleName: "showcaseFilterForm" + skin,
+                fixedColWidths: false
+            });
+            isc.HomeInterface.changeDefaults("categoriesFormDefaults", {
+                styleName: "showcaseFilterForm" + skin,
+                fixedColWidths: false
+            });
+            isc.HomeInterface.changeDefaults("searchFieldDefaults", {
+                titleStyle: "explorerSearchItemTitle" + skin,
+                textBoxStyle: "explorerSearchItem" + skin
+            });
+            isc.HomeInterface.changeDefaults("tileDefaults", {
+                baseStyle: "showcaseTile" + skin
+            });
+            
+            isc.ExplorerCheckboxItem.addProperties({
+                textBoxStyle: "sampleTypeLabelAnchor" + skin
+            });
+
+            isc.CustomTile.addProperties({
+                thumbnailFieldAddedHeight: 18
+            });
+            isc.CustomTile.changeDefaults("thumbnailFieldDefaults", {
+                getValueIconStyle : function (value) {
+                    return "showcaseTileIcon" + isc.getCurrentSkinName();
+                },
+                cellStyle: "staticTextItem"
+            });
+            isc.CustomTile.changeDefaults("titleFieldDefaults", {
+                wrap: false,
+                textBoxStyle: "showcaseTileTitle" + skin,
+                cellStyle: "showcaseTileTitle" + skin,
+                cellHeight: 30,
+                height: "*"
+            });
+
+            isc.GridSearch.addProperties({
+                styleName: "gridSearchForm" + skin,
+                // align this form with the SectionStack header to its right
+                height: isc.SectionStack.getPrototype().headerHeight,
+                searchItemProperties: {
+                    height: isc.TextItem.getPrototype().getHeight()
+                }
+                // The only difference between this and the default is font size isn't scaled.
+                //textBoxStyle: "gridSearchItem" + skin
+            });
+
+            // Web side/bottom panels
+            isc.WebRightButtonBox.addProperties({
+                showGradient: false,
+                styleName: "explorerButtonBoxR" + skin
+            });
+            isc.WebRightButton.addProperties({
+                fontSize: 10,
+                lineHeight: 14,
+                getSkinStyle : function (style) {
+                    return style + isc.getCurrentSkinName();
+                }
+            });
+            isc.WebBottomButton.addProperties({
+                getSkinStyle : function (style) {
+                    return style + isc.getCurrentSkinName();
+                }
+            });
+            isc.FeatureExplorer.changeDefaults("learnMoreButtonRDefaults", {
+                
+                height: 84
+            });
+            
+            // see comment in "other skins" below
+            isc.Page.setAppImgDir(isc.Page.getIsomorphicDocsDir()+"exampleImages" + skin + "/");
+        }
+    }
+
+    // if CSS is loaded or being loaded, call FontLoader with same @font-face fonts from CSS
+    if (cssLoaded != null) isc.FontLoader.loadCustomFonts(isc.currentSkin.fonts, cssLoaded);
 
     isc.Class.modifyFrameworkDone();
 }   // end with()
 }   // end loadSkin()
 
-isc.loadSkin()
-
+isc.loadSkin();

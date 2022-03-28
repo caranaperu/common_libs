@@ -31,4 +31,7 @@
 		<field name="millisecondItemTitle"	type="string"/>
 		<field name="millisecondItemPrompt"	type="string"/>
 	</fields>
+    <methods>
+        <method action="event" name="changed" basic="true" whenRuleTip="true" />
+    </methods>
 </DataSource>

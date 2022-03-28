@@ -6,7 +6,8 @@
         <field name="labelBreadthPad" type="integer"/>
         <field name="wrap" type="boolean"/>
         <field name="hiliteAccessKey"   type="boolean" />
-        <field name="action" type="Action" editorType="ActionMenuItem"/>        
+        <field name="action" type="Action" editorType="ActionMenuItem" hidden="true"/>        
+		<field name="layoutAlign"     type="anyAlignEnum" editorType="LayoutAlignItem" basic="true"/>	
 	</fields>
     <methods>
         <method action="event" title="Click" name="click" basic="true" />

@@ -1,8 +1,7 @@
-
 /*
 
   SmartClient Ajax RIA system
-  Version v11.1p_2017-06-29/LGPL Deployment (2017-06-29)
+  Version v12.1p_2022-02-22/LGPL Development Only (2022-02-22)
 
   Copyright 2000 and beyond Isomorphic Software, Inc. All rights reserved.
   "SmartClient" is a trademark of Isomorphic Software, Inc.
@@ -39,9 +38,9 @@ else if(isc._preLog)isc._preLog[isc._preLog.length]=isc._pTM;
 else isc._preLog=[isc._pTM]}isc.definingFramework=true;
 
 
-if (window.isc && isc.version != "v11.1p_2017-06-29/LGPL Deployment" && !isc.DevUtil) {
+if (window.isc && isc.version != "v12.1p_2022-02-22/LGPL Development Only" && !isc.DevUtil) {
     isc.logWarn("SmartClient module version mismatch detected: This application is loading the core module from "
-        + "SmartClient version '" + isc.version + "' and additional modules from 'v11.1p_2017-06-29/LGPL Deployment'. Mixing resources from different "
+        + "SmartClient version '" + isc.version + "' and additional modules from 'v12.1p_2022-02-22/LGPL Development Only'. Mixing resources from different "
         + "SmartClient packages is not supported and may lead to unpredictable behavior. If you are deploying resources "
         + "from a single package you may need to clear your browser cache, or restart your browser."
         + (isc.Browser.isSGWT ? " SmartGWT developers may also need to clear the gwt-unitCache and run a GWT Compile." : ""));
@@ -64,14 +63,28 @@ isc.CalendarView.addProperties({
 
     isCalendarView: true,
 
+    showHeaderSpanContextMenu: false,
+
+    autoDraw: false,
+
     verticalEvents: true,
+
+    // Only TimelineView supports multiDayEvents
+    allowMultiDayEvents: false,
+
+    // this attribute should be false for all Calendar types except Timelines, which might
+    // well need a timeItem
+    showDateChooserTimeItem: false,
 
     // needed to avoid the grid scrolling to 0,0 when clicking body children (eventCanvases)
     hiliteRowOnFocus: false,
 
+    hoverDelay: 0,
+    showHover: true,
     canHover: true,
-    showHover: null,
     hoverByCell: null,
+    hoverAutoFitWidth: true,
+    hoverAutoFitMaxWidth: 200,
 
     // prevent mouseUp/mouseDown from bubbling beyond the CalendarView
     mouseUp : function () {
@@ -86,6 +99,39 @@ isc.CalendarView.addProperties({
 
     // switch off alternateFieldStyles
     alternateFieldStyles: false,
+    alternateRecordStyles: false,
+
+    // default dateEditingStyle (vertical views) is "time", no day-selection
+    dateEditingStyle: "time",
+
+    init : function () {
+        this.calendar = this.creator;
+        // initialize a bunch of objects used to manage events and canvases
+        this.resetEventCaches(true);
+        this.resetCanvasCaches(true);
+        this.resetLaneCaches(true);
+        return this.Super("init", arguments);
+    },
+
+    resetEventCaches : function (initialize) {
+        // initialize or clear a bunch of objects used to manage events and canvases
+        this._allEventMap = initialize ? {} : null;         // map of event.__key to event-record
+        this._usedEventMap = initialize ? {} : null;        // event-records attached to canvases - __key to canvasID
+        this._lastUsedEventMap = initialize ? {} : null;    // last canvas used by a given event - __key to canvasID
+    },
+    resetCanvasCaches : function (initialize) {
+        // initialize or clear a bunch of objects used for managing canvases
+        this._allCanvasMap = initialize ? {} : null;        // all event-canvases - canvasID to canvas
+        this._pooledCanvasMap = initialize ? {} : null;     // available canvases (hidden, no event attached) - canvasID to canvas
+        this._usedCanvasMap = initialize ? {} : null;       // canvases attached to events - canvasID to event.__key
+        this._lastUsedCanvasMap = initialize ? {} : null;   // last event used by a given canvas - canvasID to event.__key
+    },
+    resetLaneCaches : function (initialize) {
+        // initialize or clear a bunch of objects used for caching lane details
+        this.laneMap = initialize ? {} : null;          // lane-name to lane-object
+        this.laneIndexCache = initialize ? {} : null;   // index cache
+        this.laneHeightCache = initialize ? {} : null;  // height cache
+    },
 
     initWidget : function () {
         // initialize a cache to store some frequently used props that only change with a rebuild
@@ -93,7 +139,9 @@ isc.CalendarView.addProperties({
         // initialize the local _eventData array - returned from getEventData()
         this._eventData = [];
         this._snapGapList = [];
+
         var cal = this.calendar;
+        this.firstDayOfWeek = cal.firstDayOfWeek;
         var showHover = this.showHover;
         if (showHover == null) showHover = cal.showViewHovers;
         this.setShowHover(showHover);
@@ -101,6 +149,9 @@ isc.CalendarView.addProperties({
 
         // only installed on TimelineView for now
         if (this.installLocalHandlers) this.installLocalHandlers()
+
+        // always run setChosenDate() to get things ready
+        this.setChosenDate(this.chosenDate);
     },
 
     setEventData : function (events) {
@@ -129,40 +180,9 @@ isc.CalendarView.addProperties({
         this.getEventData().remove(event);
     },
 
+
+
     viewMouseMove : function (a, b, c, d, e) {
-
-        if (!this.showRollOver || !this.isTimelineView()) return true;
-        if (!this.isDrawn() || !this.isVisible()) return;
-        if (!this.body || !this.body.isDrawn() || !this.body.isVisible()) return;
-        var event = isc.EH.lastEvent,
-            inBody = this.body.containsPoint(event.x, event.y, true),
-            inLabel = !inBody && this.frozenBody &&
-                        this.frozenBody.containsPoint(event.x, event.y, true)
-        ;
-        if (inLabel || inBody) {
-            //this.logInfo("In viewMouseMove");
-            // the mouse is over the frozenBody or the body - store off some critical values so
-            // they're available to frequently used APIs later - like getDateFromPoint() - also
-            // allows for a few undocuented hooks, like mouseDataChanged
-            var body = inBody ? this.body : this.frozenBody;
-            var md = this._mouseData = {};
-            md.x = body.getOffsetX();
-            md.y = body.getOffsetY();
-            md.rowNum = body.getEventRow(md.y);
-            md.colNum = body.getEventColumn(md.x);
-            if (inBody) {
-                // these will have meaning in later versions
-                //md.snapDate = this.getDateFromPoint(md.x, md.y);
-                //md.snapLeft = this.getDateLeftOffset && this.getDateLeftOffset(md.snapDate);
-            }
-
-            if (this.showRollOver && this.body.lastOverRow != md.rowNum && this.hasLanes()) {
-                // update the lane rollover
-                if (md.rowNum < 0) this.updateLaneRollover(null);
-                else this.updateLaneRollover(md.rowNum);
-            }
-            if (this.mouseDataChanged) this.mouseDataChanged(this._mouseData);
-        }
     },
 
     viewDragMove : function (event) {
@@ -174,6 +194,13 @@ isc.CalendarView.addProperties({
         return this._mouseData;
     },
 
+    // if this returns true, events are sized to content and stacked in a VLayout
+    shouldShowColumnLayouts : function () {
+        if (this.isMonthView()) return false;
+        if (this.isTimelineView()) return false;
+        return !!this.calendar.showColumnLayouts;
+    },
+
 
     canTabToHeader: false,
 
@@ -181,6 +208,71 @@ isc.CalendarView.addProperties({
     //includeRangeCriteria: null,
     //fetchMode: "view",
     rangeCriteriaMode: null,
+
+    getVisibleStartDate : function () {
+        return this.startDate;
+    },
+    getVisibleEndDate : function () {
+        return this.endDate;
+    },
+
+    _usDateRegex:/^\d{4}.\d\d?.\d\d?$/,
+    _jpDateRegex:/^\d\d?.\d\d.\d{4}?$/,
+    rangeUnit: "D",
+    setChosenDate : function (newDate) {
+        // newDate should be a logicalDate, as passed internally from Calendar.setChosenDate(),
+        // so should already be in the defaultDisplayTimezone - but run it through
+        // getLogicalDateOnly() anyway
+        var chosenDate = newDate.logicalDate ? newDate.duplicate() :
+                isc.DateUtil.getLogicalDateOnly(newDate);
+        var chosenWeek = chosenDate.getWeek();
+
+        // get logical date and week
+        this.logicalDate = chosenDate.duplicate();
+        //isc.logWarn("logicalDate is " + this.logicalDate.toString());
+        this.chosenDate = chosenDate;
+        this.chosenWeek = chosenWeek;
+
+        // always update the firstDayOfWeek from the parent caledar
+        this.firstDayOfWeek = this.calendar.firstDayOfWeek;
+        var fDOW = this.firstDayOfWeek;
+
+        // set the range dates
+        if (this.rangeUnit) {
+            this.periodStartDate = this.startDate = isc.DateUtil.getStartOf(this.chosenDate, this.rangeUnit, false, fDOW);
+            this.periodEndDate = this.endDate = isc.DateUtil.getEndOf(this.chosenDate, this.rangeUnit, false, fDOW);
+            // get logical date and week
+            this.logicalDate = isc.DateUtil.createLogicalDate(this.startDate);
+        }
+
+        this._refreshingEvents = false;
+
+        if (this.isSelectedView()) {
+            this.updateRange();
+            this._refreshEvents();
+        } else {
+            this._needsUpdateRange = true;
+            this._needsRefresh = true;
+        }
+
+    },
+
+    getPeriodStartDate : function () {
+        return this.periodStartDate;
+    },
+    getPeriodEndDate : function () {
+        return this.periodEndDate;
+    },
+
+    updateRange : function (newDate) {
+        delete this._needsUpdateRange;
+        if (this.isWeekView() || this.isDayView()) {
+            this.updateFieldDates();
+            this.updateRowDates();
+            this.markForRedraw();
+        } else if (this.isMonthView()) {
+        }
+    },
 
 
     getFieldTitle : function (fieldId) {
@@ -267,7 +359,7 @@ isc.CalendarView.addProperties({
 
     getSnapGapPixels : function (rowNum, colNum) {
         var snapCount = this.getTimePerCell() / this.getTimePerSnapGap();
-        return this.getRowHeight(this.getRecord(rowNum), rowNum) / snapCount;
+        return Math.round(this.cellHeight/snapCount);
     },
 
     getDateLabelText : function (startDate, endDate) {
@@ -330,7 +422,7 @@ isc.CalendarView.addProperties({
     // @visibility external
     //<
     isSelectedView : function () {
-        return this.calendar.getCurrentViewName() == this.viewName;
+        return this.creator.getCurrentViewName() == this.viewName;
     },
     //> @method calendarView.isTimelineView()
     // Returns true if this is the +link{calendar.timelineView, timeline view}, false otherwise.
@@ -374,14 +466,25 @@ isc.CalendarView.addProperties({
     },
 
     //> @method calendarView.rebuild()
-    // Rebuild this CalendarView, including a data refresh.
+    // Rebuild this CalendarView, including re-fetching its data as necessary.  To avoid
+    // re-fetching the data, pass 'false' to this method, or call
+    // +link{calendarView.refreshEvents, refreshEvents()) instead.
+    // @param [refreshData] (Boolean) If false, prevents data from bing refreshed.
     // @visibility external
     //<
     rebuild : function (refreshData) {
         if (refreshData == null) refreshData = true;
         if (this._rebuild) this._rebuild(refreshData);
-        else if (this.rebuildFields) this.rebuildFields();
-        else this.refreshEvents();
+        else if (this.rebuildFields) {
+            // this is a day/weekView - rebuild the fields and call setChosenDate() to refresh
+            // events
+            this.rebuildFields();
+            this.setChosenDate(this.chosenDate);
+        } else {
+            // this is monthView - refresh the fields, to pick up showIf, and refresh the events
+            if (this.isMonthView()) this.refreshFields();
+            this.refreshEvents("rebuild");
+        }
     },
     initCacheValues : function () {
         var cal = this.calendar;
@@ -451,20 +554,76 @@ isc.CalendarView.addProperties({
     },
     getSublaneFromPoint : function (x, y) { return null; },
 
-    hasLanes : function () {
+    updateLanes : function (lanes) {
+        // call setLanes without refreshing events - called as part of refreshEvents()
+        this.setLanes(lanes, true);
+        // refresh the body here so that getRowTop() and similar work as expected immediately
+        // following calls to this method
+        this.body.redraw();
+    },
+
+    // get the internal laneName -> lane-object map
+    getLaneMap : function () {
+        return this.laneMap;
+    },
+
+    usesLanes : function () {
         return this.isTimelineView() || (this.isDayView() && this.calendar.showDayLanes);
     },
+    hasLanes : function () {
+        return this.usesLanes() && this.lanes && this.lanes.length > 0;
+    },
     hasSublanes : function () {
-        return this.calendar.useSublanes && this.hasLanes();
+        return this.calendar.useSublanes && this.usesLanes();
     },
     useLanePadding : function () {
         if (this.isTimelineView()) return true;
-        if (this.hasLanes()) {
+        if (this.usesLanes()) {
             // don't introduce horizontal padding between events in a vertical lane if the
             // calendar is set up to overlap the event canvases
             return this.calendar.eventOverlap ? false : true;
         }
         return false;
+    },
+
+    canScrollToEvent : function (event) {
+        var rangeStart = this.startDate.getTime(),
+            rangeEnd = this.endDate.getTime(),
+            sDate = this.calendar.getEventStartDate(event),
+            eDate = this.calendar.getEventEndDate(event)
+        ;
+        if ((sDate.getTime() >= rangeStart && sDate.getTime() <= rangeEnd) ||
+            (eDate.getTime() >= rangeStart && eDate.getTime() <= rangeEnd))
+        {
+            return true;
+        }
+        return false;
+    },
+    scrollToEvent : function (event) {
+        var cal = this.calendar,
+            range = { start: this.startDate.getTime(), end: this.endDate.getTime() },
+            sDate = cal.getEventStartDate(event),
+            eDate = cal.getEventEndDate(event)
+        ;
+        if (this.canScrollToEvent(event)) {
+            var x = null,
+                y = null
+            ;
+            var canvas = this.getCurrentEventCanvas(event);
+            if (canvas) {
+                x = canvas.getLeft();
+                y = canvas.getTop();
+            } else {
+                x = this.getDateLeftOffset(sDate);
+                if (this.isTimelineView()) {
+                    y = this.getRowTop(this.getLaneIndex(event[cal.laneNameField]));
+                } else {
+                    y = this.getDateTopOffset(sDate, event[cal.laneNameField]);
+                }
+            }
+            // event is in the current scrollable range - scroll to it
+            this.body.scrollTo(x, y);
+        }
     },
 
     getCellCSSText : function (record, rowNum, colNum) {
@@ -476,7 +635,7 @@ isc.CalendarView.addProperties({
     },
 
     getEventCanvasStyle : function (event) {
-        if (this.hasLanes()) {
+        if (this.usesLanes()) {
             var cal = this.calendar,
                 lnField = cal.laneNameField,
                 slnField = cal.sublaneNameField,
@@ -495,40 +654,17 @@ isc.CalendarView.addProperties({
         return this.getCellDate();
     },
 
-    // override mouseMove to fire a notification when the snapDate under the mouse changes
-    mouseMove : function () {
-        var cal = this.calendar,
-            lastDate = this._lastMouseDate,
-            mouseTarget = isc.EH.lastEvent.target,
-            rowNum = (mouseTarget != this.body ? this.frozenBody && this.frozenBody.lastMouseOverRow :
-                this.body && this.body.lastMouseOverRow),
-            colNum = (mouseTarget != this.body ? this.frozenBody && this.frozenBody.lastMouseOverCol :
-                (this.body && this.body.lastMouseOverCol) + (this.frozenFields ? this.frozenFields.length : 0)),
-            mouseDate = this.getDateFromPoint()
-        ;
-        this._lastMouseTarget = mouseTarget;
-        cal._mouseMoved(this, mouseTarget, mouseDate ? mouseDate.duplicate() : null, lastDate, rowNum, colNum);
-        this._lastMouseDate = mouseDate;
-        if (this._mouseDown) {
-            // cellOver doesn't fire on mouseMove, so call it now to update
-            // the drag-selection canvas, if a drag is in progress
-            if (this.isTimelineView()) this.cellOver();
-        }
-        return true;
-    },
-
 // cell hovers
-    hoverDelay: 0,
-    //hoverStyle: "testStyle",
-    getHoverHTML : function () {
-        var rowNum = this.getEventRow(),
-            colNum = this.getEventColumn(),
-            record = this.getRecord(rowNum)
-        ;
+    cellHoverHTML : function (record, rowNum, colNum) {
         var html = this.calendar._getCellHoverHTML(this, record, rowNum, colNum);
         return html;
     },
-
+    headerHoverHTML : function (fieldNum) {
+        var field = this.getField(fieldNum);
+        return this.calendar._getHeaderHoverHTML(this, this.fieldHeaderLevel,
+            field, field.date, field.endDate);
+    },
+    // all views
     getPrintHTML : function (printProperties, callback) {
         if (this.isMonthView()) return this.Super("getPrintHTML", arguments);
         if (callback) {
@@ -539,13 +675,14 @@ isc.CalendarView.addProperties({
         }
     },
 
+    // all views
     asyncGetPrintHTML : function (printProperties, callback) {
 
         this.__printing = true;
 
         // force a refresh of ALL events - this will create and draw canvases for any events
         // that haven't yet been scrolled into view
-        this.refreshVisibleEvents(null, true, "asyncGetPrintHTML");
+        this.refreshVisibleEvents(true, "asyncGetPrintHTML");
 
         printProperties = isc.addProperties({}, printProperties);
 
@@ -560,18 +697,23 @@ isc.CalendarView.addProperties({
 
         if (isMonth) return;
 
-        var fields = this.getFields(),
+        var fields = this.getVisibleFields(this.completeFields),
             data = this.getData(),
             output = isc.StringBuffer.create(),
             totalWidth = 0,
             fieldWidths = []
         ;
 
+        // if the (Timeline) view is grouped, use the _openListCache
+        if (isc.isA.Tree(data)) data = data._openListCache;
+
         for (var i=0; i<fields.length; i++) {
             var field = fields[i];
             var button = this.getFieldHeaderButton(field.masterIndex);
             var result = button ? button.width || button.getVisibleWidth() : null;
             if (result == null) result = this.getFieldWidth(field);
+            // round the field-width
+            result = isTimeline ? Math.ceil(result) : Math.floor(result);
             fieldWidths.add(result);
         }
 
@@ -589,16 +731,20 @@ isc.CalendarView.addProperties({
 
         output.append("<div style='position:relative;'>");
 
-        output.append("<TABLE cellpadding='0' cellspacing='0' WIDTH=", totalWidth,
-            " style='",
+        output.append("<TABLE cellpadding='0' cellspacing='0' WIDTH='", totalWidth,
+            "' style='",
             "border: 1px solid grey;'>"
         );
 
         output.append("<THEAD>");
 
         if (this.showHeader) {
+            var headerHTML = this.getPrintHeaders(0, this.fields.length, fieldWidths);
+            //headerHTML = "<span style='whitespace:nowrap;'>" + headerHTML + "</span>";
+            this._headerPrintHeight = isc.Canvas.measureContent(headerHTML, "printHeader", true, true, { wrap: false});
+            //isc.logWarn( "header print height: " + this._headerPrintHeight);
             // don't generate column-headers for dayView
-            output.append(this.getPrintHeaders(0, this.fields.length, fieldWidths));
+            output.append(headerHTML);
         }
 
         output.append("</THEAD>");
@@ -609,13 +755,17 @@ isc.CalendarView.addProperties({
         output.append("<TBODY>");
 
         for (var i=0; i<data.length; i++) {
-            var rowHeight = this.getRowHeight(data[i], i);
+            var rowHeight = Math.floor(this.getRowHeight(data[i], i));
             output.append(rowStart, heightAttr, rowHeight, gt);
             for (var j=0; j<fields.length; j++) {
                 var value = this.getCellValue(data[i], i, j);
                 output.append("<TD class='", this.getCellStyle(data[i], i, j), "' ",
-                    "style='width:", fieldWidths[j]-1,  "px; min-width:",  fieldWidths[j]-1 + "px;",
+                    "style='width:", fieldWidths[j]-1,  "px; ",
+                    "box-sizing: border-box; ",
+                    //(isTimeline ? "max" : "min"), "-width:",  fieldWidths[j]-1 + "px;",
+                    "max-width:",  fieldWidths[j]-1 + "px;",
                     "border-width: 0px 1px 1px 0px; ",
+                    "height: ", rowHeight, "px;",
                     "border-bottom: 1px solid #ABABAB; border-right: 1px solid #ABABAB; ",
                     "border-top: none; border-left: none;",
                     this.getCellCSSText(data[i], i, j),
@@ -630,18 +780,26 @@ isc.CalendarView.addProperties({
         output.append("</TBODY>");
         output.append("</TABLE>");
 
-        var events = this.body.children;
-        for (var i=0, len=events.length; i<len; i++) {
-            var event = events[i],
-                isValid = event.isEventCanvas || event.isZoneCanvas || event.isIndicatorCanvas;
-            if (!isValid) continue;
-            if (!event.isDrawn() || !event.isVisible()) continue;
-            if (event.isZoneCanvas) printProperties.i = 0;
-            else if (event.isIndicatorCanvas) printProperties.i = len;
-            else printProperties.i = i;
-            var nextHTML = event.getPrintHTML(printProperties);
-            output.append(nextHTML);
-        }
+            var events = this.body.children;
+            for (var i=0, len=events.length; i<len; i++) {
+                var event = events[i],
+                    isValid = event.isEventCanvas || event.isZoneCanvas || event.isIndicatorCanvas;
+                if (!isValid) {
+                    if (this.shouldShowColumnLayouts() && isc.isA.Layout(event)) {
+                        // events are children of per-column VLayouts - script the layout's
+                        // outerHTML (includes placement)
+                        output.append(event.getHandle().outerHTML);
+                    }
+                    continue;
+                }
+                // events are children of the grid-body
+                if (!event.isDrawn() || !event.isVisible()) continue;
+                if (event.isZoneCanvas) printProperties.i = 0;
+                else if (event.isIndicatorCanvas) printProperties.i = len;
+                else printProperties.i = i;
+                var nextHTML = event.getPrintHTML(printProperties);
+                output.append(nextHTML);
+            }
 
         output.append("</div>");
 
@@ -656,15 +814,17 @@ isc.CalendarView.addProperties({
         return result;
     },
 
+    headerRowPrintHeight: 30,
     getPrintHeaders : function (startCol, endCol, fieldWidths) {
 
         var defaultAlign = (this.isRTL() ? isc.Canvas.LEFT : isc.Canvas.RIGHT),
+            // consider printing headers with a headerButton style, which looks much better
             //printHeaderStyle = this.printHeaderStyle || this.headerBaseStyle,
-            // printing header-levels and fields with a headerButton style looks much better
             printHeaderStyle = this.headerBaseStyle,
-            rowHeight = this.getHeaderHeight(),
             HTML
         ;
+
+        var printHeight = this.headerRowPrintHeight;
 
         // We support arbitrarily nested, asymmetrical header-spans - these require
         // some slightly tricky logic so use a conditional to avoid this if not required.
@@ -708,7 +868,7 @@ isc.CalendarView.addProperties({
             HTML = [];
 
             for (var i = numRows-1; i >= 0; i--) {
-                HTML[HTML.length] = "<TR HEIGHT=23>";
+                HTML[HTML.length] = "<TR HEIGHT=" + printHeight + ">";
 
                 var lastEntry = null,
                     colSpanSlot = null;
@@ -821,8 +981,9 @@ isc.CalendarView.addProperties({
                     HTML[HTML.length] = "' colSpan='";
                     HTML[HTML.length] = colSpan;
                     HTML[HTML.length] = "' ";
+                    var thisWidth = fieldWidths[(isField ? entry.masterIndex : ii)];
                     HTML[HTML.length] = "style='margin: 0px; padding: 0px; " +
-                        "width:" + fieldWidths[entry.masterIndex] + "px; height:23px; " +
+                        "width:" + thisWidth + "px; height:" + printHeight + "px; " +
                         "border-width: 0px 1px 1px 0px;' "
                     ;
                     HTML[HTML.length] = ">";
@@ -837,9 +998,9 @@ isc.CalendarView.addProperties({
 
         } else {
 
-            HTML = ["<TR HEIGHT=23>"];
+            HTML = ["<TR HEIGHT=" + printHeight + ">"];
 
-            var cellStartHTML = ["<TD CLASS='", printHeaderStyle, "' ALIGN="].join(""),
+            var cellStartHTML = ["<TD CLASS='", printHeaderStyle, "' HEIGHT=" + printHeight + " ALIGN="].join(""),
                 frozenCount = this.frozenBody ? this.frozenBody.fields.length : 0
             ;
 
@@ -851,8 +1012,10 @@ isc.CalendarView.addProperties({
                     var align = field.align || defaultAlign;
                     //var width = field.width || this.getFieldWidth(colNum);
                     var width = fieldWidths[colNum];
-                    HTML.addList([cellStartHTML, align, " style='width:" + width + "px; padding:0px; margin:0px;'>",
-                        this.getHeaderButtonTitle(field.masterIndex), "</TD>"]);
+                    var title = this.getHeaderButtonTitle(field.masterIndex);
+                    HTML.addList([cellStartHTML, align, " style='margin: 0px; padding: 0px; " +
+                        "width:" + width + "px; height:" + printHeight + "px; " +
+                        "border-width: 0px 1px 1px 0px;'>", title, "</TD>"]);
                 }
             }
 
@@ -873,16 +1036,28 @@ isc.CalendarView.addProperties({
         return HTML.join(isc.emptyString);
     },
 
-    eventDragTargetDefaults: {
+    //> @attr calendarView.eventDragCanvasStyleName (CSSStyleName : "eventDragCanvas" : IR)
+    // CSS class applied to the +link{calendarView.eventDragCanvas, eventDragCanvas}.
+    //
+    // @visibility calendar
+    //<
+    eventDragCanvasStyleName: "eventDragCanvas",
+
+    //> @attr calendarView.eventDragCanvas (AutoChild Canvas : null : IR)
+    // +link{Canvas} displayed while dragging or resizing an event in this view and styled
+    // according to +link{calendarView.eventDragCanvasStyleName, eventDragCanvasStyleName}.
+    //
+    // @visibility calendar
+    //<
+    eventDragCanvasDefaults: {
         _constructor: "Canvas",
-        border: "1px dashed red",
         width:1, height: 1,
         snapToGrid: false,
         autoDraw: false,
         moveWithMouse: false,
         dragAppearance: "target",
-        dragTarget: this,
         visibility: "hidden",
+        hideUsingDisplayNone: true,
         keepInParentRect: true,
         hoverMoveWithMouse: true,
         showHover: true,
@@ -912,8 +1087,18 @@ isc.CalendarView.addProperties({
             var cal = this.eventCanvas.calendar;
             return cal.useDragPadding ? cal.getLanePadding(this.view) : 0;
         },
+        show : function () {
+            if (this._supressShow) return;
+            //this.logWarn("in show() - stacktrace: \n" + isc.EH.getStackTrace());
+            return this.Super("show", arguments);
+        },
         fillOverlapSlots: true,
         positionToEventCanvas : function (show) {
+            if (this._suppressShow || !this.eventCanvas) {
+                this.hide();
+                return isc.EH.STOP_BUBBLING;
+            }
+
             var canvas = this.eventCanvas,
                 cal = canvas.calendar,
                 view = this.view,
@@ -977,12 +1162,16 @@ isc.CalendarView.addProperties({
                 this.bringToFront();
             }
 
-            if (view.shouldShowDragHovers()) isc.Hover.show(this.getHoverHTML(), this.hoverProps);
+            //if (view.shouldShowDragHovers()) isc.Hover.show(this.getHoverHTML(), this.hoverProps);
+            if (view.shouldShowDragHovers()) this.handleHover();
         },
         moveToEvent : function () {
             // no-op here to avoid automatic snapping to the wrong place
         },
         dragRepositionStart : function () {
+
+            if (!this.eventCanvas) return isc.EH.STOP_BUBBLING;
+
             var canvas = this.eventCanvas,
                 event = canvas.event,
                 cal = canvas.calendar,
@@ -991,7 +1180,7 @@ isc.CalendarView.addProperties({
             ;
 
             // canDragEvent() also calls canEditEvent(), which checks both event and calendar
-            if (!cal.canDragEvent(event)) return false;
+            if (!cal.canDragEvent(event, view)) return false;
 
             this._repositioning = true;
 
@@ -1041,7 +1230,7 @@ isc.CalendarView.addProperties({
             dp._startMouseDate = view.getDateFromPoint() || dp._lastStartDate.duplicate();
             dp._lastMouseDate = dp._startMouseDate.duplicate();
 
-            dp._useLanes = view.hasLanes() && !canvas.isIndicatorCanvas && !canvas.isZoneCanvas;
+            dp._useLanes = view.usesLanes() && !canvas.isIndicatorCanvas && !canvas.isZoneCanvas;
             if (dp._useLanes) {
                 var lane = view.getLane(event[cal.laneNameField]),
                     sublane = !lane || !lane.sublanes ? null :
@@ -1061,6 +1250,9 @@ isc.CalendarView.addProperties({
             return isc.EH.STOP_BUBBLING;
         },
         dragRepositionMove : function () {
+
+            if (!this.eventCanvas) return isc.EH.STOP_BUBBLING;
+
             var canvas = this.eventCanvas,
                 props = canvas._dragProps,
                 event = canvas.event,
@@ -1145,9 +1337,9 @@ isc.CalendarView.addProperties({
 
                         props._currentRow = laneRecordIndex;
                     } else {
-                        var laneRecordIndex = view.getLaneIndex(mouseLane[cal.laneNameField]);
+                        var laneRecordIndex = view.getLaneIndex(mouseLane.name);
                         fixedLeft = view.body.getColumnLeft(laneRecordIndex);
-                        fixedWidth = view.getLaneWidth(mouseLane[cal.laneNameField]);
+                        fixedWidth = view.getLaneWidth(mouseLane.name);
                         if (mouseSublane) {
                             fixedLeft += mouseSublane.left;
                             fixedWidth = mouseSublane.width;
@@ -1184,15 +1376,15 @@ isc.CalendarView.addProperties({
             var drawEndDate = dropEnd.duplicate();
 
             if (isTL) {
-                if (dropStart.getTime() < cal.startDate.getTime()) {
+                if (dropStart.getTime() < view.startDate.getTime()) {
                     // actual start date is before the start of the visible timeline - when
                     // drawing the drag target, extend it to the far left of the view
-                    drawStartDate = cal.startDate.duplicate();
+                    drawStartDate = view.startDate.duplicate();
                 }
-                if (dropEnd.getTime() > cal.endDate.getTime()) {
+                if (dropEnd.getTime() > view.endDate.getTime()) {
                     // actual end date is after the end date of the visible timeline - when
                     // drawing the drag target, extend it to the far right of the view
-                    drawEndDate = cal.endDate.duplicate();
+                    drawEndDate = view.endDate.duplicate();
                 }
             }
 
@@ -1240,7 +1432,7 @@ isc.CalendarView.addProperties({
 
             if (eventCol != props._currentCol) {
                 if (view.isDayView() || view.isWeekView()) {
-                    if (view.isDayView() && cal.showDayLanes && !cal.canEditEventLane(event, view)) {
+                    if (view.usesLanes() && !cal.canEditEventLane(event, view)) {
                         // lanes in dayView
                         eventCol = props._currentCol;
                         eventLeft = props._previousLeft;
@@ -1264,7 +1456,7 @@ isc.CalendarView.addProperties({
 
                 dropStart = view.getDateFromPoint(eventLeft+1, tempTop+1);
 
-                dropEnd = view.getDateFromPoint(eventRight - (!view.isTimelineView() ? 1 : 0), tempBottom);
+                dropEnd = view.getDateFromPoint(eventRight - 1, tempBottom);
                 drawStartDate = dropStart.duplicate();
                 drawEndDate = dropEnd.duplicate();
             }
@@ -1274,7 +1466,7 @@ isc.CalendarView.addProperties({
                 // a drop at the very bottom of the calendar - use the end of the dropStart
                 // day instead
                 if (dropStart.getDate() != dropEnd.getDate()) {
-                    dropEnd = isc.DateUtil.getEndOf(dropStart, "d");
+                    //dropEnd = isc.DateUtil.getEndOf(dropStart, "d");
                 }
             }
 
@@ -1284,10 +1476,11 @@ isc.CalendarView.addProperties({
             testEndDate.setTime(dropEnd.getTime()-1);
 
             var allowDrop = true;
+
             // fire the cancellable notification method before actually moving the dragTarget
             var newEvent = cal.createEventObject(event, dropStart, testEndDate,
-                    mouseLane && mouseLane[cal.laneNameField],
-                    mouseSublane && mouseSublane[cal.laneNameField])
+                    mouseLane && mouseLane.name,
+                    mouseSublane && mouseSublane.name)
             ;
             // the default implementation of this method checks disabled dates
             allowDrop = cal.eventRepositionMove(event, newEvent, this);
@@ -1353,6 +1546,9 @@ isc.CalendarView.addProperties({
             return isc.EH.STOP_BUBBLING;
         },
         dragRepositionStop : function () {
+
+            if (!this.eventCanvas) return isc.EH.STOP_BUBBLING;
+
             var canvas = this.eventCanvas,
                 props = canvas._dragProps,
                 cal = canvas.calendar,
@@ -1370,17 +1566,7 @@ isc.CalendarView.addProperties({
             this.setDragCursor("default");
             if (cancelDrop) return;
 
-            if (canvas.isIndicatorCanvas) {
-                var indicator = cal.indicators.find(cal.nameField, event[cal.nameField]);
-                indicator[cal.startDateField] = props._lastValidStartDate;
-                // no need to refresh all events - if the indicator is dragged out of the
-                // viewport, the grid will scroll and that already refreshes events - here,
-                // just the indicators and zones need redrawing, which is much quicker - order
-                // is important - see calendar.showIndicatorsInFront
-                canvas.calendarView.drawIndicators();
-                canvas.calendarView.drawZones();
-                return isc.EH.STOP_BUBBLING;
-            }
+            var isIndicator = canvas.isIndicatorCanvas;
 
             var canEditLane = props._useLanes && cal.canEditEventLane(event, view),
                 canEditSublane = props._useLanes && cal.canEditEventSublane(event, view),
@@ -1388,86 +1574,103 @@ isc.CalendarView.addProperties({
                 newSublane
             ;
 
-            if (view.isTimelineView()) {
-                if (canEditLane || canEditSublane) {
-                    if (canEditLane) newLane = props._lastLane[cal.laneNameField];
-                    if (canEditSublane && cal.useSublanes && props._lastSublane) {
-                        newSublane = props._lastSublane[cal.laneNameField];
+            if (!isIndicator) {
+                if (view.isTimelineView()) {
+                    if (canEditLane || canEditSublane) {
+                        if (canEditLane) newLane = props._lastLane.name;
+                        if (canEditSublane && cal.useSublanes && props._lastSublane) {
+                            newSublane = props._lastSublane.name;
+                        }
+                    }
+                } else if (view.usesLanes()) {
+                    if (canEditLane || canEditSublane) {
+                        if (canEditLane) newLane = props._lastLane.name;
+                        if (canEditSublane && cal.useSublanes && props._lastSublane) {
+                            newSublane = props._lastSublane.name;
+                        }
+                    } else return false;
+                }
+
+                // the actual endDate is the drop startDate, plus the original eventLength
+                var actualEndDate = props._lastValidStartDate.duplicate();
+                actualEndDate.setTime(actualEndDate.getTime() + cal.getEventLength(event, "ms"));
+                var dates = [ props._lastValidStartDate.duplicate(), actualEndDate ];
+
+                // minsDiff = difference in minutes between new start date and old start date
+                var deltaMillis = dates[0].getTime() - cal.getEventStartDate(event).getTime(),
+                    minsDiff = Math.floor(deltaMillis / (1000 * 60)),
+                    otherFields = {}
+                ;
+                if (view.isTimelineView()) {
+                    // adjust leading and trailing dates by minsDiff amount of minutes.
+                    if (event[cal.leadingDateField] && event[cal.trailingDateField]) {
+                        dates.add(event[cal.leadingDateField].duplicate());
+                        dates[2].setMinutes(dates[2].getMinutes() + minsDiff);
+                        dates.add(event[cal.trailingDateField].duplicate());
+                        dates[3].setMinutes(dates[3].getMinutes() + minsDiff);
+                        otherFields[cal.leadingDateField] = dates[2];
+                        otherFields[cal.trailingDateField] = dates[3];
                     }
                 }
-            } else if (view.isDayView() && cal.showDayLanes) {
-                if (canEditLane || canEditSublane) {
-                    if (canEditLane) newLane = props._lastLane[cal.laneNameField];
-                    if (canEditSublane && cal.useSublanes && props._lastSublane) {
-                        newSublane = props._lastSublane[cal.laneNameField];
+
+                if (newLane == null) newLane = event[cal.laneNameField];
+
+                // step 2 adjust initial drop dates, via overridden method
+                if (cal.adjustEventTimes) {
+                    var adjustedTimes = cal.adjustEventTimes(event, canvas, dates[0], dates[1], newLane);
+                    if (adjustedTimes) {
+                        dates[0] = adjustedTimes[0].duplicate();
+                        dates[1] = adjustedTimes[1].duplicate();
                     }
-                } else return false;
-            }
-
-            var dates = [ props._lastValidStartDate.duplicate(), props._lastValidEndDate.duplicate() ];
-
-            // minsDiff = difference in minutes between new start date and old start date
-            var deltaMillis = dates[0].getTime() - cal.getEventStartDate(event).getTime(),
-                minsDiff = Math.floor(deltaMillis / (1000 * 60)),
-                otherFields = {}
-            ;
-            if (view.isTimelineView()) {
-                // adjust leading and trailing dates by minsDiff amount of minutes.
-                if (event[cal.leadingDateField] && event[cal.trailingDateField]) {
-                    dates.add(event[cal.leadingDateField].duplicate());
-                    dates[2].setMinutes(dates[2].getMinutes() + minsDiff);
-                    dates.add(event[cal.trailingDateField].duplicate());
-                    dates[3].setMinutes(dates[3].getMinutes() + minsDiff);
-                    otherFields[cal.leadingDateField] = dates[2];
-                    otherFields[cal.trailingDateField] = dates[3];
                 }
-            }
 
-            if (newLane == null) newLane = event[cal.laneNameField];
-            // step 2 adjust initial drop dates, via overridden method
-            if (cal.adjustEventTimes) {
-                var adjustedTimes = cal.adjustEventTimes(event, canvas, dates[0], dates[1], newLane);
-                if (adjustedTimes) {
-                    dates[0] = adjustedTimes[0].duplicate();
-                    dates[1] = adjustedTimes[1].duplicate();
-                }
-            }
+                // step 3 adjust modified drop dates so no overlapping occurs
+                if (cal.allowEventOverlap == false) {
+                    var repositionedDates = cal.checkForOverlap(view, canvas, event, dates[0], dates[1], newLane);
 
-            // step 3 adjust modified drop dates so no overlapping occurs
-            if (cal.allowEventOverlap == false) {
-                var repositionedDates = cal.checkForOverlap(view, canvas, event, dates[0], dates[1], newLane);
+                    //TODO: this code is still timeline specific
+                    if (repositionedDates == true) {
+                        // event overlaps in such a way that dropping anywhere near this location would
+                        // be impossible
+                        if (cal.timelineEventOverlap) {
+                            cal.timelineEventOverlap(false, event, canvas, dates[0], dates[1], newLane);
+                        }
+                        return false;
+                    } else if (isc.isAn.Array(repositionedDates)){
+                       dates[0] = repositionedDates[0].duplicate();
+                       dates[1] = repositionedDates[1].duplicate();
+                       if (cal.timelineEventOverlap) {
+                           cal.timelineEventOverlap(true, event, canvas, dates[0], dates[1], newLane);
+                       }
 
-                //TODO: this code is still timeline specific
-                if (repositionedDates == true) {
-                    // event overlaps in such a way that dropping anywhere near this location would
-                    // be impossible
-                    if (cal.timelineEventOverlap) {
-                        cal.timelineEventOverlap(false, event, canvas, dates[0], dates[1], newLane);
                     }
-                    return false;
-                } else if (isc.isAn.Array(repositionedDates)){
-                   dates[0] = repositionedDates[0].duplicate();
-                   dates[1] = repositionedDates[1].duplicate();
-                   if (cal.timelineEventOverlap) {
-                       cal.timelineEventOverlap(true, event, canvas, dates[0], dates[1], newLane);
-                   }
-
+                    // otherwise don't do anything, as no overlap occurred
                 }
-                // otherwise don't do anything, as no overlap occurred
+
+                // don't update the end date on duration events
+                if (cal.isZeroLengthEvent(event)) dates[1] = null;
+
+                // if an overlap-resulting drop was disallowed, the dates may have changed - update
+                // the stored drag props as necessary
+                if (dates[0] != props._lastValidStartDate) props._lastValidStartDate = dates[0];
+                if (dates[1] != props._lastValidEndDate) props._lastValidEndDate = dates[1];
+            } else {
+                props._lastValidEndDate = props._lastValidStartDate;
             }
 
-            // don't update the end date on duration events
-            if (cal.isZeroLengthEvent(event)) dates[1] = null;
-
-            // if an overlap-resulting drop was disallowed, the dates may have changed - update
-            // the stored drag props as necessary
-            if (dates[0] != props._lastValidStartDate) props._lastValidStartDate = dates[0];
-            if (dates[1] != props._lastValidEndDate) props._lastValidEndDate = dates[1];
+            var tempEvent = isc.addProperties({}, event, otherFields);
 
             // build the new event as it would be after the drop
-            var newEvent = cal.createEventObject(event, props._lastValidStartDate, props._lastValidEndDate,
-                    props._lastLane && props._lastLane[cal.laneNameField],
-                    props._lastSublane && props._lastSublane[cal.laneNameField]);
+            var newEvent = cal.createEventObject(tempEvent, props._lastValidStartDate, props._lastValidEndDate,
+                    props._lastLane && props._lastLane.name,
+                    props._lastSublane && props._lastSublane.name);
+
+            if (cal.getEventStartDate(tempEvent).getTime() == cal.getEventStartDate(newEvent).getTime()) {
+                if (!view.usesLanes() || tempEvent[cal.laneNameField] == newEvent[cal.laneNameField]) {
+                    // if the event was dropped exactly where it started, just ignore the drag
+                    return;
+                }
+            }
 
 
             var continueUpdate = cal.eventRepositionStop(event, newEvent, otherFields, this);
@@ -1475,19 +1678,30 @@ isc.CalendarView.addProperties({
             this._repositioning = false;
 
             if (continueUpdate != false) {
-                // fire the separate moved variants, which are deprecated
-                if (view.isTimelineView()) {
-                    // step 4 fire timelineEventMoved notification to allow drop cancellation
-                    if (cal.timelineEventMoved(event, props._lastValidStartDate, props._lastValidEndDate,
-                            newLane) == false) return false;
-                } else {
-                    // step 4 fire eventMoved notification to allow drop cancellation
-                    if (cal.eventMoved(props._lastValidStartDate, event, newLane) == false) return false;
-                }
+                if (!isIndicator) {
+                    // fire the separate moved variants, which are deprecated
+                    if (view.isTimelineView()) {
+                        // step 4 fire timelineEventMoved notification to allow drop cancellation
+                        if (cal.timelineEventMoved(event, props._lastValidStartDate, props._lastValidEndDate,
+                                newLane) == false) return false;
+                    } else {
+                        // step 4 fire eventMoved notification to allow drop cancellation
+                        if (cal.eventMoved(props._lastValidStartDate, event, newLane) == false) return false;
+                    }
 
-                // finally update event
-                //isc.logWarn('updating event:' + [dates[0], dates[1]]);
-                cal.updateCalendarEvent(event, newEvent);
+                    // finally update event
+                    //isc.logWarn('updating event:' + [event[cal.startDateField], event[cal.endDateField]]);
+                    cal.updateCalendarEvent(event, newEvent, otherFields);
+                } else {
+                    var indicator = cal.indicators.find(cal.nameField, event[cal.nameField]);
+                    indicator[cal.startDateField] = props._lastValidStartDate;
+                    // no need to refresh all events - if the indicator is dragged out of the
+                    // viewport, the grid will scroll and that already refreshes events - here,
+                    // just the indicators and zones need redrawing, which is much quicker -
+                    // order is important - see calendar.showIndicatorsInFront
+                    canvas.calendarView.drawIndicators();
+                    canvas.calendarView.drawZones();
+                }
             }
 
             delete canvas._dragProps;
@@ -1496,8 +1710,8 @@ isc.CalendarView.addProperties({
             return isc.EH.STOP_BUBBLING;
         },
 
-        // dragTarget_dragResizeStart
-        dragResizeStart : function () {
+
+        handleDragResizeStart : function () {
             var canvas = this.eventCanvas,
                 event = canvas.event,
                 cal = canvas.calendar,
@@ -1505,7 +1719,7 @@ isc.CalendarView.addProperties({
                 gr = view.body
             ;
 
-            if (!cal.canResizeEvent(canvas.event)) return false;
+            if (!cal.canResizeEvent(canvas.event, view)) return false;
 
             this._resizing = true;
 
@@ -1518,36 +1732,55 @@ isc.CalendarView.addProperties({
                 offsetX = gr.getOffsetX() - canvas.getLeft(), // - this.getEventPadding(),
                 offsetY = gr.getOffsetY() - canvas.getTop(),
                 eventWidth = canvas.getVisibleWidth(),
-                hasLanes = view.hasLanes(),
+                usesLanes = view.usesLanes(),
                 isTimeline = view.isTimelineView(),
                 // leftDrag if its a timeline and offsetX is nearer left than right
                 isLeftDrag = isTimeline && (offsetX < eventWidth / 2),
-                lane = hasLanes ? view.getLaneFromPoint() : null,
+                lane = usesLanes ? view.getLaneFromPoint() : null,
                 sublane = lane && cal.useSublanes ? cal.getSublaneFromPoint() : null
             ;
 
-            var props = {
-                _useLanes: view.hasLanes(),
-                _useSublanes: cal.useSublanes,
-                _previousLeft: isTimeline ? view.getDateLeftOffset(cal.getEventStartDate(event))
-                    : colLeft + (hasLanes && sublane ? sublane.left : 0),
-                _previousRight: canvas.getLeft() + eventWidth,
-                _previousTop: isTimeline ? rowTop + (sublane ? sublane.top : 0) : canvas.getTop(),
-                _previousHeight: (isTimeline ? (sublane ? sublane.height : lane.height)
-                    : canvas.getVisibleHeight()),
-                _previousWidth: isTimeline ? canvas.getVisibleWidth()
-                    : (sublane ? sublane.width :
+            var props;
+            if (isTimeline) {
+                props = {
+                    _startRow: eventRow,
+                    _startCol: eventCol,
+                    _useLanes: view.usesLanes(),
+                    _useSublanes: cal.useSublanes,
+                    _previousLeft: view.getDateLeftOffset(cal.getEventStartDate(event)),
+                    _previousRight: canvas.getLeft() + eventWidth,
+                    _previousTop: rowTop + (sublane ? sublane.top : 0),
+                    _previousHeight: sublane ? sublane.height : lane.height,
+                    _previousWidth: canvas.getVisibleWidth(),
+                    _leftDrag: isLeftDrag,
+                    _rightDrag: !isLeftDrag,
+                    _lastStartDate: cal.getEventStartDate(canvas.event),
+                    _lastEndDate: cal.getEventEndDate(canvas.event),
+                    _lastLane: lane,
+                    _lastSublane: sublane
+                };
+            } else {
+                // vertical views
+                props = {
+                    _startRow: eventRow,
+                    _startCol: eventCol,
+                    _useLanes: view.usesLanes(),
+                    _useSublanes: cal.useSublanes,
+                    _previousLeft: colLeft + (usesLanes && sublane ? sublane.left : 0),
+                    _previousRight: canvas.getLeft() + eventWidth,
+                    _previousTop: canvas.getTop(),
+                    _previousHeight: canvas.getVisibleHeight(),
+                    _previousWidth: (sublane ? sublane.width :
                         (lane && view.getLaneWidth ? view.getLaneWidth(event[cal.laneNameField])
                         : colWidth)
                     ),
-                _leftDrag: isLeftDrag,
-                _rightDrag: isTimeline && !isLeftDrag,
-                _bottomDrag: !isTimeline,
+                    _bottomDrag: true,
                 _lastStartDate: cal.getEventStartDate(canvas.event),
                 _lastEndDate: cal.getEventEndDate(canvas.event),
                 _lastLane: lane,
                 _lastSublane: sublane
             };
+            }
 
             if (props._previousTop == -1) {
                 //TODO: fix this - event partly off the top of the viewport shows at top:0
@@ -1578,21 +1811,26 @@ isc.CalendarView.addProperties({
                 endDate = props._lastEndDate,
                 utils = isc.DateUtil
             ;
-            var snapDate = view.getDateFromPoint();
+            var mouseSnap = view.getSnapData();
+            var snapDate;
             if (props._bottomDrag) {
+                snapDate = mouseSnap.endDate;
+                endDate = snapDate;
                 // day/week view bottom drag - snapDate is new endDate, only height changes -
                 // its more natural to use the snapDate AFTER (below) the mouse offset when
                 // bottom-dragging, so the drag rect includes the snapDate that's actually
                 // under the mouse
-                endDate = cal.addSnapGapsToDate(snapDate, view, 1);
+//                endDate = cal.addSnapGapsToDate(snapDate, view, 1);
+                //endDate = isc.DateUtil.createDatetime(endDate);
                 if (endDate.getDate() != startDate.getDate()) {
-                    endDate = isc.DateUtil.getEndOf(startDate, "d");
+                    //endDate = isc.DateUtil.getEndOf(startDate, "d");
                 }
                 var bottom = view.getDateTopOffset(endDate);
                 height = bottom - top;
             } else if (props._leftDrag) {
-                if (!snapDate) snapDate = view.startDate.duplicate();
                 // timeline left drag - snapDate is new startDate, only left and width change
+                snapDate = mouseSnap && mouseSnap.startDate.duplicate();
+                if (!snapDate) snapDate = view.startDate.duplicate();
                 startDate = snapDate;
                 var right = left + width;
                 if (event[cal.durationField] != null) {
@@ -1602,17 +1840,17 @@ isc.CalendarView.addProperties({
                     ;
                     if (millis % unitMillis != 0) {
                         var units = Math.round(utils.convertPeriodUnit(millis, "ms", timeUnit)),
-                        startDate = utils.dateAdd(endDate.duplicate(), timeUnit, units * -1);
+                        startDate = utils.dateAdd(endDate, timeUnit, units * -1,
+                            null, null, null, this.firstDayOfWeek);
                     }
                 }
-                left = view.getDateLeftOffset(startDate);
+                var vStartSnap = view.getSnapData(null, null, startDate);
+                var left = vStartSnap.startLeftOffset;
                 width = (right - left);
             } else {
-                // timeline right drag - snapDate is new endDate, only width changes - its more
-                // natural to use the snapDate AFTER the mouse offset when right-dragging, so
-                // the drag rect includes the snapDate that's actually under the mouse
+                // timeline right drag - endDate is the endDate of the snapGap under the mouse
+                snapDate = mouseSnap && mouseSnap.endDate.duplicate();
                 if (!snapDate) snapDate = view.endDate.duplicate();
-                else snapDate = cal.addSnapGapsToDate(snapDate.duplicate(), view, 1);
 
                 endDate = snapDate.duplicate();
                 var visibleEnd = cal.getVisibleEndDate(view);
@@ -1626,15 +1864,19 @@ isc.CalendarView.addProperties({
                     ;
                     if (millis % unitMillis != 0) {
                         var units = Math.round(utils.convertPeriodUnit(millis, "ms", timeUnit)),
-                        endDate = utils.dateAdd(startDate.duplicate(), timeUnit, units);
+                        endDate = utils.dateAdd(startDate, timeUnit, units,
+                            null, null, null, this.firstDayOfWeek);
                     }
                 }
-                var left = view.getDateLeftOffset(startDate),
-                    right = view.getDateLeftOffset(endDate)
+                // size to the start of the startSnap and end of the endSnap
+                var vStartSnap = view.getSnapData(null, null, startDate);
+                var vEndSnap = view.getSnapData(null, null, endDate);
+                // if the event starts before the timeline range, clamp left at zero
+                var left = vStartSnap ? vStartSnap.startLeftOffset : 0,
+                    right = vEndSnap.endLeftOffset
                 ;
                 width = right-left;
             }
-
 
             if (endDate.getTime() <= startDate.getTime() || width <= 0 || height <= 0) {
                 // invalid endDate, earlier than start date - just disallow - should leave the
@@ -1644,7 +1886,7 @@ isc.CalendarView.addProperties({
 
 
             // call eventResizeMove
-            var newEvent = cal.createEventObject(event, startDate, endDate)
+            var newEvent = cal.createEventObject(event, startDate, endDate);
             var allowResize = cal.eventResizeMove(event, newEvent, view, props);
 
             props._lastStartDate = startDate;
@@ -1654,8 +1896,8 @@ isc.CalendarView.addProperties({
             props._previousWidth = width;
             props._previousHeight = height;
 
-            this.resizeTo(props._previousWidth, props._previousHeight);
-            this.moveTo(props._previousLeft, props._previousTop);
+            this.setRect(props._previousLeft, props._previousTop,
+                props._previousWidth, props._previousHeight);
 
             if (allowResize != false) {
                 props._invalidDrop = false;
@@ -1676,10 +1918,13 @@ isc.CalendarView.addProperties({
             var cursor = this.getCurrentCursor();
             if (cursor == newCursor) return;
             this.setCursor(newCursor);
+            this.eventCanvas.setCursor(newCursor);
             this.view.setCursor(newCursor);
             if (this.view.body) this.view.body.setCursor(newCursor);
             if (this.view.frozenBody) this.view.frozenBody.setCursor(newCursor);
-            isc.EH.lastEvent.target.setCursor(newCursor);
+            if (isc.EH.lastEvent && isc.EH.lastEvent.target && isc.EH.lastEvent.target.setCursor) {
+                isc.EH.lastEvent.target.setCursor(newCursor);
+            }
         },
 
         // eventWindow_dragResizeStop
@@ -1698,6 +1943,8 @@ isc.CalendarView.addProperties({
                 endDate = null;
             }
 
+            //this.logWarn("LastValid start/end: " + startDate + " -- " + endDate);
+
             // reset the cursor in case we changed it during a drag
             this.setDragCursor("default");
 
@@ -1713,7 +1960,7 @@ isc.CalendarView.addProperties({
             }
 
             // build the new event as it would be after the drop
-            var newEvent = cal.createEventObject(event, startDate);
+            var newEvent = cal.createEventObject(event, startDate, endDate);
             if (event[cal.durationField] != null) {
                 // the event is a duration - force the new length of the event to the nearest
                 // durationUnit, so there aren't fractional durations
@@ -1725,8 +1972,36 @@ isc.CalendarView.addProperties({
                 newEvent[cal.durationField] = roundedDuration;
                 // recalc the end date, based on the new duration
                 endDate = props._lastValidEndDate = cal.getEventEndDate(newEvent);
+                newEvent[cal.endDateField] = endDate;
             }
-            newEvent[cal.endDateField] = endDate;
+
+            if (cal.getEventStartDate(event).getTime() == cal.getEventStartDate(newEvent).getTime()
+                && cal.getEventEndDate(event).getTime() == cal.getEventEndDate(newEvent).getTime())
+            {
+                // if newEvent has the same dates as the current event, just ignore the drag
+                return;
+            }
+
+            if (view.isTimelineView()) {
+                // update leading and trailing dates after a drag-resize
+                if (props._leftDrag && event[cal.leadingDateField]) {
+                    var leadingDate = event[cal.leadingDateField].duplicate();
+                    // get difference in minutes
+                    var diff = isc.DateUtil.getPeriodLength(
+                            event[cal.startDateField], newEvent[cal.startDateField], "mn");
+                    leadingDate.setMinutes(leadingDate.getMinutes()+diff);
+                    newEvent[cal.leadingDateField] = leadingDate;
+                }
+                if (!props._leftDrag && event[cal.trailingDateField]) {
+                    var trailingDate = event[cal.trailingDateField].duplicate();
+                    // get difference in minutes
+                    var diff = isc.DateUtil.getPeriodLength(
+                            event[cal.endDateField], newEvent[cal.endDateField], "mn");
+                    trailingDate.setMinutes(trailingDate.getMinutes()+diff);
+                    newEvent[cal.trailingDateField] = trailingDate;
+                }
+            }
+
 
             var continueUpdate = cal.eventResizeStop(event, newEvent, null, this);
 
@@ -1752,30 +2027,37 @@ isc.CalendarView.addProperties({
     },
 
     scrolled : function () {
+        if (this.shouldShowColumnLayouts()) return;
         if (this.renderEventsOnDemand && this.refreshVisibleEvents) {
             delete this._cache.viewportStartMillis;
             delete this._cache.viewportEndMillis;
-            var _this = this;
-            if (this._layoutEventId) isc.Timer.clear(this._layoutEventId);
-            this._layoutEventId = isc.Timer.setTimeout(function () {
-                this._layoutEventId = null;
-                //if (!_this._refreshEventsCalled) _this.refreshEvents();
-                //else
-                _this.refreshVisibleEvents(null, null, "scrolled");
-            });
+            this.delayedRefreshVisibleEvents(null, "scrolled");
         }
     },
 
     resized : function (deltaX, deltaY, reason ) {
-        this.Super('resized', arguments);
+        var result = this.Super('resized', arguments);
 
-        if (this.renderEventsOnDemand && !this._updatingRecordComponents && this.isDrawn()) {
-            this.refreshVisibleEvents(null, null, "resized");
-            this.logInfo("Calendar " + this.viewName + " view resized - reason is '" +
-                (reason || "no reason") + " -- w/h is " + this.body.getVisibleWidth() + "/" +
-                this.body.getVisibleHeight(), "calendar"
-            );
+        if (this.renderEventsOnDemand) {
+            if (!this._updatingRecordComponents && this.isDrawn()) {
+                //for (var key in this._usedCanvasMap) {
+                //    this._allCanvasMap[key].needsResize = true;
+                //}
+                if (this.shouldShowColumnLayouts()) {
+                    this.updateColumnLayouts();
+                } else {
+                    //this.delayedRefreshVisibleEvents(null, "resized - " + reason);
+                    this.refreshVisibleEvents(null, "resized - " + reason);
+                }
+                //this.logInfo("Calendar " + this.viewName + " view resized - reason is '" +
+                //    (reason || "no reason") + " -- w/h is " + this.body.getVisibleWidth() + "/" +
+                //    this.body.getVisibleHeight(), "calendar"
+                //);
+            }
+        } else if (this.shouldShowColumnLayouts()) {
+            this.updateColumnLayouts();
         }
+        return result;
     },
 
     forceDataSort : function (data, ignoreDataChanged) {
@@ -1783,7 +2065,7 @@ isc.CalendarView.addProperties({
             specifiers = []
         ;
 
-        if (this.isTimelineView() || (this.isDayView() && cal.showDayLanes)) {
+        if (this.usesLanes()) {
             specifiers.add({ property: cal.laneNameField, direction: "ascending" });
         }
 
@@ -1804,7 +2086,7 @@ isc.CalendarView.addProperties({
     findEventsInRange : function (startDate, endDate, lane, data) {
         var cal = this.calendar,
             range = {},
-            useLane = lane != null && (this.isTimelineView() || (this.isDayView() && cal.showDayLanes))
+            useLane = lane != null && this.usesLanes()
         ;
         range[cal.startDateField] = startDate;
         range[cal.endDateField] = endDate;
@@ -1869,9 +2151,12 @@ isc.CalendarView.addProperties({
                 if (event[cal.leadingDateField] && event[cal.trailingDateField]) {
                     rangeObj[cal.leadingDateField] = paramEvent[cal.leadingDateField];
                     rangeObj[cal.trailingDateField] = paramEvent[cal.trailingDateField];
+
+                    if (rangeObj[cal.trailingDateField] && this.endDate) {
                         if (rangeObj[cal.trailingDateField].getTime() > this.endDate.getTime()) {
                             rangeObj[cal.trailingDateField].setTime(this.endDate.getTime()-1)
                         }
+                    }
                 } else {
                     rangeObj[cal.startDateField] = paramStart;
                     rangeObj[cal.endDateField] = paramEnd;
@@ -1880,8 +2165,8 @@ isc.CalendarView.addProperties({
                     }
                 }
             } else {
-                var dayStart = isc.DateUtil.getStartOf(paramEnd, "d").getTime(),
-                    dayEnd = isc.DateUtil.getEndOf(paramStart, "d").getTime(),
+                var dayStart = isc.DateUtil.getStartOf(paramEnd, "d", false).getTime(),
+                    dayEnd = isc.DateUtil.getEndOf(paramStart, "d", false).getTime(),
                     eStartDate = cal.getEventStartDate(event),
                     eStart = eStartDate.getTime(),
                     eEndDate = cal.getEventEndDate(event),
@@ -1897,6 +2182,11 @@ isc.CalendarView.addProperties({
 
                 }
                 rangeObj[cal.startDateField] = paramStart;
+                if (rangeObj[cal.startDateField].getTime() < dayStart) {
+                    // the event starts on another day, and we don't support multi-day events -
+                    // clamp the start of the range to the start of the day
+                    rangeObj[cal.startDateField].setTime(dayStart)
+                }
                 rangeObj[cal.endDateField] = paramEnd;
                 if (rangeObj[cal.endDateField].getTime() > dayEnd) {
                     // the event ends on another day, and we don't support multi-day events -
@@ -1940,8 +2230,11 @@ isc.CalendarView.addProperties({
         // contained by B, A completely contains B.
         // NOTE: using the equals operator makes the case where
         // two dates are exactly equal be treated as not overlapping.
-        var aStart =  a[startField], aEnd = a[endField] || cal.getEventEndDate(a),
-            aLeft = aStart.duplicate(), aRight = aEnd.duplicate(),
+        var aStart =  a[startField], aEnd = a[endField] || cal.getEventEndDate(a);
+
+        if (!aStart || !aEnd) return false;
+
+        var aLeft = aStart.duplicate(), aRight = aEnd.duplicate(),
             bStart = b[startField], bEnd = b[endField] || cal.getEventEndDate(b),
             bLeft = bStart.duplicate(), bRight = bEnd.duplicate()
         ;
@@ -1954,11 +2247,19 @@ isc.CalendarView.addProperties({
             // first test the dates themselves
             if (bLeft.getTime() < aRight.getTime() && bRight.getTime() > aLeft.getTime()) return true;
 
-            var minWidth = Math.round(cal.getSnapGapPixels(this));
-            aLeft = aCache.snapStartLeftOffset || this.getDateLeftOffset(aStart);
-            aRight = Math.max((aCache.snapEndLeftOffset || this.getDateRightOffset(aEnd)), (aLeft + minWidth));
-            bLeft = bCache.snapStartLeftOffset || this.getDateLeftOffset(bStart);
-            bRight = Math.max((bCache.snapEndLeftOffset || this.getDateRightOffset(bEnd)), (bLeft + minWidth));
+
+            if (bLeft.getTime() != aRight.getTime() && bRight.getTime() != aLeft.getTime()) {
+
+                var minWidth = Math.round(cal.getSnapGapPixels(this));
+                aLeft = aCache.snapStartLeftOffset || this.getDateLeftOffset(aStart);
+                aRight = Math.max((aCache.snapEndLeftOffset || this.getDateRightOffset(aEnd)),
+                            aLeft);
+                if (aRight-aLeft < minWidth) aRight = aLeft + minWidth;
+                bLeft = bCache.snapStartLeftOffset || this.getDateLeftOffset(bStart);
+                bRight = Math.max((bCache.snapEndLeftOffset || this.getDateRightOffset(bEnd)),
+                            bLeft);
+                if (bRight-bLeft < minWidth) bRight = bLeft + minWidth;
+            }
         }
         if (cal.equalDatesOverlap && cal.allowEventOverlap) {
             if ((aLeft < bLeft && aRight >= bRight && aLeft <= bRight) // overlaps to the left
@@ -2001,13 +2302,13 @@ isc.CalendarView.addProperties({
 
     updateOverlapRanges : function (passedData) {
         var cal = this.calendar,
-            data = passedData || this.getEventData(),
+            rawData = passedData || this.getEventData(),
             ranges = this.overlapRanges || [],
             //ranges = [],
-            dataLen = data.getLength(),
+            dataLen = rawData.getLength(),
             isTimeline = this.isTimelineView(),
             // should we only detect overlaps by date if the events are in the same lane?
-            useLanes = isTimeline || (this.isDayView() && cal.showDayLanes),
+            useLanes = this.usesLanes(),
             // events on different days can currently only overlap if on the same date
             splitDates = !isTimeline,
             // the list of overlap ranges that were actually affected by the process, so the
@@ -2017,16 +2318,11 @@ isc.CalendarView.addProperties({
             maxDate = this.endDate
         ;
 
-        if (isc.isA.ResultSet(data)) {
-            data = data.allRows;
-        }
+        var data = (isc.isA.ResultSet(rawData) ? rawData.allRows : rawData);
 
-        data.setProperty("_tagged", false);
-        data.setProperty("_overlapProps", null);
-        data.setProperty("_slotNum", null);
-
-        // use the existing getLaneMap() helper to get visible lanes
-        var laneNames = useLanes && cal.lanes ? isc.getKeys(cal.getLaneMap()) : [];
+        data.setProperty("tagged", false);
+        data.setProperty("overlapProps", null);
+        data.setProperty("slotNum", null);
 
         data.setSort([
             { property: cal.laneNameField, direction: "ascending" },
@@ -2038,16 +2334,28 @@ isc.CalendarView.addProperties({
             var event = data.get(i);
             var eRange = { events: [event] };
             eRange[cal.startDateField] = cal.getEventStartDate(event);
+            // clamp range-start
+            if (eRange[cal.startDateField] < minDate) eRange[cal.startDateField] = minDate;
             eRange[cal.endDateField] = cal.getEventEndDate(event);
+            // clamp range-end
+            if (eRange[cal.endDateField] > maxDate) eRange[cal.endDateField] = isc.DateUtil.adjustDate(maxDate, "-1ms");
             eRange[cal.laneNameField] = eRange.lane = useLanes ? event[cal.laneNameField] : null;
 
             var addRange = true;
 
             for (var j=0; j<ranges.length; j++) {
+                // event not for this range's lane
                 if (eRange[cal.laneNameField] != ranges[j][cal.laneNameField]) continue;
+                else {
+                    // ends before or starts after the range
+                    if (eRange[cal.endDateField].getDate() < ranges[j][cal.startDateField].getDate() ||
+                        eRange[cal.startDateField].getDate() > ranges[j][cal.endDateField].getDate()) {
+                        continue;
+                    }
+                }
                 if (this.eventsOverlap(eRange, ranges[j], useLanes)) {
-                        // merge the two ranges - the dates of the existing range are altered to
-                        // fully incorporate both ranges and events are copied over
+                    // merge the two ranges - the dates of the existing range are altered to
+                    // fully incorporate both ranges and events are copied over
                     this.mergeOverlapRanges(eRange, ranges[j]);
                         addRange = false;
                     }
@@ -2061,11 +2369,23 @@ isc.CalendarView.addProperties({
 
         for (i=0; i<ranges.length; i++) {
             var range = ranges[i];
-            // set an overlapRangeId on the range and it's events
-            range.id = "range_" + i + "_lane_" + range.lane;
+            // set an overlapRangeId on the range - include the lane if set
+            range.id = "range_" + i + "_" + this.viewName;
+            if (range.lane) range.id += "_lane_" + range.lane;
+
             range.events.setProperty("overlapRangeId", range.id);
-            // set a colNum on each range (used in dayView the absence of a lane)
-            if (!isTimeline) range.colNum = this.getColFromDate(range[cal.startDateField], range[cal.laneNameField]);
+
+            // get the field for the range's logical date
+            var field = this.getFieldFromDate(range[cal.startDateField], range[cal.laneNameField]);
+
+            if (field) {
+                // set the fieldName and colNum on each range - used in various methods like tagDayEvents(date)
+                range.fieldName = field.name;
+                range.colNum = field.masterIndex;
+                if (field.endDate && field.endDate <= range.endDate) {
+                    range.endDate = field.endDate.duplicate();
+                }
+            }
         }
 
         this.overlapRanges = ranges;
@@ -2106,12 +2426,20 @@ isc.CalendarView.addProperties({
         // the date extents and all events from each of the merged ranges
         if (!isc.isAn.Array(fromRanges)) fromRanges = [fromRanges];
 
-        var cal = this.calendar, start = cal.startDateField, end = cal.endDateField,
-            b = toRange
+        var cal = this.calendar,
+            b = toRange,
+            start, end
         ;
 
         for (var i=0; i<fromRanges.length; i++) {
             var a = fromRanges[i];
+            if (a[cal.leadingDateField] && b[cal.leadingDateField]) {
+                start = cal.leadingDateField;
+                end = cal.trailingDateField;
+            } else {
+                start = cal.startDateField;
+                end = cal.endDateField;
+            }
             // extend the toRange to fully incorporate the fromRange
             if (a[start] < b[start]) b[start] = a[start];
             if (a[end] > b[end]) b[end] = a[end];
@@ -2145,13 +2473,20 @@ isc.CalendarView.addProperties({
     getDayOverlapRanges : function (date) {
         // return a list of the overlapRanges that exist for the passed date (column)
         if (!this.hasOverlapRanges()) return;
-        var colNum = this.getColFromDate(date);
-        if (colNum >= 0) return this.getColOverlapRanges(colNum);
+        var field = this.getFieldNameFromDate(date);
+        if (field) return this.getColOverlapRanges(field);
     },
     getColOverlapRanges : function (colNum) {
         // return a list of the overlapRanges that exist for the passed column (lane or date)
         if (!this.hasOverlapRanges()) return;
-        var ranges = this.overlapRanges.findAll("colNum", colNum);
+
+        var ranges = [];
+        if (isc.isAn.String(colNum)) {
+            // colNum is a field-name
+            ranges = this.overlapRanges.findAll("fieldName", colNum);
+        } else {
+            ranges = this.overlapRanges.findAll("colNum", colNum);
+        }
         return ranges;
     },
     removeOverlapRanges : function (ranges) {
@@ -2166,7 +2501,7 @@ isc.CalendarView.addProperties({
     getEventOverlapRange : function (event) {
         // get the single overlap range that this event appears in
         if (!this.hasOverlapRanges()) return;
-        return this.overlapRanges.find("id", event.overlapRangeId);;
+        return this.overlapRanges.find("id", event.overlapRangeId);
     },
     getDateOverlapRange : function (date, lane) {
         // get the single overlap range, if any, that contains the passed date
@@ -2191,13 +2526,13 @@ isc.CalendarView.addProperties({
     // recalculate the overlap ranges in a given lane (either vertical or horizontal) and
     // re-render events appropriately
     retagLaneEvents : function (laneName) {
-        if (!this.hasLanes()) return;
+        if (!this.usesLanes()) return;
 
-        var lane = this.getLane(laneName);
+        var laneIndex = this.getLaneIndex(laneName);
         if (this.isTimelineView()) {
-            this.retagRowEvents(lane, true);
+            this.retagRowEvents(laneIndex, true);
         } else {
-            this.retagColumnEvents(lane, true);
+            this.retagColumnEvents(laneIndex, true);
         }
     },
 
@@ -2206,13 +2541,15 @@ isc.CalendarView.addProperties({
     retagDayEvents : function (date) {
         if (this.isTimelineView()) return;
 
-        var field = this.getColFromDate(date);
-        this.retagColumnEvents(field, false);
+        var field = this.getFieldFromDate(date);
+        if (field) this.retagColumnEvents(field, false);
     },
 
     // recalculate the overlap ranges in a given column - might be a "day" or a vertical lane
     retagColumnEvents : function (colNum, isLane) {
         if (this.isTimelineView()) return;
+
+        //this.logWarn("*** retagColumnEvents(" + colNum + ")");
 
         var field;
         if (isc.isA.Number(colNum)) {
@@ -2223,13 +2560,13 @@ isc.CalendarView.addProperties({
         }
 
         // 1) remove the ranges that appear in this column
-        this.removeOverlapRanges(this.getColOverlapRanges(colNum));
+        this.removeOverlapRanges(this.getColOverlapRanges(field.name));
 
         // 2) get a list of events that will be in this column
-        var date = this.getDateFromCol(colNum);
+        var date = field.startDate;
         if (!date) return;
         var startDate = date,
-            endDate = isc.DateUtil.getEndOf(date, "d")
+            endDate = this.getCellEndDate(this.data.length-1, colNum)
         ;
         var events = this.findEventsInRange(startDate, endDate, (isLane ? field.name : null));
 
@@ -2241,6 +2578,8 @@ isc.CalendarView.addProperties({
     retagRowEvents : function (rowNum) {
         if (!this.isTimelineView()) return;
 
+        //this.logWarn("*** retagRowEvents(" + rowNum + ")");
+
         var cal = this.calendar,
             row;
         if (isc.isA.Number(rowNum)) {
@@ -2250,7 +2589,7 @@ isc.CalendarView.addProperties({
             rowNum = this.isGrouped ? this.getGroupedRecordIndex() : this.getRecordIndex(row);
         }
 
-        var laneName = row[cal.laneNameField];
+        var laneName = row.name;
 
         // 1) remove the ranges that appear in this lane
         this.removeOverlapRanges(this.getLaneOverlapRanges(laneName));
@@ -2302,16 +2641,17 @@ isc.CalendarView.addProperties({
 
         var cal = this.calendar,
             specifiers = [];
-        if (this.isTimelineView() || (this.isDayView() && cal.showDayLanes)) {
+        if (this.usesLanes()) {
             specifiers.add({ property: cal.laneNameField, direction: "ascending" });
         }
         if (cal.overlapSortSpecifiers) {
             specifiers.addList(cal.overlapSortSpecifiers);
         } else {
-            specifiers.addList([
-                { property: "_slotNum", direction: "ascending" },
-                { property: cal.startDateField, direction: "ascending" }
-            ]);
+            if (!cal.showColumnLayouts) {
+                // only sort by slotNum if overlapping is in use (not showing columnLayouts)
+                specifiers.add({ property: "slotNum", direction: "ascending" });
+            }
+            specifiers.add({ property: cal.startDateField, direction: "ascending" });
         }
         events.setSort(specifiers);
     },
@@ -2329,7 +2669,7 @@ isc.CalendarView.addProperties({
             _this = this;
         for (var i=0; i<events.length; i++) {
             var event = events.get(i),
-                props = event._overlapProps,
+                props = event.overlapProps,
                 laneIndex = isLane ? _this.getLaneIndex(event[cal.laneNameField]) : null
             ;
             if (!isLane || (laneIndex >= visibleLanes[0] && laneIndex <= visibleLanes[1])) {
@@ -2338,9 +2678,9 @@ isc.CalendarView.addProperties({
                 if (canvas) {
                     if (canvas.setEvent) canvas.setEvent(event);
                     else canvas.event = event;
-                    _this.sizeEventCanvas(canvas, false);
+                    _this.sizeEventCanvas(canvas, false, "renderEvents");
                 } else {
-                    this.addEvent(event);
+                    canvas = this.addEvent(event);
                 }
             }
         };
@@ -2350,8 +2690,14 @@ isc.CalendarView.addProperties({
     // range building and rendering stuff
     //------------------------------------------------------
 
-    sizeEventCanvas : function (canvas, forceRedraw) {
+    sizeEventCanvas : function (canvas, forceRedraw, calledFrom) {
         if (!canvas || !canvas.event || Array.isLoading(canvas.event)) return;
+
+        if (this.shouldShowColumnLayouts()) {
+            this.logInfo("sizeEventCanvas() called from " + calledFrom + " while " +
+                "showColumnLayouts is true...");
+            return;
+        }
 
         var cal = this.calendar;
         if (cal == null) return;
@@ -2359,13 +2705,19 @@ isc.CalendarView.addProperties({
         var event = canvas.event,
             isTimeline = this.isTimelineView(),
             isWeekView = this.isWeekView(),
-            useLanes = this.hasLanes(),
+            useLanes = this.usesLanes(),
             startDate = cal.getEventStartDate(event),
             endDate = cal.getEventEndDate(event)
         ;
 
+        //this.logWarn("in sizeEventCanvas - " + isc.echoFull(canvas.getRect()));
 
-        if (forceRedraw) canvas.hide();
+
+        var hasRedrawFocus = canvas.hasFocus;
+        // we have to reset the focus but WHERE DOES IT GET DRAWN???
+        //if (forceRedraw) {
+            //canvas.hide();
+        //}
 
         var eTop, eLeft, eWidth, eHeight,
             laneIndex = useLanes ? this.getLaneIndex(event[cal.laneNameField]) : null,
@@ -2423,40 +2775,60 @@ isc.CalendarView.addProperties({
                 delete canvas._cacheValues._headerHeight;
             }
 
+            // create a new logical date, without converting anything
+            var newStart = isc.DateUtil.createLogicalDate(
+                    startDate.getFullYear(), startDate.getMonth(), startDate.getDate()
+            );
+
             var colNum;
             if (this.isDayView()) {
-                if (cal.showDayLanes) colNum = laneIndex;
+                if (this.usesLanes()) colNum = laneIndex;
                 else colNum = 0;
             } else {
-                colNum = this.getColFromDate(startDate);
+                colNum = this.getColFromDate(newStart);
             }
+
+            var colDate = this.getCellDate(0, colNum);
             eLeft = this.body.getColumnLeft(colNum);
             eWidth = this.body.getColumnWidth(colNum);
 
             var rowSize = this.body.getRowHeight(this.getRecord(1), 1),
-                // catch the case where the end of the event is on 12am, which happens when an
-                // event is dragged or resized to the bottom of the screen
-                eHrs = endDate.getHours() == 0
-                        && endDate.getDate() != startDate.getDate()
-                        ? 24 : endDate.getHours(),
-
                 // if the event ends on the next day, render it as ending on the last hour of the
                 // current day
                 spansDays = false,
                 minsPerRow = this.getTimePerCell(),
-                rowsPerHour = cal.getRowsPerHour(this)
+                rowsPerHour = cal.getRowsPerHour(this),
+                eHrs = null
             ;
+            if (colDate && startDate.getTime() < colDate.getTime()) {
+                newStart = colDate.duplicate();
+                spansDays = true;
+            }
 
-            if (endDate.getDate() > startDate.getDate()) {
+            // detect different days with logical-dates
+            var newEnd = isc.DateUtil.getLogicalDateOnly(endDate);
+            if (newEnd.getDate() != newStart.getDate()) {
+                newEnd = isc.DateUtil.getEndOf(newStart, "d", false);
                 spansDays = true;
                 eHrs = 24;
             }
 
+            // use logicalTimes to cater for positioning with a custom display timezone
+            var startTime = isc.DateUtil.getLogicalTimeOnly(startDate);
+            var endTime = isc.DateUtil.getLogicalTimeOnly(endDate);
+
+            if (eHrs == null) {
+                // catch the case where the end of the event is on 12am, which happens when an
+                // event is dragged or resized to the bottom of the screen
+                eHrs = endTime.getHours() == 0 && newEnd.getDate() != newStart.getDate()
+                        ? 24 : endTime.getHours();
+            }
+
             // use getRowTop() to get the top of the row containing the start time
-            eTop = this.getRowTop(startDate.getHours() * rowsPerHour);
+            eTop = this.getRowTop(startTime.getHours() * rowsPerHour);
 
             // each (rowSize * 2) represents one hour, so we're doing (hour diff) * (1 hour height)
-            eHeight = (eHrs - startDate.getHours()) * (rowSize * rowsPerHour);
+            eHeight = (eHrs - startTime.getHours()) * (rowSize * rowsPerHour);
 
             eHeight -= 1;
 
@@ -2469,14 +2841,15 @@ isc.CalendarView.addProperties({
                 }
             }
 
-            var startMins = startDate.getMinutes();
+            var startMins = startTime.getMinutes();
             if (startMins > 0) {
                 var startMinPixels = cal.getMinutePixels(startMins, rowSize, this);
                 eHeight -= startMinPixels;
                 eTop += startMinPixels;
             }
-            if (endDate.getMinutes() > 0 && !spansDays) {
-                eHeight += cal.getMinutePixels(endDate.getMinutes(), rowSize, this);
+
+            if (endTime.getMinutes() > 0 && !spansDays) {
+                eHeight += cal.getMinutePixels(endTime.getMinutes(), rowSize, this);
             }
 
             if (cal.eventsOverlapGridLines) {
@@ -2486,38 +2859,42 @@ isc.CalendarView.addProperties({
                 eHeight += 1;
             }
 
+            var scrollH = this.body.getScrollHeight();
+            if (eTop+eHeight > scrollH) {
+                eHeight = scrollH - eTop;
+            }
+
         }
 
+        var rectChanged = true;
         if (cal.useSublanes && lane && lane.sublanes) {
             this.sizeEventCanvasToSublane(canvas, lane, eLeft, eTop, eWidth, eHeight);
         } else {
             //if (doDebug) isc.logWarn('sizeEventCanvas:' + [daysFromStart, cal.startDate]);
-            this.adjustDimensionsForOverlap(canvas, eLeft, eTop, eWidth, eHeight);
+            rectChanged = this.adjustDimensionsForOverlap(canvas, eLeft, eTop, eWidth, eHeight);
         }
 
-        // set description after resize so percentage widths can be respected in html that may
-        // be in the description
-        if (canvas.setDescriptionText) {
-            //TODO: this is specific to the old eventWindow - get rid of it
-            if (cal.showEventDescriptions != false) {
-                canvas.setDescriptionText(event[cal.descriptionField]);
-            } else {
-                canvas.setDescriptionText(event[cal.nameField]);
-            }
-        } else {
-            canvas.markForRedraw();
-        }
+        // update the canvas
+        if (!canvas.isDrawn()) {
+            canvas.draw();
+        } else canvas.redraw();
+        canvas.show();
 
         if (isTimeline && event != null) {
             // draw leading and trailing lines
             if (event[cal.leadingDateField] && event[cal.trailingDateField]) {
-                if (canvas._lines) this.addLeadingAndTrailingLines(canvas);
+                if (canvas.leadingIcon) canvas.updateLeadingTrailingDates();
                 // split this onto another thread so that ie doesn't pop the
                 // slow script warning. Applies to first draw only.
-                else this.delayCall("addLeadingAndTrailingLines", [canvas]);
+                else canvas.delayCall("updateLeadingTrailingDates");
             }
         }
 
+        if (hasRedrawFocus && !canvas.hasFocus) {
+            canvas.focus("restore calendar event focus after redraw");
+        }
+
+        delete canvas.needsResize;
     },
 
     /*
@@ -2529,8 +2906,13 @@ isc.CalendarView.addProperties({
 
     adjustDimensionsForOverlap : function (canvas, left, top, width, height) {
         var cal = this.calendar,
-            props = canvas.event._overlapProps,
-            isTimeline = this.isTimelineView(),
+            props = canvas.event.overlapProps
+        ;
+        if (!props) {
+            //this.logWarn(canvas.event.name + " - no overlapProps");
+            return;
+       }
+        var isTimeline = this.isTimelineView(),
             usePadding = this.useLanePadding(),
             padding = usePadding ? cal.getLanePadding(this) : 0,
             halfPadding = usePadding ? Math.floor(padding / 2) : 0,
@@ -2558,6 +2940,12 @@ isc.CalendarView.addProperties({
                 }
                 top = top + Math.floor((slotSize * (props.slotNum - 1)));
                 if (props.slotNum > 1) top += (padding * (props.slotNum-1));
+                if (cal.eventOverlap && props._drawOverlap != false) {
+                    if (props.slotNum > 1) {
+                        top -= Math.floor(slotSize * (cal.eventOverlapPercent / 100));
+                        height += Math.floor(slotSize * (cal.eventOverlapPercent / 100));
+                    }
+                }
             } else {
                 slotSize = Math.floor((width-totalPadding) / props.totalSlots);
                 width = slotSize;
@@ -2609,7 +2997,15 @@ isc.CalendarView.addProperties({
             }
         }
 
+        var rect = canvas.getRect();
+        if (rect[0] == left && rect[1] == top && rect[2] == width && rect[3] == height) {
+            // if position and size haven't changed, bail before an unnecessary renderEvent(),
+            // returning false to prevent an unnecessary markForRedraw()
+            this.logDebug("Not resizing event '" + canvas.event.name + "'.");
+            return false;
+        }
         canvas.renderEvent(top, left, width, height);
+        return true;
     },
 
     sizeEventCanvasToSublane : function (canvas, lane, left, top, width, height) {
@@ -2667,24 +3063,37 @@ isc.CalendarView.addProperties({
             snap = {}
         ;
 
+        if (date == null) {
+            // use the date at the passed co-ords (or the mouse)
+            date = this.getDateFromPoint(x, y);
+        }
+
         if (date != null) {
             var d = (isc.isA.Date(date) ? date.duplicate() : new Date(date));
+            if (returnExtents) {
+                // clamp the date if it's outside of the current range
+                if (d.getTime() < this.startDate.getTime()) {
+                    d = this.startDate.duplicate();
+                } else if (d.getTime() > this.endDate.getTime()) {
+                    d = this.endDate.duplicate();
+                }
+            }
             // start at the snap before (date + 1ms)
             if (!isEndSnap) d.setTime(d.getTime()+1);
-            snap.startY = this.getDateTopOffset(d, lane);
+            snap.startTopOffset = this.getDateTopOffset(d, lane);
             // end at the snap before (start + snapMins)
-            var end = isc.DateUtil.dateAdd(d.duplicate(), "mn", snapMins);
+            var end = isc.DateUtil.dateAdd(d, "mn", snapMins);
             if (d.getDate() == end.getDate()) {
-                snap.endY = this.getDateTopOffset(d, lane);
+                snap.endTopOffset = this.getDateTopOffset(end, lane);
             } else {
-                snap.endY = this.body.getScrollHeight();
+                snap.endTopOffset = this.body.getScrollHeight();
             }
-            // index is (startY / snapMins)
-            snap.index = Math.floor(snap.startY / snapPixels);
-            // startDate is getDateFromPoint(null, startY)
-            snap[cal.startDateField] = this.getDateFromPoint(null, snap.startY);
-            // startDate is getDateFromPoint(null, startY)
-            snap[cal.endDateField] = this.getDateFromPoint(null, snap.endY);
+            // index is (startTopOffset / snapMins)
+            snap.index = Math.floor(snap.startTopOffset / snapPixels);
+            // startDate is getDateFromPoint(null, startTopOffset)
+            snap[cal.startDateField] = this.getDateFromPoint(null, snap.startTopOffset);
+            // startDate is getDateFromPoint(null, startTopOffset)
+            snap[cal.endDateField] = this.getDateFromPoint(null, snap.endTopOffset);
         }
 
         return snap;
@@ -2711,10 +3120,10 @@ isc.CalendarView.addProperties({
 
         var processedEvents = [];
 
-        data.setProperty("_overlapProps", null);
-        data.setProperty("_slotNum", null);
+        data.setProperty("overlapProps", null);
+        data.setProperty("slotNum", null);
 
-        var useLanes = this.isTimelineView() || (this.isDayView() && cal.showDayLanes);
+        var useLanes = this.usesLanes();
 
         var olRanges = this.updateOverlapRanges(data);
 
@@ -2737,6 +3146,8 @@ isc.CalendarView.addProperties({
             this.logWarn("tagDataForOverlap: about to loop over " + olRanges.length + " overlap ranges");
         }
 
+        var lastSnapIndex = this.getLastSnapIndex();
+
         for (var j = 0; j<olRanges.length; j++) {
             var range = olRanges[j];
 
@@ -2744,9 +3155,11 @@ isc.CalendarView.addProperties({
                 this.logWarn("range: " + isc.echoFull(range) + "");
             }
 
-            var rangeStartSnapObj = this.getSnapData(null, null, range[cal.startDateField], null, range[cal.laneNameField]),
+            var field = (range.fieldName ? this.getFieldByName(range.fieldName) : null);
+
+            var rangeStartSnapObj = this.getSnapData(null, null, range[cal.startDateField], true, range[cal.laneNameField]),
                 rangeStartSnap = rangeStartSnapObj ? rangeStartSnapObj.index : 0,
-                rangeEndSnapObj = this.getSnapData(null, null, range[cal.endDateField], null, range[cal.laneNameField], true),
+                rangeEndSnapObj = this.getSnapData(null, null, range[cal.endDateField], true, range[cal.laneNameField], true),
                 rangeEndSnap = rangeEndSnapObj ? rangeEndSnapObj.index : this._snapGapList.length-1,
                 // range start and end snaps are inclusive
                 rangeSnapCount = (rangeEndSnap-rangeStartSnap) + 1,
@@ -2759,43 +3172,79 @@ isc.CalendarView.addProperties({
 
             var events = range.events;
 
-            events.setSort(rangeSort);
+            //events.setSort(rangeSort);
 
             for (var eventIndex=0; eventIndex<events.length; eventIndex++) {
 
                 var event = events[eventIndex];
 
-                event._overlapProps = {};
+                event.overlapProps = {};
 
-                var oProps = event._overlapProps;
+                var oProps = event.overlapProps;
 
+                if (addLogs) {
+                    this.logWarn("Processing event " + event.name);
+                }
                 // get the event's snapGapList - last param will return the first/last snaps
                 // if the dates are out of range
                 var eStart = cal.getEventStartDate(event),
                     eEnd = cal.getEventEndDate(event)
                 ;
+                var eStartDate = isc.DateUtil.getLogicalDateOnly(eStart);
+                var eStartTime = isc.DateUtil.getLogicalTimeOnly(eStart);
+                eStart = isc.DateUtil.combineLogicalDateAndTime(eStartDate, eStartTime);
+
+                var eEndDate = isc.DateUtil.getLogicalDateOnly(eEnd);
+                var eEndTime = isc.DateUtil.getLogicalTimeOnly(eEnd);
+                eEnd = isc.DateUtil.combineLogicalDateAndTime(eEndDate, eEndTime);
+
+                // take 1ms from the end time to deal with the common case of people specifying
+                // a rounded end date, like 10pm, which is typically the start of the next snapGap
+                eEnd = isc.DateUtil.adjustDate(eEnd, "-1ms");
+
+                if (field && field.endDate && eEnd > field.endDate) {
+                    // clamp the event's endDate to the column's endDate
+                    eEnd = field.endDate.duplicate();
+                }
+
+                if (addLogs) {
+                    this.logWarn("    startDate: " + eStart + "\n      endDate: " + eEnd);
+                }
+
                 // tweak the dates by 1ms, to prevent exact matches on a snap-boundary from
                 // causing incorrect overlaps
-                oProps.eventStartSnap = this.getSnapData(null, null, eStart.getTime()+1, null, event[cal.laneNameField]);
-                oProps.eventEndSnap = this.getSnapData(null, null, eEnd.getTime()-1, null, event[cal.laneNameField]);
+                oProps.eventStartSnap = this.getSnapData(null, null, eStart.getTime()+1, true, event[cal.laneNameField]);
+                oProps.eventEndSnap = this.getSnapData(null, null, eEnd.getTime()-1, true, event[cal.laneNameField]);
 
                 // deal with hidden snaps - if eventStart/EndSnap aren't set, use last/nextValidSnap
                 var eStartSnap = (oProps.eventStartSnap ? oProps.eventStartSnap.index : oProps.nextValidSnap.index) -rangeStartSnap;
                 var eEndSnap = (oProps.eventEndSnap ? oProps.eventEndSnap.index : oProps.lastValidSnap.index) -rangeStartSnap;
 
+                // increment the endSnap to ensure appropriate overlap-detection - the +1 is no longer applied
+                // to the array.fill() calls later
+                eEndSnap++;
+
+                eEndSnap = Math.min(eEndSnap, lastSnapIndex);
+
                 var found = false;
                 var slot = null;
 
                 for (var slotIndex=0; slotIndex<slotCount; slotIndex++) {
-                    var gaps = slotList[slotIndex].snapGaps.slice(eStartSnap, eEndSnap+1);
+
+                    var gaps = slotList[slotIndex].snapGaps.slice(eStartSnap, eEndSnap);
                     var used = gaps.sum() > 0;
+                    if (addLogs) {
+                        this.logWarn("    checking slots: " + eStartSnap + " to " + eEndSnap);
+                        this.logWarn("    used is: " + used);
+                        this.logWarn("    gaps are: " + isc.echoFull(gaps));
+                    }
                     if (!used) {
                         found = true;
-                        slotList[slotIndex].snapGaps.fill(1, eStartSnap, eEndSnap+1);
+                        slotList[slotIndex].snapGaps.fill(1, eStartSnap, eEndSnap);
                         slotList[slotIndex].events.add(event);
-                        event._overlapProps.slotNum = slotIndex
+                        event.overlapProps.slotNum = slotIndex;
                         if (addLogs) {
-                            this.logWarn("event " + event.name + " occupying slot " + slotIndex);
+                            this.logWarn("event " + event.name + " now occupying slot " + slotIndex);
                         }
                         break;
                         }
@@ -2803,14 +3252,14 @@ isc.CalendarView.addProperties({
                 if (!found) {
                     // add a new slot
                     slotList[slotCount] = this.getOverlapSlot(slotCount, rangeSnapCount);
-                    slotList[slotCount].snapGaps.fill(1, eStartSnap, eEndSnap+1);
+                    slotList[slotCount].snapGaps.fill(1, eStartSnap, eEndSnap);
                     slotList[slotCount].events.add(event);
-                    event._overlapProps.slotNum = slotCount
+                    event.overlapProps.slotNum = slotCount
                             if (addLogs) {
                         this.logWarn("event " + event.name + " added to new slot index " + slotCount);
                     }
                     slotCount++;
-                            }
+                }
 
             }
 
@@ -2821,7 +3270,7 @@ isc.CalendarView.addProperties({
                 // decides this event's slotCount
                 for (var eIndex=0; eIndex < slot.events.length; eIndex++) {
                     var event = slot.events[eIndex];
-                    var oProps = event._overlapProps;
+                    var oProps = event.overlapProps;
 
                     // update the totalSlots
                     oProps.totalSlots = slotCount;
@@ -2830,34 +3279,42 @@ isc.CalendarView.addProperties({
                     var eStartSnap = (oProps.eventStartSnap ? oProps.eventStartSnap.index : rangeStartSnap) -rangeStartSnap;
                     var eEndSnap = (oProps.eventEndSnap ? oProps.eventEndSnap.index : rangeStartSnap) -rangeStartSnap;
 
+                    eEndSnap++;
+
                     var found = false;
 
                     for (var innerIndex=i+1; innerIndex<slotList.length; innerIndex++) {
-                        var gaps = slotList[innerIndex].snapGaps.slice(eStartSnap, eEndSnap+1);
+                        //var gaps = slotList[innerIndex].snapGaps.slice(eStartSnap, eEndSnap+1);
+                        var gaps = slotList[innerIndex].snapGaps.slice(eStartSnap, eEndSnap);
                         var used = gaps.sum() > 0;
                         if (used) {
                             oProps.slotCount = innerIndex - oProps.slotNum;
                             found = true;
-                                break;
-                            }
-                            }
+                            break;
+                        }
+                    }
                     if (!found) {
                         // should span all following slots
                         oProps.slotCount = slotCount - oProps.slotNum;
-                            }
+                    }
                     // we want slotNum to start from 1, for legacy downstream code
                     oProps.slotNum++;
-                    event._slotNum = oProps.slotNum;
-                        }
-                    }
+                    event.slotNum = oProps.slotNum;
+                }
+            }
 
             range.slotList = slotList;
 
             if (addLogs) {
                 this.logWarn("***** slotList *****\n" + isc.echoFull(slotList));
-                }
+            }
         }
 
+    },
+
+    getLastSnapIndex : function () {
+        var snap = this.getSnapData(null, null, isc.DateUtil.adjustDate(this.endDate, "-1ms"), true);
+        if (snap) return snap.index;
     },
 
     //-------------------------rendering events on demand-----------------------------
@@ -2868,21 +3325,13 @@ isc.CalendarView.addProperties({
 
         if (refreshAll) {
             return [cal.getVisibleStartDate(this), cal.getVisibleEndDate(this)];
-        } else if (this._cache.viewportStartMillis) {
-            return [ new Date(this._cache.viewportStartMillis), new Date(this._cache.viewportEndMillis) ]
+
+        //} else if (this._cache.viewportStartMillis) {
+        //    return [ new Date(this._cache.viewportStartMillis), new Date(this._cache.viewportEndMillis) ]
         }
 
         if (!this.renderEventsOnDemand) {
-            if (this.isTimelineView()) {
                 return [this.startDate.duplicate(), this.endDate.duplicate()];
-            } else if (this.isWeekView()) {
-                return [cal.chosenWeekStart, cal.chosenWeekEnd];
-            } else if (this.isDayView()) {
-                return [cal.chosenDateStart, cal.chosenDateEnd];
-            } else if (this.isMonthView()) {
-                return [isc.DateUtil.getStartOf(cal.chosenDate, "M"),
-                        isc.DateUtil.getEndOf(cal.chosenDate, "M")];
-            }
         }
 
         if (this.isTimelineView()) {
@@ -2907,7 +3356,7 @@ isc.CalendarView.addProperties({
         if (endRow < 0 || isNaN(endRow)) endRow = this.data.getLength()-1;
         if (endCol < 0 || isNaN(endCol)) {
             if (this.isTimelineView()) {
-                endCol = this._dateFieldCount
+                endCol = this._dateFieldCount;
             } else {
                 endCol = this.body.fields.length - 1;
             }
@@ -2920,8 +3369,6 @@ isc.CalendarView.addProperties({
             endDate = (this.getCellEndDate ? this.getCellEndDate(endRow, endCol) :
                 this.getCellDate(endRow, endCol)) || this.endDate
         ;
-
-        //if (endDate.getTime() < startDate.getTime()) endDate = isc.DateUtil.getEndOf(endDate, "D");
 
         this._cache.viewportStartMillis = startDate.getTime();
         this._cache.viewportEndMillis = endDate.getTime();
@@ -2945,58 +3392,74 @@ isc.CalendarView.addProperties({
         return this.body.getVisibleColumns();
     },
 
+    delayedRefreshVisibleEvents : function (refreshAll, caller) {
+        if (this.refreshVisibleEventsTimer) isc.Timer.clear(this.refreshVisibleEventsTimer);
+        var _this = this;
+        this.refreshVisibleEventsTimer = isc.Timer.setTimeout(function () {
+            //isc.logWarn("delayedRefreshVisibleEvents('" + caller + "')");
+            isc.Timer.clear(_this.refreshVisibleEventsTimer);
+            delete _this.refreshVisibleEventsTimer;
+            _this.refreshVisibleEvents(refreshAll, caller);
+        }, 100);
+    },
+
     // refreshEvents is only called when data changes, etc.
     // refreshVisibleEvents is called whenever the view is scrolled and only draws visible events.
     // see scrolled()
-    refreshVisibleEvents : function (events, refreshAll, caller) {
+    refreshVisibleEvents : function (refreshAll, caller) {
+        //this.logWarn("refreshVisisbleEvents() called by '" + caller + "' - " +
+        //    "isDrawn=" + this.isDrawn() + ", body.isDrawn=" + (this.body && this.body.isDrawn()));
         // bail unless both the view and its body are drawn
         if (!this.isDrawn() || !this.body || !this.body.isDrawn()) return;
         // bail if this is a lane-based view but there aren't any lanes (can't render anything)
-        if (this.hasLanes() && (!this.lanes || this.lanes.length == 0)) return;
-        // if there are no drawnEvents, refreshEvents hasn't been called yet - do that and bail
-        if (!this._drawnEvents) {
-            this.refreshEvents();
+
+        if (this._pendingGroupComplete || this._groupOnDraw) {
+            // if this flag is set, grouping hasn't finished yet, and we'll run again when it does
             return;
         }
 
         //isc.logWarn("refreshVisibleEvents - called from " + caller);
 
         // get visible events (those in the viewport)
-        events = events || this.getVisibleEvents(refreshAll);
+        var events = this.getVisibleEvents(refreshAll);
 
         // need to do this to ensure consistent zordering
         this.sortForRender(events);
 
         var eventsLen = events.getLength();
 
-        var clearThese = this.useEventCanvasPool ? this._drawnEvents.duplicate() : [],
-            addThese = []
+        var clearThese = this.useEventCanvasPool ? isc.addProperties({}, this._usedEventMap) : {},
+            addThese = {}
         ;
 
         this.logDebug('refreshing visible events','calendar');
 
-        for (var i = 0; i < eventsLen; i++) {
-            var event = events.get(i),
-                alreadyVisible = this._drawnEvents.contains(event)
+        // build a map of event.__key to event-object
+        var eventMap = events.makeIndex("__key");
+
+        // we don't need to resize/redraw *already drawn* canvases just because of a scroll
+        var firedFromScroll = (caller == "scrolled");
+        for (var key in eventMap) {
+            //var event = events.get(i),
+            var event = eventMap[key],
+                alreadyVisible = this._usedEventMap[key] != null
             ;
 
-
-            event.__tabIndex = 2000 + i;
-
             if (alreadyVisible) {
-                // if an event is already in the _drawnEvents array, remove it from the
-                // clearThese array
-                clearThese.remove(event);
-                if (this.isGrouped || this.useEventCanvasPool) {
+                // if an event is already in the _usedEventMap, remove it from the
+                // clearThese object
+                delete clearThese[key];
+                if (!firedFromScroll && (this.isGrouped || this.useEventCanvasPool)) {
                     // if the view is grouped or using the eventCanvasPool, reposition and
                     // redraw the canvas
                     var canvas = this.getCurrentEventCanvas(event);
-                    this.sizeEventCanvas(canvas, true);
+                    //if (canvas && canvas.needsResize) this.sizeEventCanvas(canvas);
+                    this.sizeEventCanvas(canvas, null, "refreshVisibleEvents");
                 }
                 continue;
             }
 
-            addThese.add(event);
+            addThese[event.__key] = event;
         }
 
         if (this.isGrouped ||
@@ -3004,20 +3467,23 @@ isc.CalendarView.addProperties({
         {
             // we want to clear eventCanvases that are no longer in the viewport if we're using
             // viewport pooling mode, or if the grid is grouped (a group might have closed)
-            for (var i=0; i<clearThese.length; i++) {
-                var canvas = this.getCurrentEventCanvas(clearThese[i]);
+            for (var key in clearThese) {
+                var canvas = this._allCanvasMap[clearThese[key]];
                 if (canvas) this.clearEventCanvas(canvas);
             }
         }
+        clearThese = null;
 
-        if (addThese.length > 0) {
-            var len = addThese.length;
-            for (var i=0; i<len; i++) {
-                var event = addThese[i];
-                if (!this._drawnEvents.contains(event)) this._drawnEvents.add(event);
-                this.addEvent(event, false);
+        if (isc.getKeys(addThese).length > 0) {
+            for (var key in addThese) {
+                var event = addThese[key];
+                this.addEvent(event, false, true);
             }
         }
+        addThese = null;
+
+        // if there are columnLayouts, resize and resort them
+        if (this.shouldShowColumnLayouts()) this.updateColumnLayouts();
 
         if (!this.__printing) {
             // redraw any zones and indicators in the background
@@ -3025,10 +3491,46 @@ isc.CalendarView.addProperties({
             this.drawIndicators();
         }
 
-        var cal = this.calendar;
 
-        if (cal.eventsRendered && isc.isA.Function(cal.eventsRendered))
+        // update the tab positions of all the visible eventCanvases
+        if (this.calendar.canSelectEvents) this.setEventCanvasTabPositions();
+
+        this._eventsRendered();
+    },
+
+    _eventsRendered : function () {
+        var cal = this.calendar;
+        if (this._scrollToEvent) {
+            this.scrollToEvent(this._scrollToEvent);
+            this._scrollToEvent = null;
+        }
+        if (cal.eventsRendered && isc.isA.Function(cal.eventsRendered)) {
             cal.eventsRendered();
+        }
+    },
+
+    // update the tab-indexes of all eventCanvases
+    setEventCanvasTabPositions : function () {
+        if (!this.calendar.canSelectEvents) return;
+
+        // sort the events as they'll be rendered
+        var events = this.getEventData();
+        this.forceDataSort(events);
+
+        // loop over the events, get the associated canvas and set it's tabIndex
+        for (var j=0; j<events.length; j++) {
+            var canvas = this.getCurrentEventCanvas(events[j]);
+            if (canvas && canvas.isEventCanvas && canvas.event) {
+                // ensure the tabIndex is always horizontal and then vertical within each lane,
+                // and then vertical into the next visible lane (not next alphabetically)
+                var tabIndex = 0;
+                if (this.usesLanes()) {
+                    tabIndex = this.getLaneIndex(canvas.event[this.calendar.laneNameField]) * 1000;
+                }
+                tabIndex += j;
+                canvas.setRelativeTabPosition(tabIndex);
+            }
+        }
     },
 
     getVisibleEvents : function (refreshAll) {
@@ -3036,9 +3538,8 @@ isc.CalendarView.addProperties({
         if (!this.renderEventsOnDemand) return this.getEventData();
 
         var isTimeline = this.isTimelineView(),
-            hasDayLanes = cal.showDayLanes && this.isDayView(),
             dateRange = this.getVisibleDateRange(refreshAll),
-            useLanes = (isTimeline || hasDayLanes),
+            useLanes = this.usesLanes(),
             laneRange = useLanes ?
                 (isTimeline ? this.getVisibleRowRange() : this.getVisibleColumnRange()) : null
         ;
@@ -3064,7 +3565,7 @@ isc.CalendarView.addProperties({
 
             // if shouldShowEvent() is implemented and returns false, skip the event
             if (cal.shouldShowEvent(event, this) == false) continue;
-            if (cal.shouldShowLane(this.getLane(event.lane), this) == false) continue;
+            if (useLanes && cal.shouldShowLane(this.getLane(event[cal.laneNameField]), this) == false) continue;
 
             var eventStart = cal.getEventLeadingDate(event) || cal.getEventStartDate(event);
             // bail if there's no startDate
@@ -3091,14 +3592,19 @@ isc.CalendarView.addProperties({
             if (isWeekView) {
                 // if the event's end date is on a different day, assume the end of the start
                 // day, so that the range-comparison below works properly
-                if (eventEnd.getDate() != eventStart.getDate()) {
-                    eventEnd = isc.DateUtil.getEndOf(eventStart.duplicate(), "d");
+                var lStart = isc.DateUtil.getLogicalDateOnly(eventStart),
+                    lEnd =  isc.DateUtil.getLogicalDateOnly(eventEnd)
+                ;
+                if (lStart.getDate() != lEnd.getDate()) {
+                    eventEnd = isc.DateUtil.getEndOf(eventStart, "d", false);
                 }
                 // the range is from hour-start on the start date, to hour-end on the end date
                 // but we don't want events that are vertically not in view, so discard events
                 // that end before the viewport start time or start after the viewport end-time
-                if (eventEnd.getHours() < dateRange[0].getHours()) continue;
-                if (eventStart.getHours() > dateRange[1].getHours()) continue;
+                //if (isc.DateUtil.getLogicalTimeOnly(eventEnd).getHours() <
+                //        isc.DateUtil.getLogicalTimeOnly(dateRange[0]).getHours()) continue;
+                //if (isc.DateUtil.getLogicalTimeOnly(eventStart).getHours() <
+                //        isc.DateUtil.getLogicalTimeOnly(dateRange[1]).getHours()) continue;
             }
 
             // build a range object to compare against
@@ -3107,7 +3613,7 @@ isc.CalendarView.addProperties({
             if (useLanes) {
                 if (this.isGrouped) {
                     // if grouped, check that the lane is in the openList
-                    var index = openList.findIndex(cal.laneNameField, event[cal.laneNameField]);
+                    var index = openList.findIndex("name", event[cal.laneNameField]);
                     if (index < 0) continue;
                 } else {
                     if (refreshAll != true) {
@@ -3136,7 +3642,7 @@ isc.CalendarView.addProperties({
                 rangeObj[cal.endDateField] = dateRange[1];
             }
 
-            //sameLaneOnly = useLanes ? !cal.canEditEventLane(event) : false;
+            //sameLaneOnly = useLanes ? !cal.canEditEventLane(event, view) : false;
             //if (this.eventsOverlap(rangeObj, event, sameLaneOnly)) {
             if (this.eventsOverlap(rangeObj, event, useLanes)) {
                 results.add(event);
@@ -3157,11 +3663,14 @@ isc.CalendarView.addProperties({
                 if (canvas.hide) canvas.hide();
                 // also clear the canvas so it can no longer affect the size of the body
                 if (canvas.clear) canvas.clear();
-                if (this._drawnCanvasList) this._drawnCanvasList.remove(canvas);
-                if (this._drawnEvents) this._drawnEvents.remove(canvas.event);
+                delete this._usedCanvasMap[canvas.ID];
+                if (canvas.event) {
+                    delete this._usedEventMap[canvas.event.__key];
+                }
                 if (this.useEventCanvasPool && !destroy) {
                     this.poolEventCanvas(canvas);
                 } else {
+                    canvas.event = null;
                     canvas.destroy();
                     canvas = null;
                 }
@@ -3170,28 +3679,16 @@ isc.CalendarView.addProperties({
     },
 
     clearEvents : function (start, destroy) {
-        var pool = this._eventCanvasPool;
         // hide all the canvases in the _eventCanvasPool
-        if (!this.body || !this.body.children || !pool) return;
+        //if (!this.body || !this.body.children) return;
         if (!start) start = 0;
         //isc.logWarn('clearing events');
 
         if (destroy == null) destroy = !this.useEventCanvasPool;
 
-        var list = this._drawnCanvasList,
-            len = list.length
-        ;
-
-        while (--len >= 0) {
-            //isc.logWarn('hiding event:' + i);
-            if (list[len]) {
-                if (list[len]._availableForUse) {
-                    this.clearEventCanvas(list[len], destroy);
-                }
-            }
+        for (var key in this._usedCanvasMap) {
+            this.clearEventCanvas(this._allCanvasMap[key], destroy);
         }
-
-        list.removeEmpty();
     },
 
     areSame : function (first, second) {
@@ -3211,52 +3708,71 @@ isc.CalendarView.addProperties({
         }
     },
 
+
     getEventCanvasConstructor : function (event) {
         return this.eventCanvasConstructor;
     },
 
     getCurrentEventCanvas : function (event) {
-        var eventCanvasID = this.calendar.getEventCanvasID(this, event);
-        var canvas = window[eventCanvasID];
-        return canvas;
+        var canvasID = this._usedEventMap[event.__key];
+        return canvasID != null ? this._allCanvasMap[canvasID] : null;
     },
 
     poolEventCanvas : function (canvas) {
-        if (!this._eventCanvasPool) this._eventCanvasPool = [];
         if (this.body) {
+            var eventKey;
+            delete this._usedCanvasMap[canvas.ID];
             if (canvas.event) {
-                this.calendar.setEventCanvasID(this, canvas.event, null);
+                eventKey = canvas.event.__key;
+                delete this._usedEventMap[eventKey];
+                this.logInfo("pooling canvas " + canvas.ID + " for event + " + eventKey, "calendar");
+                //this.calendar.setEventCanvasID(this, canvas.event, null);
                 canvas.event = null;
             }
-            canvas._availableForUse = true;
-            if (this._drawnCanvasList) this._drawnCanvasList.remove(canvas);
-            if (!this._eventCanvasPool.contains(canvas)) this._eventCanvasPool.add(canvas);
+            canvas.availableForUse = true;
+            this._pooledCanvasMap[canvas.ID] = canvas;
             return true;
         } else return false;
     },
     getPooledEventCanvas : function (event) {
-        if (!this._eventCanvasPool) this._eventCanvasPool = [];
         if (!this.body) return;
-        var pool = this._eventCanvasPool,
-            cal = this.calendar,
-            canvas
-        ;
-        if (pool.length > 0) {
-            // reclaim an event from the eventCanvas pool
-            var index = pool.findIndex("event", event);
-            if (index < 0) index = pool.findIndex("_availableForUse", true);
-            if (index < 0) return null;
-            canvas = pool[index];
-            canvas._availableForUse = false;
-            cal.setEventCanvasID(this, event, canvas.ID);
-            pool.remove(canvas);
+
+        var canvasID = null;
+        var canvas = null;
+
+        var lastUsedCanvasID = this._lastUsedEventMap[event.__key];
+        if (lastUsedCanvasID && this._pooledCanvasMap[lastUsedCanvasID]) {
+            // get the canvas last used to render this event, if it's still pooled
+            canvasID = lastUsedCanvasID;
+            canvas = this._allCanvasMap[canvasID];
+            this.logInfo("re-using canvas " + canvasID + " for event + " + event.__key, "calendar");
+        } else {
+            var pooledKeys = isc.getKeys(this._pooledCanvasMap);
+            if (pooledKeys.length > 0) {
+                canvas = this._pooledCanvasMap[pooledKeys[0]];
+                canvasID = canvas.ID;
+                this.logInfo("un-pooling canvas " + canvasID + " for event + " + event.__key, "calendar");
+            }
         }
+
+        if (!canvas) return;
+
+        // update the various maps
+        this._usedEventMap[event.__key] = canvasID;
+        this._lastUsedEventMap[event.__key] = canvasID;
+        this._usedCanvasMap[canvasID] = event.__key;
+        this._lastUsedCanvasMap[canvasID] = event.__key;
+        delete this._pooledCanvasMap[canvasID];
+
+        canvas.availableForUse = false;
+        //this.calendar.setEventCanvasID(this, event, canvasID);
+
         return canvas;
     },
 
-    addEvent : function (event, retag) {
-        if (!this._drawnCanvasList) this._drawnCanvasList = [];
-        if (!this._eventCanvasPool) this._eventCanvasPool = [];
+    addEvent : function (event, retag, skipReflow) {
+        // if this is a new event, store it's __key for faster access later
+        if (!event.__key) this.calendar.getEventKey(event, this);
 
         // clear any cell selection that has been made
         this.clearSelection();
@@ -3264,46 +3780,95 @@ isc.CalendarView.addProperties({
         this.addEventData(event);
 
         var cal = this.calendar,
-            canvas = cal._getEventCanvas(event, this),
             hideWindow = false
         ;
 
-        if (canvas.isDrawn()) canvas.hide();
+        // get a canvas for the event - either the current one...
+        var canvas = this.getCurrentEventCanvas(event)
+        // or a pooled one (which will return the one that last showed this event, if it's
+        // available, or another one from the pool otherwise)
+        if (!canvas) canvas = this.getPooledEventCanvas(event);
+        // or a new one if there's nothing available in the pool
+        if (!canvas) canvas = cal._getEventCanvas(event, this);
 
-        if (!this._drawnCanvasList.contains(canvas)) this._drawnCanvasList.add(canvas);
+        //if (canvas.isDrawn()) canvas.hide();
+        if (canvas.isDrawn()) canvas.clear();
+
+        // assign the dragTarget, if not stacking event in columns - different drag mechanism
+        if (!this.shouldShowColumnLayouts()) {
+            canvas.dragTarget = this.eventDragCanvas;
+        }
+        canvas.setEvent(event);
+
+        if (!this.shouldShowColumnLayouts() && canvas.parentElement != this.body) {
+            // add canvases the body, if they're not being added to columnLayouts
+            this.body.addChild(canvas, null, false);
+        }
+
+        canvas.needsResize = true;
+
+        // add canvas->event and event->canvas map entries
+        this._usedCanvasMap[canvas.ID] = event.__key;
+        this._lastUsedCanvasMap[canvas.ID] = event.__key;
+        this._usedEventMap[event.__key] = canvas.ID;
+        this._lastUsedEventMap[event.__key] = canvas.ID;
 
         canvas._isWeek = this.isWeekView();
 
-        if (this.isDayView() && cal.showDayLanes) {
+        if (this.isDayView() && this.usesLanes()) {
             // don't show the eventCanvas if it's lane isn't visible
-            var laneName = event[cal.laneNameField],
-                lane = this.lanes.find("name", laneName)
-            ;
-            if (!lane) hideWindow = true;
+            var laneName = event[cal.laneNameField];
+            if (!this.getLane(laneName)) hideWindow = true;
         }
 
-        // this is suspect - setEvent() already does this...
-        var canEdit = cal.canEditEvent(event);
-        canvas.setDragProperties(canEdit, canEdit, this.eventDragTarget);
-
-        if (!hideWindow && this.body && this.body.isDrawn()) {
-            // if the "retag" param was passed, this is an event that hasn't been rendered
-            // before (it comes from processSaveResponse() after an "add" op) - rather than
-            // just resizing the window, get a list of overlapRanges that intersect the new
-            // event, combine the event-list from each of them and add the new event,
-            // remove the existing ranges and then retag the event-list
-            if (retag) {
-                if (this.body) this.body.addChild(canvas, null, false);
-                this.retagOverlapRange(cal.getEventStartDate(event),
-                        cal.getEventEndDate(event), event[cal.laneNameField]);
-            } else {
-                // add the eventCanvas to the body before rendering it, so that bringToFront()
-                // behaves as expected
-                if (this.body) this.body.addChild(canvas, null, false);
-                this.sizeEventCanvas(canvas);
-                canvas.bringToFront();
+        if (!this.shouldShowColumnLayouts()) {
+            if (!hideWindow && this.body && this.body.isDrawn()) {
+                // if the "retag" param was passed, this is an event that hasn't been rendered
+                // before (it comes from processSaveResponse() after an "add" op) - rather than
+                // just resizing the window, get a list of overlapRanges that intersect the new
+                // event, combine the event-list from each of them and add the new event,
+                // remove the existing ranges and then retag the event-list
+                if (retag) {
+                    if (this.verticalEvents) {
+                        this.retagDayEvents(cal.getEventStartDate(event));
+                    } else {
+                        this.retagOverlapRange(cal.getEventStartDate(event),
+                                cal.getEventEndDate(event), event[cal.laneNameField]);
+                    }
+                } else {
+                    // add the eventCanvas to the body before rendering it, so that bringToFront()
+                    // behaves as expected
+                    this.sizeEventCanvas(canvas, null, "addEvent");
+                    canvas.bringToFront();
+                }
             }
+        } else {
+            // when showColumnLayouts is true, we just add eventCanvases into this.getDayLayout(date)
+            this.addEventCanvasToColumnLayout(canvas, skipReflow);
         }
+    },
+
+    getColumnLayout : function (date) {
+        var col = this.getColFromDate(date);
+        return this.columnLayouts[col];
+    },
+    addEventCanvasToColumnLayout : function (eventCanvas, skipReflow) {
+        var col = this.getColFromDate(this.calendar.getEventStartDate(eventCanvas.event));
+        var layout = this.columnLayouts[col];
+        if (layout) {
+            layout.addMember(eventCanvas);
+            eventCanvas.clear();
+            eventCanvas.setHeight(1);
+            //eventCanvas.setWidth("100%");
+            eventCanvas.setOverflow("visible");
+            if (!eventCanvas.isDrawn()) eventCanvas.draw();
+            else eventCanvas.redraw();
+            eventCanvas.show();
+            //eventCanvas.bringToFront();
+            if (!skipReflow) layout.resort();
+            return true;
+        }
+        return false;
     },
 
     removeEvent : function (event) {
@@ -3318,16 +3883,11 @@ isc.CalendarView.addProperties({
     },
 
     clearZones : function () {
-        var zones = (this._zoneCanvasList || []),
-            children = this.body && this.body.children
-        ;
-        for (var i=0; i<zones.length; i++) {
-            if (zones[i]) {
-                if (children && children.contains(zones[i])) this.body.removeChild(zones[i]);
-                if (zones[i].destroy) zones[i].destroy();
-                zones[i] = null;
-            }
-        }
+        var zones = (this._zoneCanvasList || []);
+        zones.callMethod("clear");
+        zones.callMethod("deparent");
+        zones.callMethod("destroy");
+        zones = null;
         this._zoneCanvasList = [];
     },
     drawZones : function () {
@@ -3370,23 +3930,18 @@ isc.CalendarView.addProperties({
                 // use the sum of the lane-heights, even if that's less than the body height
                 height = this.data.getProperty("height").sum()
             ;
-            this.body.addChild(canvas)
+            this.body.addChild(canvas, null, false)
             canvas.renderEvent(0, left, right-left, height, true);
             canvasList.add(canvas);
         }
     },
 
     clearIndicators : function () {
-        var indicators = (this._indicatorCanvasList || []),
-            children = this.body && this.body.children
-        ;
-        for (var i=0; i<indicators.length; i++) {
-            if (indicators[i]) {
-                if (children && children.contains(indicators[i])) this.body.removeChild(indicators[i]);
-                if (indicators[i].destroy) indicators[i].destroy();
-                indicators[i] = null;
-            }
-        }
+        var indicators = (this._indicatorCanvasList || []);
+        indicators.callMethod("clear");
+        indicators.callMethod("deparent");
+        indicators.callMethod("destroy");
+        indicators = null;
         this._indicatorCanvasList = [];
     },
     drawIndicators : function () {
@@ -3414,7 +3969,7 @@ isc.CalendarView.addProperties({
         for (var i=0; i<indicators.length; i++) {
             var indicator = indicators[i];
             // indicators are zero-length duration events - ensure that here
-            delete indicator.endDate;
+            delete indicator[cal.endDateField];
             indicator.duration = 0;
             indicator.durationUnit = "minute";
             var iMillis = cal.getEventStartDate(indicator).getTime();
@@ -3431,7 +3986,7 @@ isc.CalendarView.addProperties({
                 // use the sum of the lane-heights, even if that's less than the body height
                 height = this.data.getProperty("height").sum()
             ;
-            this.body.addChild(canvas)
+            this.body.addChild(canvas, null, false)
 
             canvas.renderEvent(0, left, cal.zeroLengthEventSize, height, !cal.showIndicatorsInFront);
             canvasList.add(canvas);
@@ -3439,6 +3994,7 @@ isc.CalendarView.addProperties({
     },
 
     _refreshEvents : function () {
+        //this.logWarn("_refreshEvents");
         if (!this.isDrawn()) {
             // if the view isn't drawn yet, mark it for refresh on draw
             this._refreshEventsOnDraw = true;
@@ -3448,19 +4004,35 @@ isc.CalendarView.addProperties({
             this._refreshData();
             return;
         }
-        this.refreshEvents();
+        this.refreshEvents("_refreshEvents");
     },
 
-    refreshEvents : function () {
-        if (this._refreshingEvents) return;
+    delayedRefreshEvents : function (caller) {
+        if (this.refreshEventsTimer) isc.Timer.clear(this.refreshEventsTimer);
+        var _this = this;
+        this.refreshEventsTimer = isc.Timer.setTimeout(function () {
+            isc.Timer.clear(_this.refreshEventsTimer);
+            delete _this.refreshEventsTimer;
+            _this.refreshEvents(caller);
+        }, 100);
+    },
 
-        this._refreshEventsCalled = true;
-        if (!this._drawnCanvasList) this._drawnCanvasList = [];
-        if (!this._drawnEvents) this._drawnEvents = [];
+    //> @method calendarView.refreshEvents()
+    // Clear, recalculate and redraw the events for the current range, without causing a fetch.
+    // @visibility external
+    //<
+    refreshEvents : function (caller) {
+        //this.logWarn("refreshEvents() called by " + caller);
+        //this.logWarn("refreshEvents() called by '" + caller + "' - " +
+        //    "isDrawn=" + this.isDrawn() + ", body.isDrawn=" + (this.body && this.body.isDrawn()));
+
+        if (this._refreshingEvents) return;
 
         var cal = this.calendar;
         // bail if the grid hasn't been drawn yet, or hasn't any data yet
-        if (!this.body || !cal.hasData()) return;
+        if (!this.body || !this.body.isDrawn() || !cal.hasData()) return;
+
+        this._refreshEventsCalled = true;
 
         // flag to prevent setLanes() from calling back through this method
         this._refreshingEvents = true;
@@ -3469,23 +4041,22 @@ isc.CalendarView.addProperties({
         this.clearZones();
         this.clearIndicators();
 
-        // set all the canvases as availableForUse:true so that clearEvents pools them
-        var arr = this._drawnCanvasList;
-        if (arr.length > 0) {
-            arr.setProperty("_availableForUse", true);
-            // pool or destroy eventCanvases created since the last refreshEvents()
-            this.clearEvents(0, !this.useEventCanvasPool);
-        }
+        // clear event canvases
+        this.clearEvents(0, !this.useEventCanvasPool);
+
+        // clear event records
+        this.setEventData([]);
+
         // reset the lists of drawn events and canvases - they're either destroyed or pooled now
-        this._drawnEvents = [];
-        this._drawnCanvasList = [];
+        this._usedEventMap = {};
 
         // update various dates and snap-properties
-        if (!this.isTimelineView()) this.initCacheValues();
-
-        var startDate = cal.getVisibleStartDate(this),
+        if (!this.isTimelineView()) {
+            this.initCacheValues();
+        }
+        var startDate = cal.getVisibleStartDate(this) || this.startDate,
             startMillis = startDate.getTime(),
-            endDate = cal.getVisibleEndDate(this),
+            endDate = cal.getVisibleEndDate(this) || this.endDate,
             endMillis = endDate.getTime()
         ;
 
@@ -3495,9 +4066,14 @@ isc.CalendarView.addProperties({
         var eventsLen = cal.data.getLength();
         var allEvents = cal.data.getRange(0, eventsLen);
 
+        // make a map of all the lanes available on the calendar - events that have some other
+        // lane will be ignored in the loop below
+        var laneMap;
+        if (this.usesLanes()) laneMap = cal.lanes ? cal.lanes.makeIndex("name") : null;
         var events = [];
 
-        var theLanes = this.hasLanes() && cal.lanes;
+        // reset _allEventMap
+        this._allEventMap = {}
 
         while (--eventsLen >= 0) {
             var event = allEvents.get(eventsLen);
@@ -3505,13 +4081,14 @@ isc.CalendarView.addProperties({
             if (!isc.isA.String(event)) {
                 // if shouldShowEvent() is implemented and returns false, skip the event
                 if (cal.shouldShowEvent(event, this) == false) continue;
-                if (theLanes && event[cal.laneNameField] && !theLanes.find("name", event[cal.laneNameField])) {
+                if (laneMap && event[cal.laneNameField] && !laneMap[event[cal.laneNameField]]) {
                     // if the view is lane-based but the event's lane doesn't exist, continue -
                     // otherwise, these events will get tagged for overlapping unnecessarily
                     //this.logWarn(this.viewName + ".refreshEvents() - event has no lane: " + isc.echoFull(event[cal.laneNameField]));
                     continue;
                 }
                 var eventStartDate = cal.getEventStartDate(event);
+                //eventStartDate = isc.Calendar._getAsDisplayDate(eventStartDate);
                 if (!eventStartDate) {
                     if (event.loadingMarker) {
                         this.logWarn(this.viewName + ".refreshEvents() encountered a " +
@@ -3522,66 +4099,90 @@ isc.CalendarView.addProperties({
                     this.logWarn(this.viewName + ".refreshEvents() - event has no start-date: " + isc.echoFull(event));
                     continue;
                 }
-                var sDate = cal.getEventLeadingDate(event) || eventStartDate,
-                    sTime = sDate.getTime(),
-                    eDate = cal.getEventTrailingDate(event) || cal.getEventEndDate(event),
-                    eTime = eDate.getTime()
+
+                var dates = cal.getEventDates(event),
+                    eLead = dates[cal.leadingDateField],
+                    eStart = dates[cal.startDateField],
+                    eEnd = dates[cal.endDateField],
+                    eTrail = dates[cal.trailingDateField]
                 ;
-                if ((sTime >= startMillis && sTime < endMillis) ||
-                    (eTime > startMillis && eTime <= endMillis) ||
-                    // starts before and ends after the range
-                    (sTime <= startMillis && eTime >= endMillis)
-                    )
+
+                // if the event itself (not including any leading/trailing dates) covers any
+                // part of the scrollable range, it's available to render
+                if ((eStart && eStart.getTime() >= startMillis && eStart.getTime() < endMillis) ||
+                    (eEnd && eEnd.getTime() > startMillis && eEnd.getTime() <= endMillis) ||
+                    // timelines only - starts before and ends after the range - we don't show
+                    // events like this in vertical views
+                    (!this.verticalEvents && eStart.getTime() <= startMillis && eEnd.getTime() >= endMillis)
+                   )
                 {
-                    // this event can be reached using the scrollbar (as opposed to the next
-                    // and previous buttons), so we'll include it in _localEvents - store its
-                    // row/col - we'll use this to avoid some calculations later (specifically,
-                    // calls to getScrollHeight/Top which aren't especially fast)
-                    //var props = event[propsName] || {};
-                    //props.colNum = this.getColFromDate(sDate);
-                    //props.endColNum = this.getColFromDate(eDate);
-                    //event[propsName] = props;
-                    // add this later to save time on rebuilding the events PKs every time
-                    //if (!event._internalKey) event._internalKey = cal.getEventKey(event);
-                    event.eventLength = (eDate - sDate);
+
+                    // get the event's render-snaps
+                    var startSnap = this.getSnapData(null, null, eStart),
+                        endSnap = this.getSnapData(null, null, eEnd)
+                    ;
+
+                    // if the event starts and ends on hidden dates...
+                    if (startSnap && startSnap.startHidden && endSnap && endSnap.endHidden) {
+                        // only render it if there are valid (visible) snaps between them
+                        if (startSnap.lastValidSnap == endSnap.lastValidSnap &&
+                            startSnap.nextValidSnap == endSnap.nextValidSnap)
+                        {
+                            // start/end snaps are in the same hidden block of snaps - no
+                            // sensible way to render this event - skip it
+                            continue;
+                        }
+                    }
+
+                    // store the length of the event, not including lead/trail dates, in ms
+                    event.eventLength = (eEnd.getTime() - eStart.getTime());
                     if (event[cal.durationField] != null) {
-                        //event[cal.endDateField] = eDate;
                         event.isDuration = true;
                         event.isZeroDuration = event[cal.durationField] == 0;
                     }
+
+                    // store the event's key and put it in the _allEventMap (all events)
+                    if (!event.__key) {
+                        event.__key = cal.getEventKey(event);
+                    }
+                    this._allEventMap[event.__key] = event;
+
                     //event[propsName] = props;
                     events.add(event);
                 }
             }
         };
 
-        if (theLanes) {
-            var len = cal.lanes.length,
-                visibleLanes = [],
-                shouldRedraw = false
-            ;
-            // hide any lanes that shouldn't be shown (default impl. of shouldShowLane() just tests
-            // for calendar.hideUnusedLanes being true and returns false for lanes with no events
-            for (var i=0; i<len; i++) {
-                var record = theLanes[i];
-                if (this.isGroupNode(record)) continue;
-                if (cal.shouldShowLane(record)) {
-                    visibleLanes.add(record);
-                    shouldRedraw = true;
+        if (this.usesLanes() && cal.lanes) {
+            // update the lanes, according to the events just processed
+            var lanes = [];
+            var usedLaneNames = events.getProperty(cal.laneNameField).getUniqueItems();
+            for (var i=0; i<cal.lanes.length; i++) {
+                if (cal.hideUnusedLanes) {
+                    // remove any lanes that have no *visible* events after processing
+                    // list of lanes used by current event-data
+                    if (usedLaneNames.contains(cal.lanes[i].name)) {
+                        lanes.add(cal.lanes[i]);
+                    }
+                } else lanes.add(cal.lanes[i]);
+            }
+
+            // updateLanes is true if the two arrays have different lengths or entries
+            var updateLanes = lanes.length != this.lanes.length;
+            for (var i=0; i<this.lanes.length; i++) {
+                if (!lanes[i] || lanes[i].name != this.lanes[i].name) {
+                    updateLanes = true;
+                    break;
                 }
             }
-            if (!shouldRedraw && visibleLanes.length == 0) shouldRedraw = true;
-            if (shouldRedraw && (!this.lanes || this.lanes.length != visibleLanes.length)) {
-                this.setLanes(visibleLanes, true);
-                this.redraw();
-            }
+            if (updateLanes) this.updateLanes(lanes, true);
         }
 
         this.setEventData(events);
         this.tagDataForOverlap();
 
         // redraw the events
-        this.refreshVisibleEvents(null, null, "refreshEvents");
+        this.refreshVisibleEvents(null, "refreshEvents");
 
         // scroll as necessary and clear the flag
         if (this._scrollRowAfterRefresh) {
@@ -3684,28 +4285,155 @@ isc.CalendarView.addProperties({
 
     destroyEvents : function () {
         if (!this.body || !this.body.children) return;
+
+        // clear zone and indicator canvases
+        if (this.clearZones) this.clearZones();
+        if (this.clearIndicators) this.clearIndicators();
+
         var len = this.body.children.length;
         while (--len >= 0) {
             var child = this.body.children[len];
-            if (child) {
-                this.body.removeChild(child);
+            if (child && !child.destroyed) {
+                child.clear();
+                child.deparent();
                 child.destroy();
-                child = null;
             }
+            child = null;
         }
-        this._drawnEvents = null;
-        this._drawnCanvasList = null;
-        this._eventCanvasPool = null;
+
+        // clear event and canvas -related caches
+        this.resetEventCaches();
     },
     destroy : function () {
         if (this.removeLocalHandlers) this.removeLocalHandlers();
-        this.calendar = null;
         this.destroyEvents(true);
         if (this.clearZones) this.clearZones();
         if (this.clearIndicators) this.clearIndicators();
+        this.calendar = null;
+        this.overlapRanges = null;
+        this._snapGapList = null;
+        this._cache = null;
+
+        // lane-related caches
+        this.lanes = null;
+        this.resetLaneCaches();
+        // event-related caches
+        this.resetEventCaches();
+        // EventCanvas-related caches
+        this.resetCanvasCaches();
+
+        if (this.cellSelection) {
+            if (this.cellSelection.destroy) this.cellSelection.destroy();
+            this.cellSelection = null;
+        }
+        if (this.data) {
+            if (this.data.destroy) this.data.destroy();
+            this.data = null;
+        }
         this.Super("destroy", arguments);
+    },
+
+    draw : function () {
+        var result = this.Super("draw", arguments);
+        if (this._pendingScrollTo) {
+            //isc.logWarn("_pendingScrollTo: " + this._pendingScrollTo);
+            // scroll to the extents of the range
+            this["scrollTo" + this._pendingScrollTo]();
+            delete this._pendingScrollTo;
+        }
+    },
+
+    //> @method CalendarView.scrollToStart()
+    // Move the viewport of this CalendarView to the start of its scrollable range.
+    // @visibility calendar
+    //<
+    scrollToStart : function () {
+        if (!this.isDrawn()) {
+            // store the requested scroll-type - scroll to it at the end of draw()
+            this._pendingScrollTo = "Start";
+            return;
+        }
+        if (this.verticalEvents) {
+            this.body.scrollToTop();
+        } else {
+            this.body.scrollToLeft();
+        }
+    },
+
+    //> @method CalendarView.scrollToEnd()
+    // Move the viewport of this CalendarView to the end of its scrollable range.
+    // @visibility calendar
+    //<
+    scrollToEnd : function () {
+        if (!this.isDrawn()) {
+            // store the requested scroll-type - scroll to it at the end of draw()
+            this._pendingScrollTo = "End";
+            return;
+        }
+        if (this.verticalEvents) {
+            this.body.scrollToBottom();
+        } else {
+            this.body.scrollToRight();
+        }
+    },
+
+    getNewEventDefaults : function (event) {
+        // ensure the passed event has start and end dates on it
+        var evt = event || {};
+        var cal = this.calendar;
+        var sDate = evt[cal.startDateField];
+        if (!sDate) {
+            // start from the mouse-date, or the current datetime (addEvent button-click)
+            sDate = this.getDateFromPoint() || isc.DateUtil.createDatetime();
+            if (sDate.getHours() > 22) sDate.setHours(22);
+            evt[cal.startDateField] = sDate;
+        }
+        if (!evt[cal.endDateField]) {
+            var eDate = sDate.duplicate();
+            eDate.setHours(sDate.getHours() + 1);
+            evt[cal.endDateField] = eDate;
+        }
+        return evt;
+    },
+
+    getEditDialogPosition : function (event) {
+        var cal = this.calendar,
+            startDate = cal.getEventStartDate(event),
+            colNum = this.getColFromDate(startDate, event[cal.laneNameField]),
+            rowNum
+        ;
+        if (cal.showColumnLayouts) rowNum = this.body.getEventRow();
+        else rowNum = this.body.getEventRow(this.getDateTopOffset(startDate));
+        var rect = this.body.getCellPageRect(rowNum, colNum);
+        return {
+            left: Math.max(rect[0], this.body.getPageLeft()),
+            top: Math.max(rect[1], this.body.getPageTop())
+        };
+    },
+
+    // helper function for detecting when a weekend is clicked, and weekends are disabled
+    cellDisabled : function (rowNum, colNum) {
+        var body = this.getFieldBody(colNum);
+        if (!body || body == this.frozenBody) return false;
+        var col = this.getLocalFieldNum(colNum),
+            date = this.getCellDate(rowNum, col)
+        ;
+        return this.calendar.shouldDisableDate(date, this);
     }
 
+});
+
+isc.CalendarView.changeDefaults("bodyDefaults", {
+    canFocus:false,
+    drawChildWithParent : function (child) {
+        // we never want to auto-draw event-canvases with the parent - see code in
+        // refreshEvents()/refreshVisibleEvents() for that
+        if (child.isEventCanvas) return false;
+        return this.Super("drawChildWithParent", arguments);
+    }
+});
+isc.CalendarView.changeDefaults("frozenBodyDefaults", {
+    canFocus:false
 });
 
 // DaySchedule
@@ -3739,7 +4467,6 @@ isc.DaySchedule.addProperties({
     labelColumnWidth: 60,
     labelColumnAlign: "right",
     //labelColumnVAlign: "center",
-    showLabelColumn: true,
     labelColumnPosition: "left",
     labelColumnBaseStyle: "labelColumn",
 
@@ -3754,6 +4481,7 @@ isc.DaySchedule.addProperties({
     canAutoFitFields : false,
 
     canSelectCells: true,
+    navigateOnTab:false,
 
     // return the string to show in the Calendar controlsBar
     getDateLabelText : function (startDate, endDate) {
@@ -3764,11 +4492,9 @@ isc.DaySchedule.addProperties({
     },
 
     initWidget : function () {
-        this.fields = [];
-
         var cal = this.calendar;
 
-        if (cal.showDayLanes && this.isDayView() && cal.alternateLaneStyles) {
+        if (this.isDayView() && this.usesLanes() && cal.alternateLaneStyles) {
             this.alternateFieldStyles = true;
             this.alternateFieldFrequency = cal.alternateFieldFrequency;
         }
@@ -3779,21 +4505,37 @@ isc.DaySchedule.addProperties({
 
         this.renderEventsOnDemand = cal.renderEventsOnDemand;
         this.eventDragGap = cal.eventDragGap;
-        this.fields = [];
 
-        this.Super("initWidget");
+        var fDOW = this.calendar.firstDayOfWeek;
+        // set the range dates
+        if (this.rangeUnit) {
+            this.periodStartDate = this.startDate = isc.DateUtil.getStartOf(this.chosenDate, this.rangeUnit, false, fDOW);
+            this.periodEndDate = this.endDate = isc.DateUtil.getEndOf(this.chosenDate, this.rangeUnit, false, fDOW);
+        }
+
+        if (!this.logicalDate) {
+            // needed for the initial call to _getCellDates(), pre-draw
+            this.logicalDate = isc.DateUtil.getLogicalDateOnly(this.chosenDate);
+        }
+
+        if (this.usesLanes()) {
+            // initialize the local lanes array and a name->object map
+            this.lanes = cal.lanes ? cal.lanes.duplicate() : [];
+            this.laneMap = this.lanes.makeIndex("name");
+        }
+
+        // initialize this.fields (and this.data)
+        this.rebuildFields();
+
+        this.Super("initWidget", arguments);
 
         if (isc.isAn.Array(cal.data)) {
             this._refreshEventsOnDraw = true;
             this._ignoreDataChanged = true;
-            //this.refreshEvents();
         }
 
-        this.rebuildFields();
+        this.addAutoChild("eventDragCanvas", { styleName: this.eventDragCanvasStyleName });
 
-        this.addAutoChild("eventDragTarget");
-        this.body.addChild(this.eventDragTarget);
-        this.dragTarget = this.eventDragTarget;
     },
 
     getFirstDateColumn : function () {
@@ -3802,54 +4544,69 @@ isc.DaySchedule.addProperties({
 
     reorderFields : function (start, end, moveDelta) {
         this.Super("reorderFields", arguments);
-        this.refreshEvents();
+        this.refreshEvents("reorderFields");
     },
 
-    rebuildFields : function () {
-        this.initCacheValues();
-        var cal = this.calendar,
-            fields = [],
-            labelCol = {
+    _getLabelFieldProperties : function () {
+        return {
                 autoFitWidth: true,
                 minWidth: this.labelColumnWidth,
                 width: this.labelColumnWidth,
                 name: "label",
-                frozen: true,
                 isLabelField: true,
                 title: " ",
                 cellAlign: "right",
-                calendar: cal,
+                calendar: this.calendar,
+                frozen: this.labelColumnPosition == "left",
                 formatCellValue : function (value, record, rowNum, colNum, grid) {
                     var cal = grid.calendar;
-                    var time = isc.DateUtil.getLogicalTimeOnly(record.time);
+                    var time = record.logicalTime;
                     var mins = (time.getHours()*60) + time.getMinutes();
                     if (mins % cal.rowTitleFrequency == 0) {
-                        var hour = Math.floor(mins / 60);
-                        var minute = mins % 60;
-                        var date = isc.Time.parseInput(hour + ":" + minute);
-                        return isc.Time.toTime(date, grid.creator.timeFormatter, true);
+                        return isc.Time.toShortTime(time, grid.creator.timeFormatter, true);
                     } else {
                         return "";
                     }
                 }
-            }
+        };
+    },
+    rebuildFields : function () {
+        this.initCacheValues();
+        var cal = this.calendar,
+            fields = [],
+            labelColumnOnLeft = this.labelColumnPosition == "left"
         ;
-        if (this.showLabelColumn && this.labelColumnPosition == "left") {
-            fields.add(labelCol);
+
+        this.showLabelColumn = cal.showLabelColumn;
+
+        // add the label column at the start, according to settings
+        if (this.showLabelColumn && labelColumnOnLeft) {
+            fields.add(this._getLabelFieldProperties());
         }
 
-        if (this.hasLanes()) {
-            var lanes = this.lanes = this.lanes || cal.lanes.duplicate() || [];
-            fields[0].frozen = true;
-            var d = cal.chosenDate.duplicate(),
-                scaffolding = isc.DaySchedule._getEventScaffolding(cal, this, d),
-                nDate = isc.DateUtil.createLogicalDate(d.getFullYear(), d.getMonth(),
-                                                       d.getDate()),
-                props = { date: nDate, align: "center", canReorder: cal.canReorderLanes }
+        var lanes = [];
+        if (this.usesLanes()) {
+            // if the view is using lanes but no lanes were provided, turn the feature off
+            //lanes = this.lanes = this.lanes || (cal.lanes && cal.lanes.duplicate()) || [];
+            lanes = this.lanes || [];
+            if (lanes.length == 0) {
+                isc.logWarn("Calendar.showDayLanes has been turned off because no lanes have " +
+                    "been provided.");
+                this.calendar.showDayLanes = false;
+            }
+        }
+        if (lanes.length > 0) {
+            var d = this.startDate.duplicate(),
+                scaffolding = isc.DaySchedule._getEventScaffolding(this),
+                nDate = isc.DateUtil.createLogicalDate(d.getFullYear(), d.getMonth(), d.getDate()),
+                props = { align: "center", canReorder: cal.canReorderLanes, date: nDate,
+                    startDate: isc.DateUtil.getStartOf(isc.DateUtil.createDatetime(nDate), "D", false),
+                    endDate: isc.DateUtil.getEndOf(isc.DateUtil.createDatetime(nDate), "D", false)
+                }
             ;
             for (var i=0; i<lanes.length; i++) {
                 var lane = lanes[i],
-                    laneName = lane.name || lane[cal.laneNameField],
+                    laneName = lane.name,
                     p = isc.addProperties({}, props, { name: laneName })
                 ;
                 p[cal.laneNameField] = laneName;
@@ -3879,50 +4636,179 @@ isc.DaySchedule.addProperties({
             if (cal.minLaneWidth != null) this.minFieldWidth = cal.minLaneWidth;
             this.data = scaffolding;
         } else {
-            var scaffoldingStartDate = cal.chosenDate;
-            fields[0].frozen = true;
-            fields.add({name: "day1", align: "center", date: cal.chosenDate, width: "*", autoFitWidth: false});
-            if (this.isWeekView()) {
-                var numDays = 8;
-                for (var i = 2; i < numDays; i++) {
-                    fields.add({name: "day" + i, align: "center", width: "*", autoFitWidth: false } );
-                }
-                this.setShowHeader(true);
-
-                // hide weekends
-                if (!cal.showWeekends) {
-                    var start = this.showLabelColumn && this.labelColumnPosition == "left" ? 1 : 0;
-
-                    var weekendDays = cal.getWeekendDays();
-                    for (var i = start; i < fields.length; i++) {
-
-                        var adjDay = ((i - start) + cal.firstDayOfWeek) % 7;
-                        //isc.logWarn('here:' + [i, adjDay]);
-                        if (weekendDays.contains(adjDay)) {
-                            fields[i].showIf = "return false;";
-                        }
-                    }
-                }
-                scaffoldingStartDate = this.chosenWeekStart;
-            } else {
-                this.setShowHeader(false);
+            var nDate = isc.DateUtil.getLogicalDateOnly(this.startDate);
+            var weekendDays = cal.getWeekendDays();
+            var dayNames = isc.DateUtil.getShortDayNames();
+            var numDays = this.isWeekView() ? 7 : 1;
+            if (this.shouldShowColumnLayouts() && !this.columnLayouts) {
+                this.createColumnLayouts(numDays);
             }
-            this.data = isc.DaySchedule._getEventScaffolding(cal, this, scaffoldingStartDate);
-        }
-        if (this.showLabelColumn && this.labelColumnPosition == "right") {
-            fields.add(labelCol);
+            for (var i=0; i<numDays; i++) {
+                var dateStr = nDate.toShortDate(this.dateFormatter, false);
+                if (dateStr.match(this._usDateRegex) != null) dateStr = dateStr.substring(5);
+                else if (dateStr.match(this._jpDateRegex)) dateStr = dateStr.substring(0,dateStr.length-5);
+
+                var fieldName = "day" + (i+1);
+                var field = {
+                    name: fieldName, width: "*", autoFitWidth: false, align: "right",
+                    showIf: "return list.calendar.showWeekends || !field.isWeekend;",
+                    isWeekend: weekendDays.contains(nDate.getDay()),
+                    title: dayNames[nDate.getDay()] + " " + dateStr,
+                    date: isc.DateUtil.getLogicalDateOnly(nDate),
+                    startDate: isc.DateUtil.getStartOf(isc.DateUtil.createDatetime(nDate), "D", false),
+                    endDate: isc.DateUtil.getEndOf(isc.DateUtil.createDatetime(nDate), "D", false),
+                    _dayNum: nDate.getDay(),
+                    _dateNum: nDate.getDate(),
+                    _monthNum: nDate.getMonth(),
+                    _yearNum: nDate.getFullYear()
+                };
+                if (this.shouldShowColumnLayouts()) {
+                    field.eventLayoutID = this.columnLayouts[i].ID;
+                }
+                fields.add(field);
+                nDate.setDate(nDate.getDate() + 1);
+            }
+            this.setShowHeader(this.isWeekView());
+            this.data = isc.DaySchedule._getEventScaffolding(this);
         }
 
-        this.setFields(fields);
+        // add the label column at the end, according to settings
+        if (this.showLabelColumn && !labelColumnOnLeft) {
+            fields.add(this._getLabelFieldProperties());
+        }
+
+        if (this.isDrawn()) this.setFields(fields);
+        else this.fields = fields;
+    },
+
+    fieldStateChanged : function () {
+        if (!this.shouldShowColumnLayouts()) return;
+        this.updateColumnLayouts();
+    },
+    createColumnLayouts : function (numDays) {
+        if (!this.shouldShowColumnLayouts()) return;
+        this.columnLayouts = [];
+        for (var i=0; i<numDays; i++) {
+            this.columnLayouts.add(this.calendar.createColumnLayout(this));
+        }
+        this.columnLayoutMap = this.columnLayouts.makeIndex("ID");
+    },
+    destroyColumnLayouts : function () {
+        if (!this.shouldShowColumnLayouts()) return;
+        if (this.columnLayoutMap) delete this.columnLayoutMap;
+        if (this.columnLayouts) {
+            for (var i=0; i<this.columnLayouts.length; i++) {
+                this.columnLayouts[i].markForDestroy();
+                this.columnLayouts[i] = null;
+            }
+            this.columnLayouts = null
+        }
+    },
+    updateColumnLayouts : function () {
+        if (!this.shouldShowColumnLayouts()) return;
+        if (!this.body || !this.body.isDrawn()) {
+            this._updateColumnLayoutsOnDraw = true;
+            return;
+        }
+        if (this.fields) {
+            var widths = this.getFieldWidths();
+            // resize each field's columnLayout - events are layout-members, so will auto-size
+            for (var i=this.fields.length-1; i>=0; i--) {
+                var f = this.fields[i];
+                if (f.eventLayoutID) {
+                    var eventLayout = this.columnLayoutMap[f.eventLayoutID];
+                    eventLayout.fieldName = f.name;
+                    if (!this.body.contains(eventLayout)) {
+                        this.body.addChild(eventLayout);
+                    }
+                    var cLeft = this.getColumnLeft(f.masterIndex);
+                    if (eventLayout.getLeft() != cLeft)
+                        eventLayout.setLeft(cLeft);
+                    if (eventLayout.getWidth() != widths[i])
+                        eventLayout.setWidth(widths[i]);
+                    var bHeight = this.body.getScrollHeight();
+                    if (eventLayout.getHeight() != bHeight)
+                        eventLayout.setHeight(bHeight);
+                    if (eventLayout.isDrawn()) eventLayout.redraw();
+                    else eventLayout.draw();
+                    // make sure sorting is up to date
+                    eventLayout.resort();
+                    eventLayout.show();
+                    eventLayout.bringToFront();
+                }
+            }
+        }
+    },
+
+    setFields : function () {
+        var result = this.Super("setFields", arguments);
+        if (this.shouldShowColumnLayouts()) this.updateColumnLayouts();
+        return result;
+    },
+
+    updateFieldDates : function () {
+        // update the titles and dates on the existing fields, to reflect the current
+        // startDate and endDate
+        var dayNames = isc.DateUtil.getShortDayNames();
+        var weekendDays = this.calendar.getWeekendDays();
+        var numDays = this.isWeekView() ? 7 : 1;
+        var nDate = this.logicalDate.duplicate()
+        for (var i=0; i<numDays; i++) {
+            var dateStr = nDate.toShortDate(this.dateFormatter, false);
+            if (dateStr.match(this._usDateRegex) != null) dateStr = dateStr.substring(5);
+            else if (dateStr.match(this._jpDateRegex)) dateStr = dateStr.substring(0,dateStr.length-5);
+
+            var fieldName = "day" + (i+1);
+            var props = {
+                title: dayNames[nDate.getDay()] + " " + dateStr,
+                date: nDate.duplicate(),
+                _dayNum: nDate.getDay(),
+                _dateNum: nDate.getDate(),
+                _monthNum: nDate.getMonth(),
+                _yearNum: nDate.getFullYear()
+            };
+            // apply the new date, date-parts and title to the existing fields
+            this.setFieldProperties(fieldName, props);
+            nDate.setDate(nDate.getDate() + 1);
+        }
+        if (this.shouldShowColumnLayouts()) this.updateColumnLayouts();
+        if (this.header) this.header.markForRedraw();
+    },
+    updateRowDates : function () {
+        var minsPerRow = this.getTimePerCell(),
+            rowCount = (60 / minsPerRow) * 24,
+            startDate = this.startDate,
+            date = isc.DateUtil.getLogicalDateOnly(startDate)
+        ;
+
+        // update the cellDate cache
+        isc.DaySchedule._getCellDates(this);
+
+        // recreate the date at midnight in the display timezone
+        date = isc.DateUtil.createDatetime(date.getFullYear(), date.getMonth(), date.getDate(),0,0,0,0);
+
+        var logicalDate = this.logicalDate.duplicate(),
+            logicalTime = isc.DateUtil.createLogicalTime(0, 0, 0)
+        ;
+
+        for (var i=0; i<rowCount; i++) {
+            var time = isc.DateUtil.combineLogicalDateAndTime(logicalDate, logicalTime);
+            var rec = this.data[i];
+            rec.time = time.duplicate();
+            rec.logicalDate = logicalDate.duplicate();
+            rec.logicalTime = logicalTime.duplicate();
+            logicalTime.setMinutes(logicalTime.getMinutes() + minsPerRow);
+            //this.logWarn("ROW " + i + " UPDATE: " + isc.echoFull(rec));
+        }
     },
 
     getDateFromPoint : function (x, y, round, useSnapGap) {
         var cal = this.calendar;
 
-        if (useSnapGap) {
+        //if (useSnapGap) {
             // when click/drag creating, we want to snap to the eventSnapGap
             //y -= y % cal.getSnapGapPixels();
-        }
+        //}
 
         if (x == null && y == null) {
             // if no co-ords passed, assume mouse offsets into the body
@@ -3978,7 +4864,31 @@ isc.DaySchedule.addProperties({
         var obj = this._cellDates[rowNum];
 
         // if obj[fieldName] isn't set, date cells weren't calculated yet - return null
-        return obj && obj[fieldName] ? obj[fieldName].duplicate() : null;
+        if (!obj || !obj[fieldName]) return null;
+
+        var date = isc.DateUtil.combineLogicalDateAndTime(obj[fieldName + "_logicalDate"], obj.logicalTime);
+
+        return date;
+    },
+
+    getCellEndDate : function (rowNum, colNum) {
+        if (!this.body || !this.body.fields || !this._cellDates || !this.body.fields[colNum]) {
+            return null;
+        }
+
+        // use the last row if invalid rowNum passed
+        if (rowNum < 0) rowNum = this.data.getLength() - 1;
+
+        // return the cell date from the array built by _getCellDates()
+        var fieldName = this.isDayView() ? "day1" : this.body.fields[colNum][this.fieldIdProperty];
+        if (!fieldName.startsWith("day")) return;
+        var obj = this._cellDates[rowNum];
+
+        if (!obj || !obj[fieldName]) return null;
+
+        var date = isc.DateUtil.combineLogicalDateAndTime(obj[fieldName + "_logicalDate"], obj.logicalEndTime);
+
+        return date;
     },
 
     getEventLeft : function (event) {
@@ -3993,74 +4903,35 @@ isc.DaySchedule.addProperties({
     // get the left offset of a date in this view - will either be zero (dayView) or the
     // getColumnLeft() of the day column containing the date
     getDateLeftOffset : function (date) {
-        for (var i=0; i<this.fields.length; i++) {
-            var f = this.fields[i];
-            if (f._yearNum != null && f._monthNum != null && f._dateNum != null) {
-                var colDate = isc.DateUtil.createLogicalDate(f._yearNum, f._monthNum,
-                                                             f._dateNum);
-                if (isc.DateUtil.compareLogicalDates(date, colDate) == 0) {
-                    return this.getColumnLeft(this.getFieldNum(f));
-                }
-            }
-        }
-
+        var col = this.getColFromDate(date);
+        if (col != null) return this.body.getColumnLeft(col);
         return 0;
     },
 
     // get the top offset of a date in this view - will be the top of the row that contains
     // the date, plus any snapGap heights within the row
     getDateTopOffset : function (date, lane) {
-        if (!date) return null;
-        var cal = this.calendar,
-            eventSnapPixels = cal.getSnapGapPixels(this),
-            millis = date.getTime(),
-            col = this.getColFromDate(date, lane),
-            len = this.data.length
-        ;
-        for (var i=0; i<=len; i++) {
-            var rDate = this.getCellDate(i, col),
-                rMillis = rDate.getTime()
-            ;
-            if (rMillis >= millis) {
-                // found the first later row - use the previous one, get its top and add extra
-                // minutes for the snapGap
-                var rowNum = i - (i == 0 ? 0 : 1),
-                    top = this.getRowTop(rowNum),
-                    rowHeight = this.getRowHeight(this.getRecord(rowNum), rowNum)
-                ;
-                if (rowHeight / eventSnapPixels != 1) {
-                    var millisDelta = rMillis - millis,
-                        mins = this.getTimePerCell() - Math.floor(millisDelta / 1000 / 60),
-                        snapGapMins = cal.getSnapGapMinutes(this),
-                        extraPixels = Math.floor((mins / snapGapMins) * eventSnapPixels)
-                    ;
-                    top += extraPixels;
-                } else {
-                    top += rowHeight;
-                }
-                return top;
-            }
-        }
 
-        // the passed time must be in the last row
-        return this.body.getScrollHeight() - 1;
+        var minutes = (date.getHours() * 60) + date.getMinutes();
+        var snapCount = Math.floor(minutes / this.getTimePerSnapGap("mn"));
+        var snapTop = snapCount * this.getSnapGapPixels();
+        return snapTop;
     },
 
-    setLanes : function (lanes) {
-        this.lanes = lanes.duplicate();
+    setLanes : function (lanes, skipRefreshEvents) {
+        var cal = this.creator;
+        // make sure there's a lane.name on each lane - see comment in the method
+        cal.checkLaneNames(lanes);
+        this.lanes = lanes;
+        this.laneMap = this.lanes.makeIndex("name");
         this.rebuildFields();
-        this.refreshEvents();
+        if (!skipRefreshEvents) this.refreshEvents("setLanes");
     },
-    getLane : function (lane) {
-        var index = isc.isA.Number(lane) ? lane : -1;
-        if (index == -1) {
-            if (isc.isAn.Object(lane)) index = this.body.fields.indexOf(lane);
-            else if (isc.isA.String(lane)) index = this.getLaneIndex(lane);
-        }
-        if (index >= 0) return this.body.fields[index];
+    getLane : function (laneName) {
+        return this.getLaneMap()[laneName];
     },
     getLaneIndex : function (lane) {
-        if (!this.isDayView() || !this.calendar.showDayLanes) return;
+        if (!this.usesLanes()) return;
         var fields = this.body.fields,
             index = -1;
         if (isc.isAn.Object(lane)) index = fields.indexOf(lane)
@@ -4085,7 +4956,7 @@ isc.DaySchedule.addProperties({
         return width;
     },
     getLaneFromPoint : function (x, y) {
-        if (!this.hasLanes()) return null;
+        if (!this.usesLanes()) return null;
         if (x == null) x = this.body.getOffsetX();
 
         var colNum = this.body.getEventColumn(x),
@@ -4128,39 +4999,26 @@ isc.DaySchedule.addProperties({
         // call refreshEvents() whenever we're drawn
         // see comment above dataChanged for the logic behind this
 
-        this.body.addChild(this.eventDragTarget);
-        this.eventDragTarget.setView(this);
+        this.body.addChild(this.eventDragCanvas, null, false);
+        this.eventDragCanvas.setView(this);
 
-        /*
-        if (this.isDayView() && this.calendar.scrollToWorkday) {
-            var newRowHeight = this.calcRowHeight();
-            if (newRowHeight != this.calendar.rowHeight) {
-                this.calendar.setRowHeight(newRowHeight);
-            } else this.refreshEvents();
-        } else {
-            this.refreshEvents();
+        if (this._updateColumnLayoutsOnDraw) {
+            delete this._updateColumnLayoutsOnDraw;
+            this.updateColumnLayouts();
         }
-        */
 
         if (this._refreshEventsOnDraw) {
             delete this._refreshEventsOnDraw;
-            this.refreshEvents();
+            this.refreshEvents("draw");
         }
 
-        // set the snapGap after were drawn, so that we can pick up a dynamic row height.
-        // this is mostly so that scrollToWorkday code works properly.
-        this.setSnapGap();
         // if scrollToWorkday is set, do that here
         if (this.calendar.scrollToWorkday) this.scrollToWorkdayStart();
-    },
 
-    setSnapGap : function () {
-        // get percentage of snapGap in relation to 30 minutes, the length in minutes of a row, and
-        // multiply by row height to get pixels
-        var snapGap = this.calendar.getSnapGapPixels(this);
-        this.body.snapVGap = Math.round((snapGap / this.getTimePerCell())
-                * this.body.getRowSize(0));
-        this.body.snapHGap = null;
+        if (this._fireViewChangedOnDraw) {
+            delete this._fireViewChangedOnDraw;
+            this.calendar.currentViewChanged(this.viewName);
+        }
     },
 
     // To be used with calendar.scrollToWorkday
@@ -4169,7 +5027,7 @@ isc.DaySchedule.addProperties({
 
         if (this._scrollingToWorkday) return;
 
-        if (cal.scrollToWorkday && !this.hasLanes()) {
+        if (cal.scrollToWorkday) {
             var newRowHeight = this.calcRowHeight();
             if (newRowHeight != cal.rowHeight) {
                 this._scrollingToWorkday = true;
@@ -4180,22 +5038,15 @@ isc.DaySchedule.addProperties({
 
         this.updateSnapProperties();
 
-        var range = this.getWorkdayRange(),
-            sDate = range.start;
+        this._scrollingToWorkday = true;
 
-        var minsPerRow = this.getTimePerCell(),
-            rowsPerHour = cal.getRowsPerHour(this),
-            sRow = sDate.getHours() * rowsPerHour,
-            dateMins = sDate.getMinutes(),
-            remainder = dateMins % minsPerRow,
-            rowDelta = Math.floor((dateMins - remainder) / minsPerRow)
+        var range = this.getWorkdayRange(),
+            date = isc.DateUtil.combineLogicalDateAndTime(this.chosenDate, range.start),
+            scrollTop = this.getDateTopOffset(date)
         ;
-        sRow += rowDelta;
-        if (remainder > 0) sRow++;
-        var sRowTop = cal.rowHeight * sRow;
-        //this.scrollRecordIntoView(sRow, false);
-        this.body.delayCall("scrollTo", [0,sRowTop]);
-        //this.redraw();
+        this.body.delayCall("scrollTo", [0,scrollTop]);
+
+        delete this._scrollingToWorkday;
     },
 
     getWorkdayRange : function () {
@@ -4276,15 +5127,43 @@ isc.DaySchedule.addProperties({
     },
 
     getColFromDate : function (date, lane) {
+        var lDate = isc.DateUtil.getLogicalDateOnly(date);
         for (var i=0; i<this.body.fields.length; i++) {
             var fld = this.body.fields.get(i);
             if (!fld.date) continue;
-            if (isc.DateUtil.compareLogicalDates(date, fld.date) == 0) {
-                if (this.calendar.showDayLanes && lane) {
+            if (isc.DateUtil.compareLogicalDates(lDate, fld.date) == 0) {
+                if (this.usesLanes() && lane) {
                     // showDayLanes has multiple columns with the same date, but different lane
                     // names -- only return true if date and lane name match
                     if (fld.lane == lane) return i;
                 } else return i;
+            }
+        }
+        return null;
+    },
+
+    // returne the fieldName for the field with the passed date - better than using colNum
+    // which confuses where you can call a method from, in the presence of frozen fields
+    // - overrides on the body have different colNum than overrides on the grid, and some
+    // Calendar methods can be called from either place
+    getFieldNameFromDate : function (date, lane) {
+        var field = this.getFieldFromDate(date, lane);
+        if (field) return field.name;
+        return "";
+    },
+
+    // return the field with the passed date
+    getFieldFromDate : function (date, lane) {
+        var lDate = isc.DateUtil.getLogicalDateOnly(date);
+        for (var i=0; i<this.body.fields.length; i++) {
+            var fld = this.body.fields.get(i);
+            if (!fld.date) continue;
+            if (isc.DateUtil.compareLogicalDates(lDate, fld.date) == 0) {
+                if (this.usesLanes() && lane) {
+                    // showDayLanes has multiple columns with the same date, but different lane
+                    // names -- only return the fieldName if date and lane name match
+                    if (fld.lane == lane) return fld;
+                } else return fld;
             }
         }
         return null;
@@ -4339,8 +5218,8 @@ isc.DaySchedule.addProperties({
         if (cal.showDayLanes && !this.isWeekView()) return true;
 
         var fld = this.getField(headerFieldNum);
-        cal.dateChooser.dateClick(fld._yearNum, fld._monthNum, fld._dateNum);
         cal.selectTab(0);
+        cal.setChosenDate(fld.date);
         return true;
     },
 
@@ -4424,6 +5303,10 @@ isc.DaySchedule.addProperties({
             startDate = cal.getCellDate(sRow, colNum, this),
             endDate = cal.getCellDate(sRow+diff, colNum, this)
         ;
+        if (!endDate) {
+            // if there's no end date (click in last row), assume the end of the day
+            endDate = isc.DateUtil.getEndOf(startDate, "D", false, this.firstDayOfWeek);
+        }
 
         // if backgroundClick is implemented, and there's no selection (a click, not just mouseUp),
         // run it and bail if it returns false
@@ -4447,51 +5330,60 @@ isc.DaySchedule.addProperties({
             sublane = lane ? this.getSublaneFromPoint() : null;
 
         }
-        var newEvent = cal.createEventObject(null, startDate, endDate,
-            lane && lane[cal.laneNameField], sublane && sublane[cal.laneNameField]
+        var newEvent = cal.createEventObject(null,
+                startDate,
+                endDate,
+            lane && lane.name, sublane && sublane.name
         );
         cal.showEventDialog(newEvent, true);
         return isc.EH.STOP_BUBBLING;
     },
 
-    getCellStyle : function (record, rowNum, colNum) {
-        var cal = this.calendar,
-            bStyle = this.getBaseStyle(record, rowNum, colNum)
-        ;
-
-        if (this.isLabelCol(colNum)) return bStyle;
-        if (this.cellDisabled(rowNum, colNum)) return bStyle + "Disabled";
-
-        if (this._selectionTracker && this._selectionTracker.colNum == colNum) {
-            var sRow = this._selectionTracker.startRowNum,
+    clearSelection : function () {
+        if (this._selectionTracker) {
+            var sRow, eRow, colNum = this._selectionTracker.colNum;
+            // establish order of cell refresh
+            if (this._selectionTracker.startRowNum < this._selectionTracker.endRowNum) {
+                sRow = this._selectionTracker.startRowNum;
                 eRow = this._selectionTracker.endRowNum;
-            // if rowNum is within start and end of selection, return selected style
-            if (rowNum >= sRow && rowNum <= eRow || rowNum >= eRow && rowNum <= sRow) {
-                if (bStyle == cal.workdayBaseStyle) return bStyle + "Selected";
-                return cal.selectedCellStyle;
+            } else {
+                sRow = this._selectionTracker.endRowNum;
+                eRow = this._selectionTracker.startRowNum;
             }
+            // remove selection tracker so cells get reset to baseStyle
+            this._selectionTracker = null;
+            for (var i = sRow; i < eRow + 1; i++) {
+                this.refreshCellStyle(i, colNum);
         }
-
-        // odd row in dayView, with alternateRecordStyles
-        if (!this.isWeekView() && this.alternateRecordStyles && rowNum % 2 != 0) {
-            if (bStyle == cal.workdayBaseStyle) return bStyle;
-            return bStyle + "Dark";
         }
+    },
 
-        // odd column in dayView with showDayLanes and alternateFieldStyles
-        if (cal.dayViewSelected() && cal.showDayLanes && this.alternateFieldStyles && colNum % 2 != 0) {
-            if (bStyle == cal.workdayBaseStyle) return bStyle;
-            return bStyle + "Dark";
+    destroyEvents : function () {
+        if (!this.body || !this.body.children) return;
+
+        var len = this.body.children.length;
+        while (--len >= 0) {
+            var child = this.body.children[len];
+            if (child && !child.destroyed) {
+                child.clear();
+                child.deparent();
+                child.destroy();
+            }
+            child = null;
         }
-
-        return bStyle;
+        this._usedEventMap = null;
+        this._usedCanvasMap = null;
+        this._eventCanvasPool = null;
     },
 
     // day/weekView
     getBaseStyle : function (record, rowNum, colNum) {
         var cal = this.calendar,
             date = cal.getCellDate(rowNum, colNum, this),
-            style = date && cal.getDateStyle ? cal.getDateStyle(date, rowNum, colNum, this) : null,
+            field = this.getField(colNum),
+            // the lane is a field (column) in vertical views
+            style = (field && field.styleName) ||
+                (date && cal.getDateStyle ? cal.getDateStyle(date, rowNum, colNum, this) : null),
             isWeek = this.isWeekView()
         ;
 
@@ -4516,7 +5408,7 @@ isc.DaySchedule.addProperties({
         var wStart = isWeek ? this.getDateFromCol(bodyCol) : cal.chosenDate.duplicate(),
             wEnd = wStart.duplicate(),
             currRowTime = date ? date.duplicate() : null,
-            lane = cal.showDayLanes ? this.body.getField(bodyCol)[cal.laneNameField] : null
+            lane = this.usesLanes() ? this.body.getField(bodyCol)[cal.laneNameField] : null
         ;
 
         if (currRowTime) {
@@ -4540,72 +5432,52 @@ isc.DaySchedule.addProperties({
             return this.baseStyle;
         }
     },
+    getCellStyle : function (record, rowNum, colNum) {
+        var cal = this.calendar,
+            field = this.getField(colNum),
+            isSelected = this.isSelected(record),
+            gridDisabled = this.isDisabled(),
+            cellDate = field.date ?
+                isc.DateUtil.combineLogicalDateAndTime(field.date, record.logicalTime) : null,
+            cellDisabled = cellDate ? cal.shouldDisableDate(cellDate) : false
+        ;
 
-    clearSelection : function () {
-        if (this._selectionTracker) {
-            var sRow, eRow, colNum = this._selectionTracker.colNum;
-            // establish order of cell refresh
-            if (this._selectionTracker.startRowNum < this._selectionTracker.endRowNum) {
-                sRow = this._selectionTracker.startRowNum;
+        var bStyle = this.getBaseStyle(record, rowNum, colNum);
+
+        if (gridDisabled || (cellDisabled && !isSelected)) {
+            bStyle += "Disabled";
+            }
+
+        if (this.isLabelCol(colNum)) {
+            return bStyle;
+        }
+
+        if (this._selectionTracker && this._selectionTracker.colNum == colNum) {
+            var sRow = this._selectionTracker.startRowNum,
                 eRow = this._selectionTracker.endRowNum;
-            } else {
-                sRow = this._selectionTracker.endRowNum;
-                eRow = this._selectionTracker.startRowNum;
-            }
-            // remove selection tracker so cells get reset to baseStyle
-            this._selectionTracker = null;
-            for (var i = sRow; i < eRow + 1; i++) {
-                this.refreshCellStyle(i, colNum);
+            // if rowNum is within start and end of selection, return selected style
+            if (rowNum >= sRow && rowNum <= eRow || rowNum >= eRow && rowNum <= sRow) {
+                if (bStyle == cal.workdayBaseStyle) bStyle += "Selected";
+                else bStyle = cal.selectedCellStyle;
+                return bStyle;
             }
         }
-    },
 
-    destroyEvents : function () {
-        if (!this.body || !this.body.children) return;
-
-        var len = this.body.children.length;
-        while (--len >= 0) {
-            var child = this.body.children[len];
-            if (child) {
-                this.body.removeChild(child);
-                child.destroy();
-                child = null;
+        // odd rows in vertical views
+        if (this.alternateRecordStyles && rowNum % 2 != 0) {
+            // odd row in dayView, with alternateRecordStyles
+            if (bStyle != cal.workdayBaseStyle) bStyle += "Dark";
+        } else if (this.alternateFieldStyles && colNum % 2 != 0) {
+            if (cal.dayViewSelected() && cal.showDayLanes) {
+                // odd column in dayView with showDayLanes and alternateFieldStyles
+                if (bStyle != cal.workdayBaseStyle) bStyle += "Dark";
             }
         }
-        this._drawnEvents = null;
-        this._drawnCanvasList = null;
-        this._eventCanvasPool = null;
-    },
-    destroy : function () {
-        this.calendar = null;
-        this.destroyEvents(true);
-        if (this.clearZones) this.clearZones();
-        if (this.clearIndicators) this.clearIndicators();
-        this.Super("destroy", arguments);
-    },
 
-    // DaySchedule updateEventWindow
-    updateEventWindow : function (event) {
-        if (!this.body || !this.body.children) return;
-        var arr = this.body.children, cal = this.calendar;
-        //if (cal.dataSource) cal._pks = cal.getDataSource().getLocalPrimaryKeyFields();
-        for (var i = 0; i < arr.length ; i++) {
-            if (arr[i] && arr[i].isEventCanvas && this.areSame(arr[i].event, event)) {
-                // reassign event for databound update, because databound update creates
-                // a new object
-                arr[i].event = event;
-                this.sizeEventCanvas(arr[i]);
-                //arr[i].renderEvent(arr[i].getTop(), arr[i].getLeft(), arr[i].getVisibleWidth(), arr[i].getVisibleHeight());
-                //arr[i].sizeToEvent();
-                if (arr[i].setDescriptionText)
-                    arr[i].setDescriptionText(event[cal.descriptionField]);
-                return true;
-            }
-        }
-        return false;
+        return bStyle;
     }
 
-// base-class overrides
+// end DaySchedule overrides
 
 
 });
@@ -4613,7 +5485,9 @@ isc.DaySchedule.addProperties({
 // WeekSchedule
 // --------------------------------------------------------------------------------------------
 isc.ClassFactory.defineClass("WeekSchedule", "DaySchedule");
-
+isc.WeekSchedule.addProperties({
+    rangeUnit: "W"
+});
 
 // MonthSchedule
 // --------------------------------------------------------------------------------------------
@@ -4639,6 +5513,7 @@ isc.MonthSchedule.changeDefaults("bodyProperties", {
 });
 
 isc.MonthSchedule.addProperties({
+    rangeUnit: "M",
     autoDraw: false,
     leaveScrollbarGap: false,
 
@@ -4656,7 +5531,6 @@ isc.MonthSchedule.addProperties({
 
     canHover: true,
     showHover: true,
-    hoverWrap: false,
     // show cell-level rollover
     showRollOver:true,
     useCellRollOvers:true,
@@ -4664,13 +5538,17 @@ isc.MonthSchedule.addProperties({
 
     showViewHovers: false,
 
+    // default dateEditingStyle for monthView is "datetime", because you can't drag events
+    // around to change days, in this view - should probably support that as well
+    //dateEditingStyle: "datetime",
+
     // set up cell-level drag selection
     //canDrag:true,
     // dragAppearance:"none",
     //canDragSelect:true,
     canSelectCells:true,
+    navigateOnTab:false,
 
-    //firstDayOfWeek: 0,
     dayHeaderHeight: 20,
     // set alternateRecordStyle to false: for many skins, not having this set to
     // false leads to undefined styles being generated like 'calMonthOtherDayBodyDisabledDark'.
@@ -4681,13 +5559,12 @@ isc.MonthSchedule.addProperties({
 
     // return the string to show in the Calendar controlsBar
     getDateLabelText : function (startDate, endDate) {
-        return "<b>" + startDate.getShortMonthName() + " " + startDate.getFullYear() + "</b>";
+        // ignore the params passed in - just show the month and year from the chosenDate
+        return "<b>" + this.chosenDate.getShortMonthName() + " " + this.chosenDate.getFullYear() + "</b>";
     },
 
     initWidget : function () {
         var cal = this.calendar;
-        // create month UI scaffolding
-        if (cal.data) this.data = this.getDayArray();
         this.fields = [
             {name: "day1", align: "center"},
             {name: "day2", align: "center"},
@@ -4700,27 +5577,36 @@ isc.MonthSchedule.addProperties({
 
         // set day titles
         this.firstDayOfWeek = cal.firstDayOfWeek;
-        var sdNames = isc.DateUtil.getShortDayNames();
+        var dayNames = isc.DateUtil.getShortDayNames();
         var weekendDays = cal.getWeekendDays();
         for (var i = 0; i < 7; i++) {
             var dayNum = (i + this.firstDayOfWeek) % 7;
-            this.fields[i].title = sdNames[dayNum];
+            this.fields[i].title = dayNames[dayNum];
             this.fields[i]._dayNum = dayNum;
             // store day index to easily get to the right day properties stored on the month
             // records from methods like formatCellValue
             this.fields[i]._dayIndex = i + 1;
             // hide weekends
-            if (!cal.showWeekends && weekendDays.contains(dayNum)) {
-                this.fields[i].showIf = "return false;";
+            if (weekendDays.contains(dayNum)) {
+                this.fields[i].showIf = "list.creator.showWeekends!=false;";
             }
 
         }
 
         this.minimumDayHeight = cal.minimumDayHeight;
 
-        this.Super("initWidget");
+        // set the range dates
+        if (this.rangeUnit) {
+            this.periodStartDate = this.startDate = isc.DateUtil.getStartOf(this.chosenDate,
+                this.rangeUnit, false, this.firstDayOfWeek);
+            this.periodEndDate = this.endDate = isc.DateUtil.getEndOf(this.chosenDate,
+                this.rangeUnit, false, this.firstDayOfWeek);
+        }
 
-        this.selectChosenDateCells();
+        this.Super("initWidget", arguments);
+
+        // delay refreshing events (which also rebuilds rows in monthView) until draw
+        this._refreshEventsOnDraw = true;
     },
 
     canSelectCell : function (rowNum, colNum) {
@@ -4733,20 +5619,22 @@ isc.MonthSchedule.addProperties({
     },
 
     getTimePerCell : function (unit) {
+        // cells are always a day in monthView
         return isc.DateUtil.convertPeriodUnit(1, "d", "mn");
     },
     getTimePerSnapGap : function (unit) {
+        // snaps are always a day in monthView
         return isc.DateUtil.convertPeriodUnit(1, "d", "mn");
     },
 
     getDayArray : function () {
         var dayArr = [], eventArr, endDate,
-            displayDate = new Date(this.calendar.year, this.calendar.month, 1),
-            cal = this.calendar
+            cal = this.calendar,
+            displayDate = isc.DateUtil.createLogicalDate(cal.year, cal.month, 1)
         ;
 
         // go back to the first day of the week
-        while (displayDate.getDay() != cal.firstDayOfWeek) {
+        while (displayDate.getDay() != this.firstDayOfWeek) {
             this.incrementDate(displayDate, -1);
         }
 
@@ -4769,8 +5657,7 @@ isc.MonthSchedule.addProperties({
 
         // 40 days from start date seems like a nice round number for getting
         // all the relevant events in a month, with extra days for adjacent months
-        endDate = new Date(cal.year, cal.month,
-            displayDate.getDate() + 40);
+        endDate = isc.DateUtil.createLogicalDate(cal.year, cal.month, displayDate.getDate() + 40);
         eventArr = cal._getEventsInRange(displayDate, endDate, this);
         // sort events by date
         eventArr.sortByProperty("name", true,
@@ -4788,7 +5675,59 @@ isc.MonthSchedule.addProperties({
             // if we hit the next month, don't keep adding rows, we're done.
             if (displayDate.getMonth() != cal.month) break;
         }
+
+        // cache rowHeights on the records to avoid recalculating them repeatedly, and
+        // potentially at the wrong time, from getRowHeight()
+        this.cacheRowHeights(dayArr);
+
+        // cache the array of records
+        this._dayArray = dayArr;
+
         return dayArr;
+    },
+
+    resized : function () {
+        if (!this._dayArray) return;
+        // update the rowHeights cached on the current data, so all space is used
+        this.cacheRowHeights();
+        this.markForRedraw();
+    },
+
+    cacheRowHeights : function (rows) {
+        rows = rows || this._dayArray;
+        var cal = this.calendar,
+            dayHeaders = cal.showDayHeaders,
+            dayHeaderHeight = dayHeaders ? this.dayHeaderHeight : 0,
+            dayCount = dayHeaders ? rows.length / 2 : rows.length,
+            bodyHeight = this.body.getVisibleHeight(),
+            usedHeight = dayHeaders ? dayHeaderHeight * dayCount : 0,
+            rowHeight = Math.floor(bodyHeight / rows.length)
+        ;
+
+        if (dayHeaders) {
+            // sum the header and body cell heights
+            rowHeight = Math.floor((bodyHeight - usedHeight) / dayCount);
+            // enforce minimum total day height (header + body cell)
+            var minHeight = this.minimumDayHeight - dayHeaderHeight;
+            if (rowHeight < minHeight) rowHeight = minHeight;
+            usedHeight += (rowHeight * dayCount);
+        } else {
+            usedHeight = rowHeight * rows.length;
+        }
+
+        var extra = bodyHeight - usedHeight;
+
+        for (var i=0; i<rows.length; i++) {
+            if (rows[i].isHeaderRow) rows[i].rowHeight = dayHeaderHeight;
+            else {
+                rows[i].rowHeight = rowHeight;
+                if (extra > 0 && i == rows.length - 1) {
+                    // add the extra pixels to the last row to use available space
+                    rows[i].rowHeight += extra;
+                }
+            }
+        }
+
     },
 
     getHeaderRowObject : function (theDate) {
@@ -4800,6 +5739,7 @@ isc.MonthSchedule.addProperties({
             obj["date" + (i + 1)] = nDate.duplicate();
             this.incrementDate(nDate, 1);
         }
+        obj.isHeaderRow = true;
         return obj;
     },
 
@@ -4823,7 +5763,7 @@ isc.MonthSchedule.addProperties({
         // monthView - cellEndDate is the end of the cell's day
         var cellDate = this.getCellDate(rowNum, colNum);
         if (!cellDate) return null;
-        return isc.DateUtil.getEndOf(cellDate, "d");
+        return isc.DateUtil.getEndOf(cellDate, "d", false);
     },
 
     incrementDate : function (date, offset) {
@@ -4921,16 +5861,6 @@ isc.MonthSchedule.addProperties({
     },
 
 
-    // helper function for detecting when a weekend is clicked, and weekends are disabled
-    cellDisabled : function (rowNum, colNum) {
-        var body = this.getFieldBody(colNum);
-        if (!body || body == this.frozenBody) return false;
-        var col = this.getLocalFieldNum(colNum),
-            date = this.getCellDate(rowNum, col)
-        ;
-        return this.calendar.shouldDisableDate(date, this);
-    },
-
     refreshEvents : function () {
         var cal = this.calendar;
         // bail if no data yet
@@ -4941,7 +5871,9 @@ isc.MonthSchedule.addProperties({
         // cellHTML, which needs regenerating in case there are new events in the data
         this.year = cal.year;
         this.month = cal.month;
-        this.setData(this.getDayArray());
+        var data = this.getDayArray();
+        if (this.data) this.setData([]);
+        this.setData(data);
 
         this.selectChosenDateCells();
         if (cal.eventsRendered && isc.isA.Function(cal.eventsRendered))
@@ -4982,36 +5914,9 @@ isc.MonthSchedule.addProperties({
     cellHeight: 1,
     enforceVClipping: true,
     getRowHeight : function (record, rowNum) {
-        var cal = this.calendar,
-            dayHeaders = cal.showDayHeaders,
-            dayHeaderHeight = this.dayHeaderHeight
-        ;
-        // TODO: there should probably be a css style for this
-        if (isc.Canvas._currentSizeIncrease) {
-            dayHeaderHeight += isc.Canvas._currentSizeIncrease;
-        }
-        if (this.rowIsHeader(rowNum)) { // header part
-            return dayHeaderHeight;
-        } else { // event part, should use fixedRecordHeights:false
-            var rowCount = this.data.length,
-                headerCount = dayHeaders ? rowCount / 2 : 0,
-                headerHeight = headerCount * dayHeaderHeight,
-                remainingHeight = this.body.getVisibleHeight() - headerHeight,
-                minHeight = dayHeaders ? this.minimumDayHeight - dayHeaderHeight : null,
-                rows = rowCount - headerCount
-            ;
-
-            if (remainingHeight / rows <= minHeight) {
-                return minHeight;
-            } else {
-                if (rowNum == this.data.length-1) {
-
-                    return Math.floor(remainingHeight / rows) - 1;
-                }
-                return Math.round(remainingHeight / rows);
-            }
-
-        }
+        // getDayArray() caches rowHeights on the data
+        if (record && record.rowHeight != null) return record.rowHeight;
+        return this.cellHeight;
     },
 
     getCellAlign : function (record, rowNum, colNum) {
@@ -5052,8 +5957,8 @@ isc.MonthSchedule.addProperties({
             if ((rowNum == startRow && this.data[startRow]["day" + fieldIndex] > 7)
                 || (rowNum == endRow && this.data[endRow]["day" + fieldIndex] < 7)) {
                 if (!cal.showOtherDays) return cal.otherDayBlankStyle;
-                else bStyle = dis ? cal.otherDayBodyBaseStyle + "Disabled" : cal.otherDayBodyBaseStyle;
-            } else bStyle = dis ? cal.dayBodyBaseStyle + "Disabled" : cal.dayBodyBaseStyle;
+                else bStyle = cal.otherDayBodyBaseStyle;
+            } else bStyle = cal.dayBodyBaseStyle;
         }
         return bStyle;
     },
@@ -5080,26 +5985,35 @@ isc.MonthSchedule.addProperties({
             doDefault = false
         ;
 
-        // update the Calendar's chosenDate - this will update selection in this (month) view
-        // and mark day/week views for a refresh, as required
-        cal.setChosenDate(isc.DateUtil.createDatetime(currDate.getFullYear(),
-                                 currDate.getMonth(), currDate.getDate(), 12, 0, 0));
+        // if showOtherDays is false and the clicked date is in another month, bail without
+        // calling setChosenDate()
+        if (!cal.showOtherDays && isOtherDay) return;
+
+        var clickDate = isc.DateUtil.createLogicalDate(currDate.getFullYear(),
+                                 currDate.getMonth(), currDate.getDate())
+
+        // clicked in a cell, so set the global selected chosenDate - this will update
+        // selection in this (month) view and mark day/week views for a refresh, as required
+        cal.setChosenDate(clickDate);
 
         if (this.rowIsHeader(rowNum)) { // header clicked
             if (!(!cal.showOtherDays && isOtherDay)) {
-                doDefault = cal.dayHeaderClick(currDate, evtArr, cal, rowNum, colNum);
+                doDefault = cal.dayHeaderClick(clickDate, evtArr, cal, rowNum, colNum);
             }
             if (doDefault) {
                 // just change tabs - the calendar-level chosenDate has already been set
                 cal.selectTab(0);
             }
         } else { // day body clicked
+            // if the click was in the day-body of a different month, do nothing - view will
+            // navigate to that month only
             if (isOtherDay) return;
-            if (!this.cellDisabled(rowNum, colNum) && !(!cal.showOtherDays && isOtherDay)) {
-                doDefault = cal.dayBodyClick(currDate, evtArr, cal, rowNum, colNum);
+
+            if (!this.cellDisabled(rowNum, colNum)) {
+                doDefault = cal.dayBodyClick(clickDate, evtArr, cal, rowNum, colNum);
                 if (doDefault && cal.canCreateEvents) {
                     var startDate = cal.getCellDate(rowNum, colNum, this),
-                        endDate = cal.getCellDate(rowNum, colNum+1, this)
+                        endDate = this.getCellEndDate(rowNum, colNum, this)
                     ;
                     var newEvent = cal.createEventObject(null, startDate, endDate);
                     cal.showEventDialog(newEvent, true);
@@ -5111,14 +6025,25 @@ isc.MonthSchedule.addProperties({
 
     draw : function ( ) {
         this.Super("draw", arguments);
+
         if (this._refreshEventsOnDraw) {
             delete this._refreshEventsOnDraw;
-            this.refreshEvents();
+            this.setChosenDate(this.calendar.chosenDate);
         }
+        if (this._fireViewChangedOnDraw) {
+            delete this._fireViewChangedOnDraw;
+            this.calendar.currentViewChanged(this.viewName);
+        }
+    },
+
+    // MonthView
+    getEditDialogPosition : function (event) {
+        var rect = this.body.getCellPageRect(this.getEventRow(), this.getEventColumn());
+        return {
+            left: Math.max(rect[0], this.body.getPageLeft()),
+            top: Math.max(rect[1], this.body.getPageTop())
+        };
     }
-
-
-
 
 });
 
@@ -5152,6 +6077,9 @@ isc.TimelineView.addProperties({
     columnWidth: 60,
     laneHeight: 60,
 
+    //cellPadding: 0,
+    //fixedRecordHeights: false,
+
     labelColumnWidth: 75,
     labelColumnBaseStyle: "labelColumn",
     labelColumnAlign: "left",
@@ -5162,18 +6090,27 @@ isc.TimelineView.addProperties({
     scrollToToday: false,//5,
 
     lineImage: "[SKINIMG]Stretchbar/hsplit_over_stretch.gif",
-    trailingEndPointImage: "[SKINIMG]actions/prev.png",
-    leadingEndPointImage: "[SKINIMG]actions/next.png",
+    trailingEndPointImage: "[SKINIMG]Calendar/trailingDateGripper.png",
+    leadingEndPointImage: "[SKINIMG]Calendar/leadingDateGripper.png",
 
-    headerSpanHeight: 24,
+    headerSpanHeight: 28,
 
 
     headerProperties: {
         inherentWidth: false
     },
 
+    // timelines always use time editing
+    dateEditingStyle: null,
+
+    // clear this value so the dateChooser will show the timeItem according to the data value
+    showDateChooserTimeItem: null,
+
     // events in timelines resize horizontally
     verticalEvents: false,
+
+    // events can span multiple days visually in timelines
+    allowMultiDayEvents: true,
 
 
     animateFolders: false,
@@ -5224,15 +6161,6 @@ isc.TimelineView.addProperties({
                         ((minMillis / 1000) / 60) + " minutes."
                     );
                     millis = minMillis;
-                } else {
-                    var cellMillis = props.millisPerCell;
-                    if (millis > cellMillis) {
-                        //this.logWarn("Invalid eventSnapGap - " + ((millis / 1000) / 60) +
-                        //    " minutes is larger than the minutes in a cell, which is " +
-                        //    ((cellMillis / 1000) / 60) + ".  Reduced the snapGap to the " +
-                        //    "cell length.")
-                        //millis = cellMillis;
-                    }
                 }
             }
             props.calendarEventSnapGap = isc.DateUtil.convertPeriodUnit(millis, "ms", "mn");
@@ -5243,7 +6171,13 @@ isc.TimelineView.addProperties({
 
     getHeaderButtonWidth : function (colNum) {
 
-        return this.columnWidth;
+        var result = this.columnWidth;
+        var cal = this.calendar;
+        if (cal.headerLevels) {
+            var l = cal.headerLevels[cal.headerLevels.length-1];
+            if (l.headerWidth != null) result = l.headerWidth;
+        }
+        return result;
     },
 
     getTimePerPixel : function (unit) {
@@ -5263,68 +6197,129 @@ isc.TimelineView.addProperties({
         return this.getHeaderButtonWidth() / snapCount;
     },
 
-    getDateLabelText : function (startDate, endDate) {
-        return "<b>" + this.formatDateForDisplay(startDate) + " - " +
-            this.formatDateForDisplay(endDate) + "</b>";
+    // first/last *visible* snaps - takes precedence over start/endDate
+    getVisibleStartDate : function () {
+        var firstSnap = this.getFirstVisibleSnap();
+        if (firstSnap) return firstSnap.startDate;
+        return this.startDate;
+    },
+    getVisibleEndDate : function () {
+        var lastSnap = this.getLastVisibleSnap();
+        if (lastSnap) return lastSnap.endDate;
+        return this.endDate;
+    },
+    getFirstVisibleSnap : function () {
+        // return the first *visible* snap - arbitrary date-columns can be hidden
+        if (this._snapGapList) {
+            return this._snapGapList[this._snapGapList.firstVisibleIndex];
+        }
+        return null;
+    },
+    getLastVisibleSnap : function () {
+        // return the last *visible* snap - arbitrary date-columns can be hidden
+        if (this._snapGapList) {
+            return this._snapGapList[this._snapGapList.lastVisibleIndex];
+        }
+        return null;
     },
 
+    setChosenDate : function (newDate) {
+        // newDate is the actual date from the dateChooser (usually), so may or may not be
+        // logical - we want view.chosenDate to be whatever gets passed, for round-tripping
+        // back to the dateChooser - logical date is used for the date-label
+        this.chosenDate = newDate.duplicate();
+        this.logicalDate = isc.DateUtil.createLogicalDate(this.chosenDate);
+
+        // pick up values from Calendar
+        this.remapCalendarSettings();
+
+        var key = isc.DateUtil.getTimeUnitKey(this.timelineGranularity);
+
+        // startDate is the start of the granularity (day/week, eg) containing the chosenDate
+        this.startDate = isc.DateUtil.getStartOf(this.chosenDate, key, false, this.firstDayOfWeek);
+
+        // add (timelineColumnSpan-1 * unitsPerColumn) units of the timelineGranularity to
+        // the startDate
+        this.endDate = isc.DateUtil.dateAdd(this.startDate, key,
+            ((this.calendar.timelineColumnSpan-1) * this.timelineUnitsPerColumn), 1,
+            // isLogicalDate, rangePosition, firstDayOfWeek
+            null, null, this.firstDayOfWeek)
+
+        // and then find the end of that granularity - eg, for a four week view, we figure out
+        // the start of the first week, add 3 full weeks (so, the start of the fourth week),
+        // and then get the end of that week
+        this.endDate = isc.DateUtil.getEndOf(this.endDate, key, null, this.firstDayOfWeek);
+
+        this.setTimelineRange(this.startDate, this.endDate);
+    },
+
+    getDateLabelText : function (startDate, endDate) {
+        if (!startDate || !endDate) {
+            this.logInfo("missing dates in getDateLabelText()");
+            return "";
+        }
+        var sDate = new Date(startDate.getTime() + 1),
+            eDate = new Date(endDate.getTime() - 1)
+        ;
+        var sYear = sDate.getFullYear(),
+            sMonth = sDate.getMonth(),
+            sDay = sDate.getDate(),
+            eYear = eDate.getFullYear(),
+            eMonth = eDate.getMonth(),
+            eDay = eDate.getDate(),
+            s = ""
+        ;
+
+        if (sYear == eYear) {
+            // same year
+            if (sMonth == eMonth) {
+                // same month
+                if (sDay == eDay) {
+                    // same day
+                    s = sDate.getShortMonthName() + " " + sDay + ", " + sYear;
+                } else {
+                    // different day
+                    s = sDate.getShortMonthName() + " " + sDay + " - " + eDay + ", " + eYear;
+                }
+            } else {
+                // different month
+                s = sDate.getShortMonthName() + " " + sDay + " - " + eDate.getShortMonthName() + " " + eDay + ", " + eYear;
+            }
+        } else {
+            // different year
+            s = sDate.getShortMonthName() + " " + sDay + ", " + sYear + " - " + eDate.getShortMonthName() + " " + eDay + ", " + eYear;
+        }
+
+        return "<b>" + s + "</b>";
+    },
+
+
+    groupNodeStyle: null,
+    groupNodeBaseStyle: "groupNode",
+    // timeline
     initWidget : function () {
         this.fields = [];
 
+        // remember the initial headerHeight, to recalculate as headerLevels change
+        this._headerHeight = this.headerHeight;
+
+        this.remapCalendarSettings();
+
         var c = this.calendar;
 
-        if (c.alternateLaneStyles) {
-            this.alternateRecordStyles = c.alternateLaneStyles;
-        }
-
-        if (c.showLaneRollOver != null) {
-            this.showRollOver = c.showLaneRollOver;
-            this.useCellRollOvers = false;
-        }
-
-        if (c.canGroupLanes != null) {
-            // set up grouping based on the laneGroupBy settings on Calendar
-            this.canGroupBy = c.canGroupLanes;
-            if (this.canGroupBy) this.groupByField = c.laneGroupByField;
-            if (c.laneGroupStartOpen != null) this.groupStartOpen = c.laneGroupStartOpen;
-        }
-
-        if (c.canReorderLanes) {
-            this.canReorderRecords = c.canReorderLanes;
-        }
-
-        this.firstDayOfWeek = c.firstDayOfWeek;
-
-        if (c.laneNameField) this.laneNameField = c.laneNameField;
-        if (c.renderEventsOnDemand) this.renderEventsOnDemand = c.renderEventsOnDemand;
-        if (c.startDate) this.startDate = c.startDate.duplicate();
-        if (c.endDate) this.endDate = c.endDate.duplicate();
-
-        // the default widths of laneFields in this timeline
-        if (c.labelColumnWidth && c.labelColumnWidth != this.labelColumnWidth) {
-            this.labelColumnWidth = c.labelColumnWidth;
-        }
-        if (c.eventDragGap != null) this.eventDragGap = c.eventDragGap;
-
-        this._headerHeight = this.headerHeight;
-        this.cellHeight = this.laneHeight;
-
-        if (c.headerLevels) {
-            this.headerLevels = isc.shallowClone(c.headerLevels);
-        }
-        var innerHeader = this.headerLevels && this.headerLevels.length > 0 ?
-                this.headerLevels[this.headerLevels.length-1] : null;
-
-        if (innerHeader) {
-            // if there's an inner headerLevel, use it's unit as the timelineGranularity
-            // - do this now, before we calculate range dates below
-            this.timelineGranularity = innerHeader.unit;
-            c.timelineGranularity = innerHeader.unit;
-        } else {
-        this.timelineGranularity = c.timelineGranularity;
-        }
-
         var granString = isc.DateUtil.getTimeUnitKey(this.timelineGranularity);
+
+        if (c.startDate) {
+            c.startDate = isc.DateUtil.getStartOf(c.startDate, granString, false,
+                this.firstDayOfWeek);
+            this.startDate = c.startDate.duplicate();
+        }
+        if (c.endDate) {
+            // round to the end of the granularity
+            c.endDate = isc.DateUtil.getEndOf(c.endDate, granString, false,
+                this.firstDayOfWeek);
+            this.endDate = c.endDate.duplicate();
+        }
 
         if (!this.startDate) {
             this.startDate = c.startDate = isc.DateUtil.getAbsoluteDate("-0" + granString, c.chosenDate);
@@ -5343,18 +6338,66 @@ isc.TimelineView.addProperties({
         }
 
         this.initCacheValues();
-        this.fields = this.calcFields(); //this._rebuildFields();
 
-        this.Super("initWidget");
+        this.Super("initWidget", arguments);
 
 
         // only refreshData at this time if the calendar is not autoFetchData: true
-        this._rebuild(!c.autoFetchData);
+        this._refreshEventsOnDraw = true;
 
-        this.addAutoChild("eventDragTarget");
-        //this.body.addChild(this.eventDragTarget);
+        this.addAutoChild("eventDragCanvas", { styleName: this.eventDragCanvasStyleName });
+        //this.body.addChild(this.eventDragCanvas);
 
         this.initCacheValues();
+
+        // set up grouping based on the laneGroupBy settings on Calendar
+        if (c.canGroupLanes == true) this._groupOnDraw = true;
+    },
+
+    remapCalendarSettings : function () {
+        var c = this.calendar;
+
+        this.firstDayOfWeek = c.firstDayOfWeek;
+        if (c.renderEventsOnDemand != null) this.renderEventsOnDemand = c.renderEventsOnDemand;
+
+        // lanes - name field on lanes
+        if (c.laneNameField) this.laneNameField = c.laneNameField;
+        // default width of laneFields (frozen)
+        if (c.labelColumnWidth != null) this.labelColumnWidth = c.labelColumnWidth;
+        // alternate row styling
+        if (c.alternateLaneStyles != null) this.alternateRecordStyles = c.alternateLaneStyles;
+        // lane rollovers
+        if (c.showLaneRollOver != null) {
+            this.showRollOver = c.showLaneRollOver;
+            this.useCellRollOvers = false;
+        }
+        // lane drag-reorder
+        if (c.canReorderLanes != null) this.canReorderRecords = c.canReorderLanes;
+
+        // set up grouping based on the laneGroupBy settings on Calendar
+        // this is now done in initWidget, so it doesn't get re-applied later
+        //if (c.canGroupLanes == true) this._groupOnDraw = true;
+
+
+        if (c.eventDragGap != null) this.eventDragGap = c.eventDragGap;
+
+        this.cellHeight = this.laneHeight;
+
+        if (c.headerLevels) {
+            this.headerLevels = isc.shallowClone(c.headerLevels);
+        }
+        var innerHeader = this.headerLevels && this.headerLevels.length > 0 ?
+                this.headerLevels[this.headerLevels.length-1] : null;
+
+        if (innerHeader) {
+            // if there's an inner headerLevel, use it's unit as the timelineGranularity
+            // - do this now, before we calculate range dates below
+            this.timelineGranularity = innerHeader.unit;
+            c.timelineGranularity = innerHeader.unit;
+        } else {
+            this.timelineGranularity = c.timelineGranularity;
+        }
+        this.timelineUnitsPerColumn = c.timelineUnitsPerColumn;
     },
 
     // install/removeLocalHandlers are automatically called if they exist - timelines only for now
@@ -5414,13 +6457,14 @@ isc.TimelineView.addProperties({
                 p = isc.addProperties({}, this.props, props)
             ;
 
+            var lane = p.lane ? view.getLane(p.lane) : null;
+            var sublane = p.lane && p.sublane ? view.getSublane(p.sublane) : null;
             if (p.top == null) {
                 p.top = view.getRowTop(view.getLaneIndex(p.lane));
-                if (p.sublane) p.top += p.sublane.top;
+                if (sublane) p.top += sublane.top;
             }
             if (p.height == null) {
-                p.height = p.sublane ? p.sublane.height :
-                            view.getLaneHeight(p.lane[cal.laneNameField]);
+                p.height = sublane ? sublane.height : view.getLaneHeight(p.lane);
             }
             var left = p.startSnap.startLeftOffset,
                 right = p.endSnap.endLeftOffset,
@@ -5447,8 +6491,8 @@ isc.TimelineView.addProperties({
         getHoverHTML : function () {
             var view = this.creator,
                 props = this.props,
-                startDate = props.startSnap.startDate,
-                endDate = props.endSnap.endDate
+                startDate = props.startSnap[view.calendar.startDateField],
+                endDate = props.endSnap[view.calendar.endDateField]
             ;
             var newEvent = view.calendar.createEventObject({}, startDate, endDate,
                     props.lane, props.sublane);
@@ -5464,6 +6508,8 @@ isc.TimelineView.addProperties({
         return this.dragSelectCanvas;
     },
     cellMouseDown : function (record, rowNum, colNum) {
+        // if an event has leading/trailingDate icons in-drag, ignore mouseDown
+        if (isc.EH.dragTarget || isc.EH.lastTarget != this.body) return;
         if ((record && record._isGroup) || this.isLabelCol(colNum)) {
             return true;
         }
@@ -5481,7 +6527,7 @@ isc.TimelineView.addProperties({
 
         var mouseData = this.getMouseData() || { x: this.body.getOffsetX(), y: this.body.getOffsetY() },
             startSnap = this.getSnapData(mouseData.x, mouseData.y),
-            startDate = startSnap && startSnap.startDate
+            startDate = startSnap && startSnap[cal.startDateField]
         ;
 
         // don't allow selection if the date is disabled (eg, a its weekend and weekends are
@@ -5499,14 +6545,14 @@ isc.TimelineView.addProperties({
         this.clearSelection();
 
         var canvas = this.getDragSelectCanvas(),
-            endDate = startSnap.endDate,
+            endDate = startSnap[cal.endDateField],
             lane = this.getLaneFromPoint(),
             sublane = this.getSublaneFromPoint()
         ;
 
         var p = { top: null, height: null };
-        p.lane = lane;
-        p.sublane = sublane;
+        p.lane = lane && lane.name;
+        p.sublane = sublane && sublane.name;
         p.draggingLeftEdge = false;
         p.startSnap = startSnap;
         p.endSnap = startSnap;
@@ -5546,30 +6592,32 @@ isc.TimelineView.addProperties({
                 snapData = this.getSnapData(mouseData.x, mouseData.y)
             ;
 
-            if (snapData.index < props.startSnap.index) {
-                // mouse-snap is earlier than previous startSnap - left drag
-                if (props.draggingLeftEdge) props.startSnap = snapData;
-                else {
-                    // swap the start and end snaps and mark as a left-edge drag
-                    props.endSnap = props.startSnap;
-                    props.startSnap = snapData;
-                props.draggingLeftEdge = true;
-                }
-            } else if (snapData.index > props.endSnap.index) {
-                // mouse-snap is after endSnap - right drag
-                if (!props.draggingLeftEdge) props.endSnap = snapData;
-                else {
-                    // swap the start and end snaps and mark as a right-edge drag
-                    props.startSnap = props.endSnap;
-                    props.endSnap = snapData;
-                props.draggingLeftEdge = false;
+            if (snapData) {
+                if (snapData.index < props.startSnap.index) {
+                    // mouse-snap is earlier than previous startSnap - left drag
+                    if (props.draggingLeftEdge) props.startSnap = snapData;
+                    else {
+                        // swap the start and end snaps and mark as a left-edge drag
+                        props.endSnap = props.startSnap;
+                        props.startSnap = snapData;
+                        props.draggingLeftEdge = true;
+                    }
+                } else if (snapData.index > props.endSnap.index) {
+                    // mouse-snap is after endSnap - right drag
+                    if (!props.draggingLeftEdge) props.endSnap = snapData;
+                    else {
+                        // swap the start and end snaps and mark as a right-edge drag
+                        props.startSnap = props.endSnap;
+                        props.endSnap = snapData;
+                        props.draggingLeftEdge = false;
                     }
                 } else {
-                if (props.draggingLeftEdge) props.startSnap = snapData;
-                else props.endSnap = snapData;
-            }
+                    if (props.draggingLeftEdge) props.startSnap = snapData;
+                    else props.endSnap = snapData;
+                }
 
-            canvas.resizeNow(props);
+                canvas.resizeNow(props);
+            }
         }
 
         return this.Super("cellOver", arguments);
@@ -5594,8 +6642,8 @@ isc.TimelineView.addProperties({
         var cal = this.calendar,
             canvas = this.getDragSelectCanvas(),
             props = canvas.props,
-            startDate = props.startSnap.startDate,
-            endDate = props.endSnap.endDate
+            startDate = props.startSnap[cal.startDateField],
+            endDate = props.endSnap[cal.endDateField]
         ;
 
         // if backgroundClick is implemented, run it and return if it returns false
@@ -5618,14 +6666,13 @@ isc.TimelineView.addProperties({
         // disabled) - take a millisecond off the end date in case it ends exactly at the start
         // of a disabled date - for example, at midnight on a friday night when weekends are
         // disabled
-        if (cal.shouldDisableDate(isc.DateUtil.dateAdd(endDate.duplicate(), "ms", -1), this)) {
+        if (cal.shouldDisableDate(isc.DateUtil.dateAdd(endDate, "ms", -1), this)) {
             this.clearSelection();
             return false;
         }
 
         var newEvent = cal.createEventObject(null, startDate, endDate,
-            props.lane && props.lane[cal.laneNameField],
-            props.sublane && props.sublane[cal.laneNameField]
+            props.lane, props.sublane
         );
         cal.showEventDialog(newEvent, true);
         return isc.EH.STOP_BUBBLING;
@@ -5660,19 +6707,11 @@ isc.TimelineView.addProperties({
         return this.frozenBody ? this.frozenBody.fields.length : 0;
     },
 
-    setFields : function () {
-        this.Super("setFields", arguments);
-        //if (this.body) this.buildSnapGapList();
-        //if (this.calendar.laneGroupByField) {
-        //    this.groupBy(this.calendar.laneGroupByField);
-        //}
-    },
-
 
     updateOverlapRanges : function (passedData) {
         var cal = this.calendar,
-            data = passedData || this.getEventData(),
-            dataLen = data.getLength(),
+            rawData = passedData || this.getEventData(),
+            dataLen = rawData.getLength(),
             ranges = this.overlapRanges || [],
             // the list of overlap ranges that were actually affected by the process, so the
             // ranges that need to be re-tagged
@@ -5681,13 +6720,11 @@ isc.TimelineView.addProperties({
             maxDate = this.endDate
         ;
 
-        if (isc.isA.ResultSet(data)) {
-            data = data.allRows;
-        }
+        var data = (isc.isA.ResultSet(rawData) ? rawData.allRows : rawData);
 
-        data.setProperty("_tagged", false);
-        data.setProperty("_overlapProps", null);
-        data.setProperty("_slotNum", null);
+        data.setProperty("tagged", false);
+        data.setProperty("overlapProps", null);
+        data.setProperty("slotNum", null);
 
         data.setSort([
             { property: cal.laneNameField, direction: "ascending" },
@@ -5698,8 +6735,17 @@ isc.TimelineView.addProperties({
         for (var i=0; i<dataLen; i++) {
             var event = data.get(i);
             var eRange = { events: [event] };
+            eRange[cal.leadingDateField] = event[cal.leadingDateField];
             eRange[cal.startDateField] = cal.getEventStartDate(event);
+            // clamp range-start
+            if (eRange[cal.leadingDateField] > maxDate) eRange[cal.leadingDateField] = maxDate;
+            if (eRange[cal.startDateField] < minDate) eRange[cal.startDateField] = minDate;
+
+            eRange[cal.trailingDateField] = event[cal.trailingDateField];
             eRange[cal.endDateField] = cal.getEventEndDate(event);
+            // clamp range-end
+            if (eRange[cal.trailingDateField] > maxDate) eRange[cal.trailingDateField] = maxDate;
+            if (eRange[cal.endDateField] > maxDate) eRange[cal.endDateField] = maxDate;
             eRange[cal.laneNameField] = eRange.lane = event[cal.laneNameField];
 
             var addRange = true;
@@ -5749,7 +6795,7 @@ isc.TimelineView.addProperties({
 
         this.forceDataSort(data);
 
-        var useLanes = this.isTimelineView() || (this.isDayView() && cal.showDayLanes);
+        var useLanes = this.usesLanes();
 
         var olRanges = this.updateOverlapRanges(data);
 
@@ -5778,9 +6824,11 @@ isc.TimelineView.addProperties({
                 this.logWarn("range: " + isc.echoFull(range) + "");
             }
 
-            var rangeStartSnapObj = this.getSnapData(null, null, range[cal.startDateField]),
+            var sDate = range[cal.leadingDateField] || range[cal.startDateField]
+            var eDate = range[cal.trailingDateField] || range[cal.endDateField]
+            var rangeStartSnapObj = this.getSnapData(null, null, sDate),
                 rangeStartSnap = rangeStartSnapObj ? rangeStartSnapObj.index : 0,
-                rangeEndSnapObj = this.getSnapData(null, null, range[cal.endDateField]),
+                rangeEndSnapObj = this.getSnapData(null, null, eDate),
                 rangeEndSnap = rangeEndSnapObj ? rangeEndSnapObj.index : this._snapGapList.length-1,
                 // range start and end snaps are inclusive
                 rangeSnapCount = (rangeEndSnap-rangeStartSnap) + 1,
@@ -5799,14 +6847,14 @@ isc.TimelineView.addProperties({
 
                 var event = events[eventIndex];
 
-                event._overlapProps = {};
+                event.overlapProps = {};
 
-                var oProps = event._overlapProps;
+                var oProps = event.overlapProps;
 
                 // get the event's snapGapList - last param will return the first/last snaps
                 // if the dates are out of range
-                var eStart = cal.getEventStartDate(event),
-                    eEnd = cal.getEventEndDate(event)
+                var eStart = event[cal.leadingDateField] || cal.getEventStartDate(event),
+                    eEnd = event[cal.trailingDateField] || cal.getEventEndDate(event)
                 ;
                 // tweak the dates by 1ms, to prevent exact matches on a snap-boundary from
                 // causing incorrect overlaps
@@ -5827,7 +6875,7 @@ isc.TimelineView.addProperties({
                         found = true;
                         slotList[slotIndex].snapGaps.fill(1, eStartSnap, eEndSnap+1);
                         slotList[slotIndex].events.add(event);
-                        event._overlapProps.slotNum = slotIndex
+                        event.overlapProps.slotNum = slotIndex
                         if (addLogs) {
                             this.logWarn("event " + event.name + " occupying slot " + slotIndex);
                         }
@@ -5839,7 +6887,7 @@ isc.TimelineView.addProperties({
                     slotList[slotCount] = this.getOverlapSlot(slotCount, rangeSnapCount);
                     slotList[slotCount].snapGaps.fill(1, eStartSnap, eEndSnap+1);
                     slotList[slotCount].events.add(event);
-                    event._overlapProps.slotNum = slotCount
+                    event.overlapProps.slotNum = slotCount
                     if (addLogs) {
                         this.logWarn("event " + event.name + " added to new slot index " + slotCount);
                     }
@@ -5855,7 +6903,7 @@ isc.TimelineView.addProperties({
                 // decides this event's slotCount
                 for (var eIndex=0; eIndex < slot.events.length; eIndex++) {
                     var event = slot.events[eIndex];
-                    var oProps = event._overlapProps;
+                    var oProps = event.overlapProps;
 
                     // update the totalSlots
                     oProps.totalSlots = slotCount;
@@ -5881,7 +6929,7 @@ isc.TimelineView.addProperties({
                     }
                     // we want slotNum to start from 1, for legacy downstream code
                     oProps.slotNum++;
-                    event._slotNum = oProps.slotNum;
+                    event.slotNum = oProps.slotNum;
                 }
             }
 
@@ -5907,12 +6955,17 @@ isc.TimelineView.addProperties({
             if (x == null) x = this.body.getOffsetX();
         }
 
-        if (returnExtents) {
-            if (millis != null) {
-                // if the date it out of range, return the first or last snap
-                if (millis < snaps[0].startMillis) return snaps[0];
-                if (millis > snaps[snaps.length-1].endMillis) return snaps[snaps.length-1];
+        if (millis != null) {
+            // if the date is out of range, return the first or last snap
+            if (millis < snaps[snaps.firstVisibleIndex].startMillis) {
+                if (returnExtents) return snaps[snaps.firstVisibleIndex];
+                return null;
             }
+            if (millis > snaps[snaps.lastVisibleIndex].endMillis) {
+                if (returnExtents) return snaps[snaps.lastVisibleIndex];
+                return null;
+            }
+
         }
 
         for (var i=0; i<snapCount; i++) {
@@ -5933,8 +6986,10 @@ isc.TimelineView.addProperties({
     },
 
     buildSnapGapList : function (reason) {
+        if (!this._cache) return;
+        //isc.logWarn("buildSnapGapList - reason '" + reason + "'");
         if (!this.body) return;
-        var cal = this.calendar,
+        var cal = this.creator,
             fields = this.frozenBody ? this.body.fields : this.getFields(),
             snapPixels = cal.getSnapGapPixels(this),
             pixelTime = this.getTimePerPixel("ms"),
@@ -5951,6 +7006,9 @@ isc.TimelineView.addProperties({
             shouldBreak = false,
             lastStartCol = null,
             fieldSnapIndex = 0,
+            // remember the first/last visible snaps - tag these onto the _snapGapList array
+            firstVisibleIndex = null,
+            lastVisibleIndex = null,
             nextTime
         ;
         while (currTime < endTime) {
@@ -6015,10 +7073,17 @@ isc.TimelineView.addProperties({
                 snap.endLeftOffset = snap.endField.endLeftOffset - endXOffset;
             }
 
-            snap.startDate = new Date(currTime);
-            snap.endDate = new Date(nextTime);
+            snap[cal.startDateField] = new Date(currTime);
+            snap[cal.endDateField] = new Date(nextTime);
 
             snapList.add(snap);
+
+            if (!snap.startHidden) {
+                // cache the first and last visible snaps for getVisibleStart/EndDate()
+                if (firstVisibleIndex == null) firstVisibleIndex = snap.index;
+                if (lastVisibleIndex == null || snap.index > lastVisibleIndex) lastVisibleIndex = snap.index;
+            }
+
             if (shouldBreak) break;
             currTime = nextTime + 1;
         }
@@ -6046,6 +7111,9 @@ isc.TimelineView.addProperties({
             lastSnap = snap;
         }
 
+        if (firstVisibleIndex != null) snapList.firstVisibleIndex = firstVisibleIndex;
+        if (lastVisibleIndex != null) snapList.lastVisibleIndex = lastVisibleIndex;
+
         this._snapGapList = snapList;
 
         //this.logWarn("buildSnapGapList:  " + reason + "\n\n" + isc.echoAll(snapList));
@@ -6056,24 +7124,36 @@ isc.TimelineView.addProperties({
 
         var fields = this.calcFields();
         if (this.isDrawn()) {
-            this.body.removeChild(this.eventDragTarget);
+            this.body.removeChild(this.eventDragCanvas);
             this.setFields(fields);
-            this.body.addChild(this.eventDragTarget);
+            this.body.addChild(this.eventDragCanvas, null, false);
         } else this.fields = fields;
+
+
+        this.buildSnapGapList("_rebuildFields");
+
+
+        if (this.isDrawn() && this.scrollToToday !== false) {
+            var today = isc.DateUtil.getLogicalDateOnly(new Date());
+            today.setDate(today.getDate() - this.scrollToToday);
+            var colNum = this.getColFromDate(today, true);
+            if (colNum != null) {
+                this.bodies[1] && this.bodies[1].scrollTo(this.bodies[1].getColumnLeft(colNum), 0);
+            }
+        }
     },
     _rebuild : function (refreshData) {
-        if (this._drawnCanvasList && this._drawnCanvasList.length > 0) {
-            this._drawnCanvasList.setProperty("_availableForUse", true);
-            this.clearEvents();
-        }
+        this.clearEvents();
 
         // availability of hovers may have changed
         this.setShowHover(this.calendar.showViewHovers);
 
         this._rebuildFields();
 
-        var lanes = this.lanes || this.calendar.lanes || [];
-        this.setLanes(lanes.duplicate(), true);
+        if (!this._skipSetLanes) {
+            var lanes = this.lanes || this.calendar.lanes || [];
+            this.setLanes(lanes.duplicate(), true);
+        }
         this._scrubDateRange();
 
         if (refreshData) {
@@ -6081,7 +7161,7 @@ isc.TimelineView.addProperties({
         } else {
             // TODO: this should really be doing a refreshVisibleEvents(), since refreshData is
             // false - needs to be looked into as part of streamlining for large datasets
-            this.refreshEvents();
+            this.refreshEvents("_rebuild");
             //this.refreshVisibleEvents();
         }
     },
@@ -6092,14 +7172,27 @@ isc.TimelineView.addProperties({
         return this.Super("refreshEvents", arguments);
     },
 
-    setLanes : function (lanes, skipDataUpdate) {
+    setLanes : function (lanes, skipRefreshEvents) {
+        // clear the cached lane info
+        this.resetLaneCaches(true);
+
+        //this.logWarn("*** running setLanes) -- " + isc.echoFull(lanes));
         var cal = this.calendar,
             laneNameField = cal.laneNameField;
-        this.lanes = lanes.duplicate();
-        var laneCount = lanes.length;
+
+        // make sure there's a lane.name on each lane - see comment in the method
+        cal.checkLaneNames(lanes);
+
+        // set up the local lanes - ones which are shouldShowLane() true
+        this.lanes = [];
+        for (var i=0; i<lanes.length; i++) {
+            if (this.calendar.shouldShowLane(lanes[i])) this.lanes.add(lanes[i]);
+        }
+
+        // size the visible lanes
+        var laneCount = this.lanes.length;
         for (var i=0; i<laneCount; i++) {
-            var lane = lanes[i];
-            if (!lane[laneNameField]) lane[laneNameField] = lane.name;
+            var lane = this.lanes[i];
             if (lane.sublanes) {
                 var laneHeight = this.getLaneHeight(lane),
                     len = lane.sublanes.length,
@@ -6119,31 +7212,45 @@ isc.TimelineView.addProperties({
             }
         }
 
-        this.setData(lanes);
-        if (this.isDrawn()) this.redraw();
+        // apply the lanes as rows in the grid
+        this.setData(this.lanes);
 
-        // refetch or just redraw applicable events (setLanes() may have been called after setData)
-        if (!skipDataUpdate) {
-            // if we're going to refresh data, remove the flag preventing that from happening
-            delete cal._ignoreDataChanged;
-            this._refreshData();
-        }
+        // cache a map of lanes to avoid later array-searches - if the grid is grouped,
+        // originalData will be set - if it is, use that, because data will be a Tree
+        this.laneMap = (this.originalData || this.data).makeIndex("name");
+
+
+        //if (this.isDrawn()) this.redraw();
+
+        // refresh current events according to the new set of lanes
+        if (!skipRefreshEvents) this.refreshEvents("setLanes");
+        return;
     },
-    getLaneIndex : function (laneName) {
-        var lane;
-        if (isc.isAn.Object(laneName)) lane = laneName;
-        else if (this.data) {
-            lane = this.data.find("name", laneName) ||
-                   this.data.find(this.calendar.laneNameField, laneName);
-        } else return -1;
 
-        //var laneIndex = this.isGrouped ? this.getGroupedRecordIndex(lane) : this.getRecordIndex(lane);
-        var laneIndex = this.getRecordIndex(lane);
+    // cache the result of getLaneIndex(), which is called frequently - cleared in setLanes()
+    laneIndexCache: {},
+    getLaneIndex : function (laneName) {
+        // ignore laneIndex caching for the moment - failing in grouped timelines
+        //var laneIndex = this.laneIndexCache[laneName];
+        var laneIndex = null;
+        if (laneIndex == null) {
+            //this.logWarn("*** caching getLaneIndex('" + laneName + "')");
+            var lane;
+            if (isc.isAn.Object(laneName)) lane = laneName;
+            else if (this.data) {
+                lane = this.laneMap[laneName] ||
+                       this.data.find(this.calendar.laneNameField, laneName);
+            } else laneIndex = -1;
+
+            if (laneIndex == null) laneIndex = this.getRecordIndex(lane);
+
+            // cache the index because this method runs a lot
+            this.laneIndexCache[laneName] = laneIndex;
+        }
         return laneIndex;
     },
     getLane : function (laneName) {
-        var index = this.getLaneIndex(laneName);
-        if (index >= 0) return this.getRecord(index);
+        return this.getLaneMap()[laneName];
     },
     getLaneFromPoint : function (x, y) {
         if (y == null) y = this.body.getOffsetY();
@@ -6208,13 +7315,13 @@ isc.TimelineView.addProperties({
     //     this.invokeSuper(isc.TimelineView, "setData", newData);
     //},
     scrollTimelineTo : function (pos) {
-        this.bodies[1].scrollTo(pos);
+        this.bodies[1] && this.bodies[1].scrollTo(pos);
     },
 
     setLaneHeight : function (newHeight) {
         this.laneHeight = newHeight;
         this.setCellHeight(newHeight);
-        this.refreshEvents();
+        this.refreshEvents("setLaneHeight");
     },
 
     groupRowHeight: 30,
@@ -6224,7 +7331,7 @@ isc.TimelineView.addProperties({
             if (this.isGroupNode(record)) height = this.groupRowHeight;
             else height = record.height;
         }
-        return height || this.Super("getRowHeight", arguments);
+        return Math.round(height || this.Super("getRowHeight", arguments));
     },
 
     setInnerColumnWidth : function (newWidth) {
@@ -6233,45 +7340,40 @@ isc.TimelineView.addProperties({
     },
 
     rangeCriteriaMode: "view",
-    setTimelineRange : function (start, end, timelineGranularity, columnCount,
-                                 timelineUnitsPerColumn, headerLevels, fromSetChosenDate)
+    setTimelineRange : function (start, end)
     {
+        //this.logWarn("*** in view.setTimelineRange() -- " + start.toString() + " -- " + (end ? end.toString() : "no end"));
         var cal = this.calendar;
 
-        if (timelineGranularity) cal.timelineGranularity = timelineGranularity;
-        else timelineGranularity = cal.timelineGranularity;
-        this.timelineGranularity = timelineGranularity;
-        if (timelineUnitsPerColumn) cal.timelineUnitsPerColumn = timelineUnitsPerColumn;
-        else timelineUnitsPerColumn = cal.timelineUnitsPerColumn;
-        this.timelineUnitsPerColumn = timelineUnitsPerColumn;
+        this.timelineGranularity = cal.timelineGranularity;
+        this.timelineUnitsPerColumn = cal.timelineUnitsPerColumn;
+        this.timelineColumnSpan = cal.timelineColumnSpan;
 
-        var colSpan = columnCount || this._totalGranularityCount || cal.defaultTimelineColumnSpan,
+        var colSpan = this.timelineColumnSpan || this._totalGranularityCount || cal.defaultTimelineColumnSpan,
             refreshData = false,
-            gran = (timelineGranularity || cal.timelineGranularity).toLowerCase(),
+            gran = this.timelineGranularity.toLowerCase(),
             granString = isc.DateUtil.getTimeUnitKey(gran);
         ;
 
-        if (headerLevels) {
-            // if headerLevels have been passed, refresh the data
-            cal.headerLevels = headerLevels;
-            //refreshData = true;
-        }
-
         start = start || this.startDate;
         // move the start date to it's closest previous granularity boundary ("day" by default)
-        start = isc.DateUtil.getStartOf(start, granString);
+        start = isc.DateUtil.getStartOf(start, granString, false, this.firstDayOfWeek);
 
         if (!end) {
             // end wasn't passed - if this.endDate is set, use that - otherwise, calculate it
             if (start.getTime() == this.startDate.getTime() && this.endDate) end = this.endDate;
-            else end = isc.DateUtil.getAbsoluteDate("+" + (colSpan*timelineUnitsPerColumn) + granString, start);
+            else end = isc.DateUtil.getAbsoluteDate("+" + (colSpan*this.timelineUnitsPerColumn) + granString, start);
         }
 
         var criteriaMode = this.rangeCriteriaMode || cal.rangeCriteriaMode;
         if (criteriaMode && criteriaMode != "none") refreshData = true;
 
-        if (start.logicalDate) start = isc.DateUtil.getStartOf(start.duplicate(), granString, false, this.firstDayOfWeek);
-        if (end.logicalDate) end = isc.DateUtil.getEndOf(end.duplicate(), granString, false, this.firstDayOfWeek);
+        if (start.logicalDate) {
+            start = isc.DateUtil.getStartOf(start, granString, false, this.firstDayOfWeek);
+        }
+        if (end.logicalDate) {
+            end = isc.DateUtil.getEndOf(end, granString, false, this.firstDayOfWeek);
+        }
 
         if (isc.DateUtil.compareLogicalDates(start, end) == 0) {
             if (cal.showWeekends == false && cal.dateIsWeekend(start)) {
@@ -6285,8 +7387,9 @@ isc.TimelineView.addProperties({
             }
         }
 
-        this.startDate = start.duplicate();
-        this.endDate = end.duplicate();
+        // in timelines, visible and period dates are the same
+        this.startDate = this.periodStartDate = start.duplicate();
+        this.endDate = this.periodEndDate = end.duplicate();
 
         cal.startDate = start.duplicate();
         cal.endDate = end.duplicate();
@@ -6295,9 +7398,13 @@ isc.TimelineView.addProperties({
 
         //isc.logWarn('setTimelineRange:' + [timelineGranularity, timelineUnitsPerColumn,
         //        cal.timelineGranularity, cal.timelineUnitsPerColumn]);
-        cal.dateChooser.setData(this.startDate);
-        if (!fromSetChosenDate) cal.setChosenDate(this.startDate, true);
-        //cal.setDateLabel();
+
+        // only update the dateChooser now if it's part of the UI, rather than a popup
+        // the second param here causes the dateChooser to set showTimeItem false if the date
+        // is a logicalDate, and true otherwise
+        //if (cal.showDateChooser) cal.dateChooser.setData(this.startDate, true);
+
+        cal.setDateLabel();
 
         // if the calendar is autoFetchData and is in mid-draw, don't refreshData here, or we'll
         // get two fetches
@@ -6334,7 +7441,7 @@ isc.TimelineView.addProperties({
         return date;
     },
 
-    getColFromDate : function (date) {
+    getColFromDate : function (date, forEndDate) {
         var fields = this.frozenBody ? this.body.fields : this.getFields(),
             startMillis = (date && date.getTime) ? date.getTime() : date
         ;
@@ -6346,8 +7453,15 @@ isc.TimelineView.addProperties({
                     fieldEndTime = field && field.endDate ? field.endDate.getTime() : null
                 ;
                 if (!fieldTime || !fieldEndTime) continue;
-                if (fieldTime >= startMillis) {
-                    return i-1;
+                if (forEndDate) {
+                    if (startMillis >= fieldTime && startMillis < fieldEndTime) {
+                        return i;
+                    }
+                } else {
+                    if (fieldTime >= startMillis) {
+                        return i;
+                        //return i-1;
+                    }
                 }
             }
         }
@@ -6386,37 +7500,22 @@ isc.TimelineView.addProperties({
             cal = this.calendar
         ;
 
-        var hoverProps = {
-            hoverDelay: this.hoverDelay+1,
-            hoverMoveWithMouse: true,
-            canHover: this.shouldShowHeaderHovers(),
-            showHover: this.shouldShowHeaderHovers(),
-            mouseMove : function () {
-                var view = this.grid,
-                    rowNum = view.getEventRow(),
-                    isHeader = rowNum < 0
-                ;
-                if (view.shouldShowHeaderHovers()) {
-                    isc.Hover.show(this.getHoverHTML());
-                    return isc.EH.STOP_BUBBLING;
-                }
-            },
-            getHoverHTML : function () {
-                var view = this.grid;
-                return view.calendar._getHeaderHoverHTML(view, view.fieldHeaderLevel,
-                    this, this.date, this.endDate);
-            }
-        };
-
         if (this.showLaneFields != false) {
+            var showLaneHovers = this.shouldShowLaneFieldHovers();
             if (cal.laneFields) {
                 var laneFields = cal.laneFields;
-                laneFields.setProperty("frozen", true);
-                laneFields.setProperty("isLaneField", true);
                 for (var i = 0; i < laneFields.length; i++) {
-                    var lf = laneFields[i];
-                    if (lf.minWidth == null) lf.minWidth = this.labelColumnWidth;
-                    if (lf.width == null) lf.width = lf.minWidth || this.labelColumnWidth;
+                    var lf = isc.addProperties({}, {
+                        hoverDelay: this.hoverDelay+1,
+                        hoverMoveWithMouse: true,
+                        frozen: true,
+                        isLaneField: true,
+                        baseStyle: this.getLaneFieldStyleName(laneFields[i], {}),
+                        minWidth: this.labelColumnWidth,
+                        width: this.labelColumnWidth,
+                        canHover: showLaneHovers,
+                        showHover: showLaneHovers
+                    }, laneFields[i]);
                     newFields.add(lf);
                 }
             } else {
@@ -6424,12 +7523,17 @@ isc.TimelineView.addProperties({
                     autoFitWidth: true,
                     width: this.labelColumnWidth,
                     minWidth: this.labelColumnWidth,
+                    baseStyle: this.labelColumnBaseStyle,
                     name: "title",
                     title: " ",
                     showTitle: false,
                     frozen: true,
-                    isLaneField: true
-                }, hoverProps);
+                    isLaneField: true,
+                    hoverDelay: this.hoverDelay+1,
+                    hoverMoveWithMouse: true,
+                    canHover: showLaneHovers,
+                    showHover: showLaneHovers
+                });
                 newFields.add(labelCol);
             }
         }
@@ -6447,6 +7551,10 @@ isc.TimelineView.addProperties({
             // "unit" and "titles" array used for field-headers (unit becomes
             // calendar.timelineGranularity - they should already be the same)
             this.fieldHeaderLevel = this.headerLevels[this.headerLevels.length-1];
+            if (this.fieldHeaderLevel.headerWidth != null) {
+                // update view.columnWidth here, right before updating the snapGaps
+                this.columnWidth = this.fieldHeaderLevel.headerWidth;
+            }
             this.headerLevels.remove(this.fieldHeaderLevel);
             cal.timelineGranularity = this.fieldHeaderLevel.unit;
             // cache a couple of values
@@ -6481,18 +7589,23 @@ isc.TimelineView.addProperties({
 
         this._totalGranularityCount = 0;
 
+        var showCellHovers = this.shouldShowCellHovers();
+        var headerButtonWidth = this.getHeaderButtonWidth()
+
         while (sDate.getTime() <= eDateMillis) {
             var thisDate = sDate.duplicate(),
                 showDate = ignoreHiddenDates || cal.shouldShowDate(sDate, this)
             ;
 
-            thisDate = isc.DateUtil.getStartOf(thisDate.duplicate(), cal.timelineGranularity);
+            thisDate = isc.DateUtil.getStartOf(thisDate, cal.timelineGranularity,
+                false, this.firstDayOfWeek);
 
             if (thisDate.getTime() >= eDateMillis) break;
 
             this._totalGranularityCount++;
 
-            fieldEndDate = isc.DateUtil.getEndOf(this.addUnits(sDate.duplicate(), units), cal.timelineGranularity);
+            fieldEndDate = isc.DateUtil.getEndOf(this.addUnits(sDate.duplicate(), units),
+                cal.timelineGranularity, false, this.firstDayOfWeek);
 
             var newField = null;
 
@@ -6507,7 +7620,7 @@ isc.TimelineView.addProperties({
                     name: "f" + spanIndex,
                     headerLevel: headerLevel,
                     title: title,
-                    width: headerLevel.headerWidth || this.getHeaderButtonWidth(),
+                    width: headerLevel.headerWidth || headerButtonWidth,
                     cellAlign: headerLevel.cellAlign,
                     cellVAlign: headerLevel.cellVAlign,
                     date: thisDate.duplicate(),
@@ -6518,8 +7631,16 @@ isc.TimelineView.addProperties({
                     canFreeze: false,
                     canFocus: false,
                     startLeftOffset: startLeftOffset,
-                    endLeftOffset: endLeftOffset
-                }, hoverProps, this.getFieldProperties(thisDate));
+                    endLeftOffset: endLeftOffset,
+                    hoverDelay: this.hoverDelay+1,
+                    hoverMoveWithMouse: true,
+                    canHover: showCellHovers,
+                    showHover: showCellHovers
+                }, this.getFieldProperties(thisDate));
+
+                if (cal.shouldDisableDate(thisDate)) {
+                    newField.dateDisabled = true;
+                }
 
                 //isc.logWarn("field " + spanIndex + ":\n" +
                 //    "    " + thisDate + "\n" +
@@ -6553,8 +7674,21 @@ isc.TimelineView.addProperties({
             }
         }
 
-        this._totalGranularityCount--;
 
+        //this._totalGranularityCount--;
+
+        var showHeaderHovers = this.shouldShowHeaderHovers();
+        var hoverProps = {
+            hoverDelay: this.hoverDelay+1,
+            hoverMoveWithMouse: true,
+            canHover: showHeaderHovers,
+            showHover: showHeaderHovers,
+            getHoverHTML : function () {
+                var view = this.grid;
+                return view.calendar._getHeaderHoverHTML(view, view.fieldHeaderLevel,
+                    this, this.date, this.endDate);
+            }
+        };
         for (var i=0, fieldCount=newFields.length; i<fieldCount; i++) {
             var field = newFields[i];
             isc.addProperties(field, hoverProps);
@@ -6565,27 +7699,35 @@ isc.TimelineView.addProperties({
 
         this._dateFieldCount = spanIndex-1;
 
-        this.buildSnapGapList("calcFields");
+        // do this in the calling function, after this.fields has been updated
+        //this.buildSnapGapList("calcFields");
 
         return newFields;
     },
 
     redraw : function () {
         this.Super("redraw", arguments);
-        if (!this.animateFolders && this._fromToggleFolder) {
-            delete this._fromToggleFolder;
-            this.refreshVisibleEvents(null, null, "redraw");
+        if (!this.animateFolders && this._redrawForGrouping) {
+            // _redrawForGrouping is set in groupByComplete() and toggleFolder()
+            delete this._redrawForGrouping;
+            this.laneHeightCache = {};
+            this.laneIndexCache = {};
+            this.delayedRefreshVisibleEvents();
         }
     },
 
     toggleFolder : function (record) {
         this.Super("toggleFolder", arguments);
+        // this flag causes redraw() to call refreshVisibleEvents()
+        this._redrawForGrouping = true;
+        this.markForRedraw();
+
         // if not animating folders, refresh events now - otherwise, do it when the row
         // animation completes
-        if (!this.animateFolders) {
-            this._fromToggleFolder = true;
-            this.markForRedraw();
-        }
+        //if (!this.animateFolders) {
+        //    this._redrawForGrouping = true;
+        //    this.markForRedraw();
+        //}
     },
 
     rowAnimationComplete : function (body, hasFrozenBody) {
@@ -6603,8 +7745,8 @@ isc.TimelineView.addProperties({
         // if we weren't
         var cal = this.calendar,
             unit = this.fieldHeaderLevel ? this.fieldHeaderLevel.unit : cal.timelineGranularity,
-            start = cal.startDate,
-            end = new Date(cal.endDate.getTime()-1)
+            start = this.startDate,
+            end = new Date(this.endDate.getTime()-1)
         ;
 
         // we have at least one header - make sure we start and end the timeline
@@ -6612,8 +7754,9 @@ isc.TimelineView.addProperties({
         // that is)
         var key = isc.DateUtil.getTimeUnitKey(unit);
 
-        cal.startDate = this.startDate = isc.DateUtil.getStartOf(start, key, false, cal.firstDayOfWeek);
-        cal.endDate = this.endDate = isc.DateUtil.getEndOf(end, key, false, cal.firstDayOfWeek);
+        this.startDate = isc.DateUtil.getStartOf(start, key, false, this.firstDayOfWeek);
+        this.endDate = isc.DateUtil.getEndOf(end, key, false, this.firstDayOfWeek);
+
     },
 
     buildHeaderSpans : function (fields, levels, startDate, endDate) {
@@ -6638,6 +7781,7 @@ isc.TimelineView.addProperties({
             c = this.calendar,
             headerLevel = headerLevels[levelIndex],
             unit = headerLevel.unit,
+            unitKey = isc.DateUtil.getTimeUnitKey(unit),
             lastUnit = levelIndex > 0 ? headerLevels[levelIndex-1].unit : unit,
             unitsPerColumn = c.timelineUnitsPerColumn,
             titles = headerLevel.titles || [],
@@ -6655,12 +7799,13 @@ isc.TimelineView.addProperties({
 
         var DU = isc.DateUtil;
 
+        var showHeaderHovers = this.shouldShowHeaderHovers();
         var firstLoop = true;
         while (date <= endDate) {
-            DU.dateAdd(date, "mn", 1, 1);
+            date = DU.dateAdd(date, "mn", 1, 1);
             if (firstLoop) {
                 firstLoop = false;
-                var newDate = isc.DateUtil.getEndOf(date.duplicate(), isc.DateUtil.getTimeUnitKey(unit), false, c.firstDayOfWeek);
+                var newDate = isc.DateUtil.getEndOf(date, unitKey, false, c.firstDayOfWeek);
             } else {
                 var newDate = this.addUnits(date.duplicate(), unitsPerColumn, unit);
             }
@@ -6668,18 +7813,10 @@ isc.TimelineView.addProperties({
             var span = { unit: unit,
                 hoverDelay: this.hoverDelay+1,
                 hoverMoveWithMouse: true,
-                canHover: this.shouldShowHeaderHovers(),
-                showHover: this.shouldShowHeaderHovers(),
+                canHover: showHeaderHovers,
+                showHover: showHeaderHovers,
                 canFocus: false,
                 headerLevel: headerLevel,
-                mouseMove : function () {
-                    var view = this.creator;
-                    if (view.shouldShowHeaderHovers()) {
-                        if (isc.Hover.lastHoverTarget != view) view.startHover();
-                        else view.updateHover();
-                        return isc.EH.STOP_BUBBLING;
-                    }
-                },
                 getHoverHTML : function () {
                     var view = this.creator;
                     return view.calendar._getHeaderHoverHTML(view, this.headerLevel, this,
@@ -6687,8 +7824,8 @@ isc.TimelineView.addProperties({
                     );
                 }
             };
-            span[c.startDateField] = date.duplicate();
-            span[c.endDateField] = newDate.duplicate();
+            span.startDate = date.duplicate();
+            span.endDate = newDate.duplicate();
 
             this.setSpanDates(span, date.duplicate());
 
@@ -6712,7 +7849,8 @@ isc.TimelineView.addProperties({
             //}
 
             if (levelIndex < headerLevels.length-1) {
-                span.spans = this.getHeaderSpans(span.startDate, span.endDate, headerLevels, levelIndex + 1, fields);
+                span.spans = this.getHeaderSpans(span.startDate, span.endDate,
+                    headerLevels, levelIndex + 1, fields);
                 if (span.spans && span.spans.length > 0) span.fields = null;
                 if (headerLevel.titles && headerLevel.titles.length != span.spans.length) {
                     // fewer titles were supplied than we have spans - log a warning about it
@@ -6751,7 +7889,7 @@ isc.TimelineView.addProperties({
                 title = startDate.getShortMonthName();
             } else if (unit == "week") {
                 // use the week number for the Date.firstWeekIncludesDay'th day of the week - thursday
-                var midWeek = isc.DateUtil.getStartOf(startDate.duplicate(), "W", null, this.calendar.firstDayOfWeek);
+                var midWeek = isc.DateUtil.getStartOf(startDate, "W", false, this.calendar.firstDayOfWeek);
                 midWeek.setDate(midWeek.getDate() + (midWeek.firstWeekIncludesDay - this.calendar.firstDayOfWeek));
                 title = this.calendar.weekPrefix + " " + midWeek.getWeek(this.calendar.firstDayOfWeek);
             } else if (unit == "day") {
@@ -6774,9 +7912,10 @@ isc.TimelineView.addProperties({
 
     setSpanDates : function (span, date) {
         var key = isc.DateUtil.getTimeUnitKey(span.unit);
+        var cal = this.calendar;
 
-        span.startDate = isc.DateUtil.getStartOf(date, key, null, this.calendar.firstDayOfWeek);
-        span.endDate = isc.DateUtil.getEndOf(span.startDate, key, null, this.calendar.firstDayOfWeek);
+        span.startDate = isc.DateUtil.getStartOf(date, key, false, this.firstDayOfWeek);
+        span.endDate = isc.DateUtil.getEndOf(span.startDate, key, false, this.firstDayOfWeek);
     },
 
     getFieldProperties : function (date) {
@@ -6795,11 +7934,21 @@ isc.TimelineView.addProperties({
                 result = startDate.getShortMonthName();
             } else if (granularity == "week") {
                 // use the week number for the Date.firstWeekIncludesDay'th day of the week - thursday
-                var midWeek = isc.DateUtil.getStartOf(startDate.duplicate(), "W", null, this.calendar.firstDayOfWeek);
+                var midWeek = isc.DateUtil.getStartOf(startDate, "W", null, this.calendar.firstDayOfWeek);
                 midWeek.setDate(midWeek.getDate() + (midWeek.firstWeekIncludesDay - this.calendar.firstDayOfWeek));
                 result = this.calendar.weekPrefix + " " + midWeek.getWeek(this.calendar.firstDayOfWeek);
             } else if (granularity == "day") {
-                result = (startDate.getMonth() + 1) + "/" + startDate.getDate();
+                // get the order of date parts from the inputFormat and use the defaultDateSeparator
+                var format = isc.DateUtil.getInputFormat();
+                if (isc.isA.String(format)) {
+                    // remove year and transform day
+                    format = format.replace("Y", "");
+                    format = format.replace("D", "d");
+                    format = format[0] + isc.DateUtil.getDefaultDateSeparator() + format[1];
+                    result = isc.DateUtil.format(startDate, format);
+                } else {
+                    result = (startDate.getMonth() + 1) + "/" + startDate.getDate();
+                }
             } else {
                 var mins = startDate.getMinutes().toString();
                 if (mins.length == 1) mins = "0" + mins;
@@ -6815,32 +7964,55 @@ isc.TimelineView.addProperties({
 
     draw : function (a, b, c, d) {
         this.invokeSuper(isc.TimelineView, "draw", a, b, c, d);
-        //var snapGap = this.calendar.getSnapGapPixels(this);
-        //if (snapGap) {
-        //    this.body.snapHGap = Math.round((snapGap / 60) * this.getHeaderButtonWidth());
-        //    //this.body.snapHGap = 5;
-        //} else {
-            this.body.snapHGap = this.getHeaderButtonWidth();
-        //}
 
-        //this.body.snapVGap = this.laneHeight;
-        // scroll to today if defined
-        if (this.scrollToToday != false) {
-            var today = new Date();
-            today.setDate(today.getDate() - this.scrollToToday);
-            var diff = this.calendar.getDayDiff(this.startDate, today);
-            var sLeft = diff * this.getHeaderButtonWidth();
-            this.bodies[1].scrollTo(sLeft, 0);
-        }
+        var cal = this.calendar;
+
         this.logDebug('draw', 'calendar');
         // call refreshEvents() whenever we're drawn
         // see comment above dataChanged for the logic behind this
 
-        this.body.addChild(this.eventDragTarget);
-        this.eventDragTarget.setView(this);
+        this.body.addChild(this.eventDragCanvas, null, false);
+        this.eventDragCanvas.setView(this);
+
+        if (this._refreshEventsOnDraw) {
+            delete this._refreshEventsOnDraw;
+            //this._refreshEvents();
+            //this.setChosenDate(this.calendar.chosenDate);
+        }
+
+        if (this._groupOnDraw) {
+            // set up grouping based on the laneGroupBy settings on Calendar
+            this.canGroupBy = true;
+            this.groupByField = cal.laneGroupByField;
+            if (cal.laneGroupStartOpen != null) this.groupStartOpen = cal.laneGroupStartOpen;
+
+            this._pendingGroupComplete = true;
+            this.delayCall("groupBy", [this.groupByField], 0);
+        }
 
         //this.refreshEvents();
+        if (this._fireViewChangedOnDraw) {
+            delete this._fireViewChangedOnDraw;
+            this.calendar.currentViewChanged(this.viewName);
+        }
 
+    },
+
+    groupByComplete : function () {
+        // clear the groupOnDraw flag
+        delete this._groupOnDraw;
+        // these flags are set in draw() and cleared here - refreshVisibleEvents() will bail if
+        // it runs while this flag is set (while the grouping is running)
+        delete this._pendingGroupComplete;
+
+        this.delayedRefreshVisibleEvents();
+        return;
+
+        //// this flag is checked in timelineView.redraw() - if it's set, redraw() will call
+        //// refreshVisibleEvents() to reposition events in case their lanes have moved
+        //this._redrawForGrouping = true;
+        //// cause a redraw() to update the events
+        //this.markForRedraw();
     },
 
     formatDateForDisplay : function (date) {
@@ -6848,11 +8020,16 @@ isc.TimelineView.addProperties({
     },
 
     getLabelColCount : function () {
-        if (this.calendar.laneFields) {
-            return this.calendar.laneFields.length;
-        } else {
-            return 1;
+        var cal = this.calendar,
+            count = 1
+        ;
+        if (cal.laneFields) {
+            count = 0;
+            for (var i=0; i<cal.laneFields.length; i++) {
+                if (cal.laneFields[i].hidden != true) count++;
+            }
         }
+        return count;
     },
 
     isLabelCol : function (colNum) {
@@ -6862,42 +8039,20 @@ isc.TimelineView.addProperties({
 
     showField : function () {
         this.Super("showField", arguments);
-        this.refreshEvents();
+        this.refreshEvents("showField");
     },
     hideField : function () {
         this.Super("hideField", arguments);
-        this.refreshEvents();
+        this.refreshEvents("hideField");
     },
 
-    getCellStyle : function (record, rowNum, colNum) {
-        // if it's a groupNode, return the groupNodeStyle
-        if (record._isGroup) return this.Super("getCellStyle", arguments);
-
-        var bStyle = this.getBaseStyle(record, rowNum, colNum);
-
-        if (colNum == null) return bStyle;
-
-        var isDate = !this.isLabelCol(colNum);
-        if (isDate) {
-            var col = colNum - (this.frozenBody ? this.frozenBody.fields.length : 0);
-            var date = this.getCellDate(rowNum, col);
-            if (date && this.calendar.shouldDisableDate(date, this)) {
-                bStyle += "Disabled";
-            }
-        }
-
-        if (!this.__printing && this.calendar.showLaneRollOver) {
-            // over styling - only when not printing and showLaneRollOver is true
-            var body = this.getFieldBody(colNum),
-                overRow = body.lastOverRow
-            ;
-            if (rowNum != null && overRow != null && rowNum == overRow) bStyle += "Over";
-        }
-
-        // alternate record styling
-        if (this.alternateRecordStyles && rowNum % 2 != 0) bStyle += "Dark";
-
-        return bStyle;
+    getLaneStyleName : function (lane) {
+        if (lane && lane.styleName) return lane.styleName;
+    },
+    getLaneFieldStyleName : function (field, lane) {
+        if (field && field.styleName) return field.styleName;
+        if (lane && lane.fieldStyleName) return lane.fieldStyleName;
+        return this.labelColumnBaseStyle;
     },
 
     // timelineView
@@ -6905,33 +8060,56 @@ isc.TimelineView.addProperties({
         var cal = this.calendar;
         // for group rows, return the baseStyle
         if (record._isGroup) return this.groupNodeBaseStyle;
-        else if (this.isLabelCol(colNum)) return this.labelColumnBaseStyle;
-        else {
-            var date = cal.getCellDate(rowNum, colNum, this),
-                style = date && cal.getDateStyle ? cal.getDateStyle(date, rowNum, colNum, this) : null
-            ;
-
-            return style || this.baseStyle;
-        }
+        return this.Super("getBaseStyle", arguments);
     },
+    getCellStyle : function (record, rowNum, colNum) {
+        var cal = this.calendar,
+            field = this.getField(colNum),
+            isSelected = this.isSelected(record),
+            gridDisabled = this.isDisabled(),
+            cellDisabled = (field && field.date && cal.shouldDisableDate(field.date))
+        ;
+
+        var bStyle = this.getBaseStyle(record, rowNum, colNum);
+
+        if (gridDisabled || (cellDisabled && !isSelected)) {
+            bStyle += "Disabled";
+        }
+
+        if (isSelected) bStyle += "Selected";
+
+        // odd rows in vertical views
+        if (this.alternateRecordStyles && rowNum % 2 != 0) {
+            // odd row in TimelineView, with alternateRecordStyles
+            bStyle += "Dark";
+        }
+
+        return bStyle;
+    },
+
 
     slideRange : function (slideRight) {
         var c = this.calendar,
-            gran = c.timelineGranularity.toLowerCase(),
+            gran = this.timelineGranularity.toLowerCase(),
             granString = isc.DateUtil.getTimeUnitKey(gran),
-            units = c.timelineUnitsPerColumn || 1,
+            units = this.timelineUnitsPerColumn || 1,
             startDate = this.startDate.duplicate(),
             endDate = this.endDate.duplicate(),
             multiplier = slideRight ? 1 : -1,
             scrollCount = c.columnsPerPage || (this.getFields().length - this.getLabelColCount())
         ;
 
-        startDate = isc.DateUtil.dateAdd(startDate, granString, scrollCount * units, multiplier, false);
-        startDate = isc.DateUtil.getStartOf(startDate, granString, false, c.firstDayOfWeek);
-        endDate = isc.DateUtil.dateAdd(endDate, granString, scrollCount * units, multiplier, false);
-        endDate = isc.DateUtil.getEndOf(endDate, granString, false, c.firstDayOfWeek);
+        startDate = isc.DateUtil.dateAdd(startDate, granString, scrollCount * units, multiplier,
+            false, null, this.firstDayOfWeek);
+        startDate = isc.DateUtil.getStartOf(startDate, granString, false, this.firstDayOfWeek);
 
-        this.setTimelineRange(startDate, endDate, gran, null, units, null, false);
+        // this flag prevents _rebuild() from updating the lanes - only dates have changed
+        this._skipSetLanes = true;
+
+        // call the usual setChosenDate(), which deals with everything
+        // call on the parent calendar, so it's chosenDate is properly updated
+        this.calendar.setChosenDate(startDate);
+        delete this._skipSetLanes;
     },
 
     nextOrPrev : function (next) {
@@ -6976,12 +8154,12 @@ isc.TimelineView.addProperties({
             if (snapData.nextValidSnap) {
                 // it's a left offset, so if the snap is hidden, use the start offset of
                 // the next good snap
-                return snapData.nextValidSnap.startDate.duplicate();
+                return snapData.nextValidSnap[cal.startDateField].duplicate();
             } else if (snapData.lastValidSnap) {
                 // there's no valid next snap, use the previous one if it's there
-                return snapData.lastValidSnap.endDate.duplicate();
+                return snapData.lastValidSnap[cal.endDateField].duplicate();
             }
-            return snapData.startDate.duplicate();
+            return snapData[cal.endDateField].duplicate();
         }
 
         if (x < 0 || y < 0) return null;
@@ -7021,14 +8199,16 @@ isc.TimelineView.addProperties({
         // X offset, and the breadth is the pixel delta - this allows events to span arbitrary
         // hidden columns, while still rendering events that span the gap between the two dates
         var cal = this.calendar,
-            eventStart = cal.getEventStartDate(event).getTime(),
-            eventEnd = cal.getEventEndDate(event).getTime(),
-            visibleStart = this._cache.rangeStartMillis || cal.getVisibleStartDate(this).getTime(),
-            visibleEnd = this._cache.rangeEndMillis || cal.getVisibleEndDate(this).getTime()
+            eventStart = cal.getEventStartDate(event),
+            eventEnd = cal.getEventEndDate(event),
+            visibleStart = cal.getVisibleStartDate(this),
+            visibleEnd = cal.getVisibleEndDate(this)
         ;
+        if (eventStart.getTime() < visibleStart.getTime()) eventStart = visibleStart;
+        if (eventEnd.getTime() > visibleEnd.getTime()) eventEnd = visibleEnd;
 
         var eventLeft = this.getDateLeftOffset(eventStart, null, exactBreadth),
-            eventRight = this.getDateRightOffset(eventEnd-1, exactBreadth),
+            eventRight = this.getDateRightOffset(eventEnd, exactBreadth),
             newBreadth = eventRight - eventLeft
         ;
 
@@ -7043,14 +8223,15 @@ isc.TimelineView.addProperties({
         if (!date) return 0;
 
         var snapData = this.getSnapData(null, null, date, true);
+        var leftOffset = 0;
         if (snapData) {
             if (snapData.lastValidSnap) {
                 // it's a right offset, so if the snap is hidden, use the end offset of
                 // the last good snap
-                return snapData.lastValidSnap.endLeftOffset;
-            }
-            return snapData.endLeftOffset;
+                leftOffset = snapData.lastValidSnap.endLeftOffset;
+            } else leftOffset = snapData.endLeftOffset;
         }
+        return leftOffset;
     },
     // getDateLeftOffset timelineView
     getDateLeftOffset : function (date, useNextSnapGap, exactOffset) {
@@ -7139,11 +8320,28 @@ isc.TimelineView.addProperties({
         return this.getDateRightOffset(this.calendar.getEventEndDate(event));
     },
 
+    // cache the result of getLaneHeight(), which is called frequently - cleared in setLanes()
+    laneHeightCache: {},
     getLaneHeight : function (lane) {
-        if (lane == null) return;
-        if (isc.isA.Number(lane)) lane = this.getRecord(lane);
-        else if (isc.isA.String(lane)) lane = this.getLane(lane);
-        return (lane && lane.height) || this.cellHeight;
+        var laneName = isc.isA.String(lane) ? lane : (isc.isAn.Object(lane) ? lane.name : null);
+        // lane-height is from lane.height or grid.cellHeight
+        var laneHeight = (lane && lane.height) || this.cellHeight;
+
+        if (!laneName) {
+            if (isc.isA.Number(lane)) lane = this.getRecord(lane);
+            if (lane) {
+                laneName = lane.name;
+                if (lane.height != null) laneHeight = lane.height;
+                lane = null;
+            }
+        }
+
+        var cacheHeight = this.laneHeightCache[laneName];
+        if (cacheHeight == null) {
+            //this.logWarn("*** caching getLaneHeight('" + laneName + "')");
+            this.laneHeightCache[laneName] = laneHeight;
+        }
+        return this.laneHeightCache[laneName];
     },
     getSublaneHeight : function (sublane, lane) {
         if (!isc.isAn.Object(sublane)) {
@@ -7156,198 +8354,16 @@ isc.TimelineView.addProperties({
         return sublane ? sublane.height : null;
     },
 
-    addLeadingAndTrailingLines : function (canvas) {
-        // destroy previous lines and icons before creating new ones
-        //canvas.destroyLines();
-        var leadLine, leadIcon, trailLine, trailIcon;
-        if (canvas._lines) {
-            leadLine = canvas._lines[0];
-            leadIcon = canvas._lines[1];
-            trailLine = canvas._lines[2];
-            trailIcon = canvas._lines[3];
-        } else {
-            leadLine = this._makeLine();
-            leadIcon = this._makeIcon(canvas, "lead");
-            trailLine = this._makeLine();
-            trailIcon = this._makeIcon(canvas, "trail");
-        }
-
-
-        var showLead = this._positionIcon(leadIcon, leadLine);
-        var showTrail = this._positionIcon(trailIcon, trailLine);
-
-
-        if (!canvas._lines) {
-            this.body.addChild(leadLine);
-            this.body.addChild(leadIcon);
-
-            this.body.addChild(trailLine);
-            this.body.addChild(trailIcon);
-            canvas._lines = [
-               leadLine, leadIcon, trailLine, trailIcon
-            ];
-        }
-
-
-    },
-
-    _positionIcon : function (icon, line) {
-        var cal = this.calendar, canvas = icon.eventCanvas, event = canvas.event,
-            type = icon.type, eWidth = this.getHeaderButtonWidth(),
-            eHeight = canvas.getVisibleHeight(), eTop = canvas.getTop(),
-            eLeft = canvas.getLeft();
-
-        // size/reposition line first
-        var dayDiff, lineWidth, drawIcon = true;
-        if (type == "trail") {
-            // if trailing date is past our date range, draw the line up to the end of the grid
-            // and don't draw the trailing icon
-            if (this.compareDates(event[cal.trailingDateField],this.endDate) < 0) {
-                dayDiff = cal.getDayDiff(this.endDate, event[cal.startDateField]);
-                // don't allow invalid lead day. Set to 1 if invalid.
-                if (dayDiff < 1) dayDiff = 1;
-                lineWidth = dayDiff * eWidth;
-                drawIcon = false;
-                //icon.hide();
-            } else {
-                dayDiff = cal.getDayDiff(event[cal.trailingDateField], event[cal.startDateField]);
-                lineWidth = (dayDiff * eWidth) - (Math.round(eWidth / 2));
-                //if (icon.isDrawn()) icon.show();
-            }
-        } else {
-            // if leading date is past our date range, draw the line up to the end of the grid
-            // and don't draw the leading icon
-            if (this.compareDates(this.startDate, event[cal.leadingDateField]) < 0) {
-                dayDiff = cal.getDayDiff(this.startDate, cal.getEventStartDate(event));
-                // don't allow invalid lead day. Set to 1 if invalid.
-                if (dayDiff < 1) dayDiff = 1;
-                lineWidth = dayDiff * eWidth;
-                drawIcon = false;
-                //icon.hide();
-            } else {
-                dayDiff = cal.getDayDiff(event[cal.leadingDateField], cal.getEventStartDate(event));
-                lineWidth = ( dayDiff * eWidth) - (Math.round(eWidth / 2));
-                //if (icon.isDrawn()) icon.show();
-            }
-        }
-
-        //isc.logWarn(event[cal.trailingDateField].toShortDate());
-        var lLeft = (type == "trail" ? eLeft + eWidth : eLeft - lineWidth);
-        line.moveTo(lLeft, eTop + (Math.round(eHeight / cal.getRowsPerHour(this))));
-        line.setWidth(lineWidth);
-
-        // position icon
-        // calculate a vertical offset to add to the event arrows so that if they are overlapping,
-        // drag moving will keep them in the same vertical axis. Just try commenting out the code
-        // below and setting vOffset to 0, and drag moving arrows to see the issue.
-        var  vOffset = 0;
-        if (event._overlapProps && event._overlapProps.slotNum > 0)  {
-            vOffset = (event._overlapProps.slotNum - 1) * eHeight;
-        }
-        var iconSize = (type == "trail" ? this.trailIconSize : this.leadIconSize);
-        var iLeft;
-        if (drawIcon == false) iLeft = -50;
-        else if (type == "trail") iLeft = eLeft + eWidth + lineWidth - Math.round(iconSize / 2);
-        else iLeft = eLeft - lineWidth - Math.round(iconSize / 2);
-        icon.moveTo(iLeft, eTop + Math.round(eHeight / 2) - Math.round(iconSize / 2));
-        icon._vSnapOrigin = Math.round(eHeight / 2) - Math.round(iconSize / 2) + vOffset;
-        icon._hSnapOrigin = Math.round(eWidth / 2) - Math.round(iconSize / 2);
-        icon._eventStartCol = cal.getDayDiff(cal.getEventStartDate(event), this.startDate);
-
-        return drawIcon;
-    },
-
-    _makeIcon : function (canvas, type) {
-        var iconSize = (type == "trail" ? this.trailIconSize : this.leadIconSize);
-        var icon = isc.Img.create({
-            eventCanvas: canvas,
-            type: type,
-
-            //prompt:canvas.event.EVENT_ID,
-            autoDraw:false,
-            _redrawWithParent: false,
-            src: (type == "trail" ? this.trailingEndPointImage : this.leadingEndPointImage),
-            width: iconSize,
-            height: iconSize,
-            canDragReposition: (this.calendar.canEditEvents == true),
-            dragRepositionStart : function () {
-                this._dragProps._startRow = this.parentElement.getEventRow();
-                this._dragProps._startCol = this.parentElement.getEventColumn();
-                //isc.logWarn('icon drag start:');
-                this.parentElement.VSnapOrigin = this._vSnapOrigin;
-                this.parentElement.HSnapOrigin = this._hSnapOrigin;
-            },
-            dragRepositionStop : function () {
-               var eventStartCol = this._eventStartCol, startCol = this._dragProps._startCol,
-                    endCol = this.parentElement.getEventColumn(), delta = endCol - startCol,
-                    event = this.eventCanvas.event, cal = this.eventCanvas.calendar,
-                    eventDelta = this.type == "trail" ? endCol - eventStartCol : eventStartCol - endCol;
-               //isc.logWarn('icon drag stop:' + eventDelta);
-               if (eventDelta < 1) return false;
-               var otherFields = {};
-               var dateField = this.type == "trail" ? cal.trailingDateField : cal.leadingDateField;
-               var newDate = event[dateField].duplicate();
-               newDate.setDate(newDate.getDate() + delta);
-               otherFields[dateField] = newDate;
-               cal.updateEvent(event, cal.getEventStartDate(event), cal.getEventEndDate(event),
-                   event[cal.nameField], event[cal.descriptionField], otherFields, true);
-               return true;
-
-            }
-        });
-        return icon;
-    },
-
-    _makeLine : function () {
-        //var line = isc.Img.create({
-        var line = isc.Canvas.create({
-            autoDraw:false,
-            _redrawWithParent: false,
-            //src: this.lineImage,
-            height: 2,
-
-            overflow: "hidden",
-            styleName: "eventLine"
-        });
-
-        return line;
-    },
-
-    // timeliveView
-    updateEventWindow : function (event) {
-        if (!this.body || !this.body.children) return;
-
+    getEditDialogPosition : function (event) {
         var cal = this.calendar,
-            laneName = event[cal.laneNameField]
+            colNum = this.getColFromDate(cal.getEventStartDate(event), event[cal.laneNameField]),
+            rowNum = this.getEventLaneIndex(event),
+            rect = this.body.getCellPageRect(rowNum, colNum)
         ;
-
-        // if one event is updated, all events in the same row may need to be updated as
-        // well due to overlapping. By passing a type into tagDataForOverlap, only
-        // events in the same row as event will be processed
-        //var events = this.tagDataForOverlap(this._localEvents, laneName);
-        var events = this.tagDataForOverlap(cal.data.getRange(0, cal.data.getLength()),
-                laneName);
-
-        if (this.renderEventsOnDemand) {
-            // just refresh events
-            this.refreshVisibleEvents(null, null, "updateEventWindow");
-        } else {
-            for (var i = 0; i < events.length; i++) {
-                var thisEvent = events.get(i),
-                    canvas = this.getCurrentEventCanvas(this, thisEvent)
-                ;
-                // make sure to re-initialize the object that the eventWindow is pointing to, which
-                // gets out of sync on update
-                canvas.event = thisEvent;
-                this.sizeEventCanvas(canvas);
-            }
-        }
-    },
-
-    getEventCanvasConstructor : function (event) {
-        if (this.eventCanvasConstructor) return this.eventCanvasConstructor;
-        if (this.calendar.eventCanvasConstructor == "EventWindow") return "TimelineWindow";
-        return null;
+        return {
+            left: Math.max(rect[0], this.body.getPageLeft()),
+            top: Math.max(rect[1], this.body.getPageTop())
+        };
     }
 
 }); // end timelineView addProperties()
@@ -7355,23 +8371,27 @@ isc.TimelineView.addProperties({
 isc.DaySchedule.addClassProperties({
 
 
-    _getEventScaffolding : function (calendar, view, startDate) {
+    _getEventScaffolding : function (view) {
         var minsPerRow = view.getTimePerCell(),
             rowCount = (60 / minsPerRow) * 24,
             data = [],
-            row = {label:"", day1:"", day2:"", day3:"", day4:"", day5:"", day6:"", day7:""},
-            today = startDate || new Date(),
-            date = new Date(today.getFullYear(), today.getMonth(), today.getDate(),0, 0, 0, 0),
-            cellDates = [],
-            isDayView = view.isDayView()
+            row = {label:"", day1:"", day2:"", day3:"", day4:"", day5:"", day6:"", day7:""}
         ;
 
-        if (isDayView) isc.DaySchedule._getCellDates(calendar, view, date.duplicate());
+        isc.DaySchedule._getCellDates(view);
+
+        var logicalDate = view.logicalDate.duplicate(),
+            logicalTime = isc.DateUtil.createLogicalTime(0, 0, 0)
+        ;
 
         for (var i=0; i<rowCount; i++) {
-            var time = date.duplicate();
-            data.add(isc.addProperties({}, row, { time: time }));
-            date = isc.DateUtil.dateAdd(date, "mn", minsPerRow, 1);
+            var time = isc.DateUtil.combineLogicalDateAndTime(logicalDate, logicalTime);
+            var rec = data.add(isc.addProperties({}, row));
+            rec.time = time.duplicate();
+            rec.logicalTime = logicalTime.duplicate();
+            rec.logicalDate = logicalDate.duplicate();
+            logicalTime.setMinutes(logicalTime.getMinutes() + minsPerRow);
+            //this.logWarn("ROW " + i + " UPDATE: " + isc.echoFull(rec));
         }
 
         return data;
@@ -7380,36 +8400,41 @@ isc.DaySchedule.addClassProperties({
 
 
 
-    _getCellDates : function (calendar, view, startDate) {
-        startDate = startDate || new Date();
+    _getCellDates : function (view) {
+        var startDate = view.startDate || new Date();
         var minsPerRow = view.getTimePerCell(),
-            today = startDate.duplicate(),
-            date = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0),
             rowCount = (60 / minsPerRow) * 24,
             counter = view.isDayView() ? 1 : 7,
             cellDates = []
         ;
 
+        var logicalDate = view.logicalDate.duplicate();
+
+        var date = isc.DateUtil.createDatetime(logicalDate.getFullYear(), logicalDate.getMonth(),
+                    logicalDate.getDate(), 0, 0, 0, 0);
+
         view._dstCells = null;
 
         for (var j=0; j < counter; j++) {
-            var colDate = date.duplicate(),
-                cellDate = colDate.duplicate()
-            ;
-            for (var i=0; i<=rowCount; i++) {
+            var cellDate = date.duplicate();
+            for (var i=0; i<rowCount; i++) {
+                if (j == counter-1 && i == rowCount) break;
                 if (!cellDates[i]) cellDates[i] = {};
                 // store the dates in object properties rather than an array - makes life easier
                 // in the week view when weekends aren't visible
-                cellDates[i]["day" + (j+1)] = cellDate;
+                cellDates[i]["day" + (j+1)] = cellDate.duplicate();
+                cellDates[i].logicalTime = isc.DateUtil.getLogicalTimeOnly(cellDate);
 
                 // when calculating the times for cells, add rows*mins to the column's base
                 // datetime - then create a logicalTime with the same offset
                 var minsToAdd = minsPerRow * (i + 1);
-                var newCellDate = isc.DateUtil.dateAdd(colDate.duplicate(), "mn", minsToAdd, 1);
+                var newCellDate = isc.DateUtil.dateAdd(date, "mn", minsToAdd, 1);
                 var newTime = isc.DateUtil.getLogicalTimeOnly(newCellDate, true);
 
-                var newTime = isc.DateUtil.getLogicalTimeOnly(colDate, true);
+                // use the logicalTime to cater for custom display timezone
                 newTime.setTime(newTime.getTime() + (minsToAdd*60000));
+                cellDates[i]["day" + (j+1) + "_end"] = isc.DateUtil.dateAdd(newCellDate, "ms", -1);
+                cellDates[i].logicalEndTime = isc.DateUtil.getLogicalTimeOnly(cellDates[i]["day" + (j+1) + "_end"]);
                 // compare the newTime (which is a logical time and not subject to DST) with the
                 // time portion of the next calculated cellDate - if they're different, the cell's
                 // datetime falls during the DST crossover
@@ -7417,31 +8442,33 @@ isc.DaySchedule.addClassProperties({
                     newCellDate_temp = newCellDate.getDate(),
                     newHours = newTime.getHours(),
                     newMinutes = newTime.getMinutes(),
-                    cellHours = newCellDate.getHours(),
-                    cellMinutes = newCellDate.getMinutes()
+                    // use the logicalTime to cater for custom display timezone
+                    cellTime = isc.Date.getLogicalTimeOnly(newCellDate, true),
+                    cellHours = cellTime.getHours(),
+                    cellMinutes = cellTime.getMinutes()
                 ;
 
 
+                view.calendar.ignoreDST = true;
                 if (view.calendar.ignoreDST) {
                     cellDate = newCellDate.duplicate();
                 } else {
                     if (newHours != cellHours || newMinutes != cellMinutes) {
-                        //isc.logWarn("view: " + view.viewName + " - adding DST datetime:" +
-                        //    "\n    newTime = " + newHours + ":" + newMinutes + "  :: date is " + newDate_temp +
-                        //    "\n    cellTime = " + cellHours + ":" + cellMinutes + "  :: date is " + newCellDate_temp
-                        //);
-                    // the time portion of the parsed date doesn't match the logical time -
-                    // this time must be involved in the DST crossover - use whatever was the
-                    // time when they were last the same and store off the cell in question
-                    // so it can be disabled in the UI
-                    if (!view._dstCells) view._dstCells = [];
-                    view._dstCells.add({ rowNum: i+1, colNum: j });
-                } else {
-                    cellDate = newCellDate.duplicate();
+                        // the time portion of the parsed date doesn't match the logical time -
+                        // this time must be involved in the DST crossover - use whatever was the
+                        // time when they were last the same and store off the cell in question
+                        // so it can be disabled in the UI
+                        if (!view._dstCells) view._dstCells = [];
+                        view._dstCells.add({ rowNum: i+1, colNum: j });
+                    } else {
+                        cellDate = newCellDate.duplicate();
                     }
                 }
+
+                cellDates[i]["day" + (j+1) + "_logicalDate"] = logicalDate.duplicate();
             }
-            date = isc.DateUtil.dateAdd(date.duplicate(), "d", 1);
+            date = isc.DateUtil.dateAdd(date, "d", 1);
+            logicalDate = isc.DateUtil.dateAdd(logicalDate, "d", 1);
         }
 
         view._cellDates = cellDates;
@@ -7517,6 +8544,9 @@ isc.Calendar.addProperties({
 defaultWidth: "100%",
 defaultHeight: "100%",
 
+// we don't want the Calendar as a whole to overflow
+overflow: "hidden",
+
 year:new Date().getFullYear(),  // full year number
 month:new Date().getMonth(),    // 0-11
 
@@ -7528,9 +8558,11 @@ month:new Date().getMonth(),    // 0-11
 // @visibility calendar
 //<
 
-//> @attr calendar.firstDayOfWeek  (Number : null : IRW)
-// The numeric day (0-6) which the calendar should consider as the first day of the week - if
-// unset, the default is taken from the current locale.
+//> @attr calendar.firstDayOfWeek (Number : null : IRW)
+// The numeric day (0-6, Sunday-Saturday) which the calendar should consider as the first
+// day of the week in multi-day views, and in the popup +link{calendar.dateChooser, DateChooser}.
+// <P>
+// If unset, the default is taken from the current locale.
 //
 // @group date
 // @visibility calendar
@@ -7592,7 +8624,7 @@ dayBodyBaseStyle: "calMonthDayBody",
 //<
 otherDayHeaderBaseStyle: "calMonthOtherDayHeader",
 
-//> @attr calendar.otherDayBodyBaseStyle  (CSSStyleName : "calMonthDayBody" : IRW)
+//> @attr calendar.otherDayBodyBaseStyle  (CSSStyleName : "calMonthOtherDayBody" : IRW)
 // The base name for the CSS class applied to the day body of the month view
 // of the calendar. This style will have "Dark", "Over", "Selected", or "Disabled"
 // appended to it according to the state of the cell.
@@ -7614,7 +8646,7 @@ otherDayBodyBaseStyle: "calMonthOtherDayBody",
 //<
 otherDayBlankStyle: "calMonthOtherDayBlank",
 
-//> @attr calendar.minimumDayHeight (integer : 80 : IRW)
+//> @attr calendar.minimumDayHeight (Integer : 80 : IRW)
 // In the +link{monthView, month view} when +link{showDayHeaders} is true, this is the minimum
 // height applied to a day cell and its header combined.
 // <P>
@@ -7626,6 +8658,30 @@ otherDayBlankStyle: "calMonthOtherDayBlank",
 // @visibility calendar
 //<
 minimumDayHeight: 80,
+
+//> @attr calendar.showDayView (Boolean : true : IR)
+// Whether to show the Day view.
+//
+// @group appearance
+// @visibility calendar
+//<
+showDayView: true,
+
+//> @attr calendar.showWeekView (Boolean : true : IR)
+// Whether to show the Week view.
+//
+// @group appearance
+// @visibility calendar
+//<
+showWeekView: true,
+
+//> @attr calendar.showMonthView (Boolean : true : IR)
+// Whether to show the Month view.
+//
+// @group appearance
+// @visibility calendar
+//<
+showMonthView: true,
 
 //> @attr calendar.selectedCellStyle  (CSSStyleName : "calendarCellSelected" : IRW)
 // The base name for the CSS class applied to a cell that is selected via a mouse drag.
@@ -7659,6 +8715,19 @@ selectedCellStyle: "calendarCellSelected",
 eventStyleName: "eventWindow",
 
 
+//> @attr calendar.calMonthEventLinkStyle  (CSSStyleName : "calMonthEventLink" : IRW)
+// The base name for the CSS class applied to the links rendered by +link{calendar.getDayBodyHTML}.
+// <P>
+// These links are rendered as plain HTML links using A elements, and the CSS style in the
+// provided skins references the pseudo-classes :link, :visited, :active, :hover.
+// <BR>
+// Even though it goes against the general policy of not exposing the HTML structures SC writes out
+// and not relying on them for styling, applying style to these particular selectors is acceptable,
+// as we're unlikely to use any other kind of HTML structure than a link.
+//
+// @group appearance
+// @visibility calendar
+//<
 calMonthEventLinkStyle: "calMonthEventLink",
 
 // Workday properties
@@ -7767,7 +8836,7 @@ getSnapGapMinutes : function (view, rowNum, colNum) {
 
 getSnapGapPixels : function (view, rowNum, colNum) {
     view = view || this.getSelectedView();
-    if (view._needsSnapGapUpdate || view._cache.snapGapPixels == null) {
+    if (view._needsSnapGapUpdate || view._cache.snapGapPixels == null || isNaN(view._cache.snapGapPixels)) {
         if (rowNum == null) rowNum = 0;
         if (colNum == null) colNum = 0;
         var useCol = view && view.verticalEvents == false,
@@ -7842,8 +8911,14 @@ getMinutePixels : function (minutes, rowSize, view) {
 },
 
 //> @method calendar.scrollToTime()
-// Scroll the calendar Day or Week views to the specified time.
-// @param time (string) any parsable time-string
+// Scrolls Calendar +link{calendar.dayView, day} or +link{calendar.weekView, week} views to the
+// time represented by the time parameter.  This string parameter is expected to be an
+// arbitrary logical time value in any parsable time format - no date portion is expected, but
+// time formats like "13:31" or "1:20am" are supported.
+// <P>
+// Has no effect in +link{calendar.timelineView, timelines}, where an arbitrary time-value is
+// inapplicable to any range or resolution greater than a day.
+// @param time (String) any parsable time-string
 // @visibility calendar
 //<
 scrollToTime : function (time, view) {
@@ -7862,16 +8937,60 @@ scrollToTime : function (time, view) {
    }
 },
 
+//> @method calendar.scrollToStart()
+// Move the viewport of a CalendarView to the start of it's scrollable range.
+// @param [view] (CalendarView) the view to affect, the current view if not specified
+// @visibility calendar
+//<
+scrollToStart : function (view) {
+    view = view || this.getSelectedView();
+    if (view) view.scrollToStart();
+},
+
+//> @method calendar.scrollToEnd()
+// Move the viewport of a CalendarView to the end of its scrollable range.
+// @param [view] (CalendarView) the view to affect, the current view if not specified
+// @visibility calendar
+//<
+scrollToEnd : function (view) {
+    view = view || this.getSelectedView();
+    if (view) view.scrollToEnd();
+},
+
 //> @method calendar.moveToEvent()
-// Rests the current visible range of a calendar view so that it shows the date on which the
+// Resets the current visible range of a calendar view so that it shows the date on which the
 // passed event occurs.
 // @param event (CalendarEvent) the event to move the calendar view to
+// @deprecated in favor of +link{calendar.scrollToEvent}.
 // @visibility external
 //<
 moveToEvent : function (event, view) {
     view = view || this.getSelectedView();
     this.setChosenDate(this.getEventStartDate(event));
 },
+
+//> @method calendar.scrollToEvent()
+// Scrolls the +link{calendar.getCurrentViewName, current view} so the passed event is
+// visible.  If the event is outside of the view's current date-range, the default behavior is
+// to automatically reload the view with a date-range starting at the event's
+// +link{calendar.startDateField, startDate} and then scroll to the event vertically as
+// necessary.  Pass false as the <code>canReload</code> param to prevent that default behavior.
+// @param event (CalendarEvent) the event to move the calendar view to
+// @param [canReload] (boolean) set to false to prevent a view from automatically reloading
+//                              with a new range if the passed event is not in its current
+//                              scrollable range
+// @visibility external
+//<
+scrollToEvent : function (event, canReload, view) {
+    view = view || this.getSelectedView();
+    if (canReload != false && !view.canScrollToEvent(event)) {
+        view._scrollToEvent = event;
+        this.setChosenDate(this.getEventStartDate(event));
+        return;
+    }
+    view.scrollToEvent(event);
+},
+
 
 // Fields on Event Records
 // ---------------------------------------------------------------------------------------
@@ -7948,6 +9067,18 @@ laneNameField: "lane",
 // @visibility external
 //<
 
+//> @method calendar.setHideUnusedLanes()
+// Setter for updating +link{calendar.hideUnusedLanes} after creation.
+// @param hideUnusedEvents (boolean) whether to hide unused lanes
+// @visibility external
+//<
+setHideUnusedLanes : function (hideUnusedLanes) {
+    this.hideUnusedLanes = hideUnusedLanes;
+    if (this.dayView && this.showDayLanes) this.dayView.refreshEvents("setHideUnusedLanes");
+    if (this.timelineView) this.timelineView.refreshEvents("setHideUnusedLanes")
+},
+
+
 //> @attr calendar.useSublanes (Boolean : null : IR)
 // When set to true, causes +link{calendar.lanes, lanes} to be sub-divided according to their
 // set of +link{Lane.sublanes, sublanes}.
@@ -7992,6 +9123,13 @@ trailingDateField: "trailingDate",
 
 labelColumnWidth: 60,
 
+//> @attr calendar.showLabelColumn (boolean : true : IR)
+// When set to false, hides the frozen Label-Column in vertical +link{class:CalendarView}s.
+// <P>
+// Always false when +link{calendar.showColumnLayouts, showColumnLayouts} is true.
+// @visibility external
+//<
+showLabelColumn: true,
 
 //> @attr calendar.eventWindowStyleField (String : "eventWindowStyle" : IR)
 // The name of the field used to override +link{calendar.eventWindowStyle} for an individual
@@ -8155,7 +9293,7 @@ setHeaderLevels : function (headerLevels) {
 // Event Editing
 // ---------------------------------------------------------------------------------------
 
-//> @attr calendar.eventSnapGap (Integer : null : IR)
+//> @attr calendar.eventSnapGap (Integer : null : IRW)
 // The number of minutes that determines the positions to which events will snap when rendered,
 // and when moved or resized with the mouse.
 // <P>
@@ -8295,9 +9433,11 @@ canDragEvents: null,
 
 //> @attr calendar.canResizeEvents (Boolean : true : IR)
 // Can +link{CalendarEvent, events} be resized by dragging appropriate edges of the
-// +link{eventCanvas.vertical, canvas}?  Only has an effect when both
+// +link{eventCanvas.verticalResize, canvas}?  Only has an effect when both
 // +link{calendar.canEditEvents, canEditEvents} and +link{calendar.canDragEvents, canDragEvents}
 // are true.  Set this attribute to false to disallow drag-resizing.
+// <P>
+// Always false when +link{calendar.showColumnLayouts, showColumnLayouts} is true.
 // @visibility external
 //<
 canResizeEvents: true,
@@ -8323,7 +9463,9 @@ showDateChooser: false,
 disableWeekends: true,
 
 dateIsWeekend : function (date) {
-    return this.getWeekendDays().contains(date.getDay());
+    // compare a logicalDate (which is in the display-timezone)
+    var lDate = isc.DateUtil.getLogicalDateOnly(date);
+    return this.getWeekendDays().contains(lDate.getDay());
 },
 
 //> @attr calendar.weekendDays (Array of int : null : IRW)
@@ -8355,12 +9497,13 @@ getWeekendDays : function () {
 //<
 shouldDisableDate : function (date, view, isEndDate) {
     if (!date) return false;
+    if (!this.disableWeekends || isEndDate) return false;
     view = view || this.getSelectedView();
     // is the passed date disabled?  by default, just returns false if the date falls on a
     // weekend and disableWeekends is true
-    if (this.disableWeekends && !isEndDate && this.dateIsWeekend(date)) {
-        return true;
-    }
+    // compare with a logicalDate (which is in the display-timezone)
+    var displayDate = isc.DateUtil.getLogicalDateOnly(date);
+    if (this.dateIsWeekend(displayDate)) return true;
     return false;
 },
 
@@ -8396,7 +9539,8 @@ shouldShowDate : function (date, view) {
 //<
 shouldShowLane : function (lane, view) {
     view = view || this.getSelectedView();
-    if (this.hideUnusedLanes && this.getLaneEvents(lane).length == 0) {
+
+    if (this.hideUnusedLanes && !this.laneHasVisibleEvents(lane)) {
         // hide lanes with no events
         return false;
     }
@@ -8485,7 +9629,8 @@ eventAutoArrange: true,
 //> @attr calendar.eventOverlap (Boolean : true : IR)
 // When +link{eventAutoArrange} is true, setting eventOverlap to true causes events that
 // share timeslots to overlap each other by a percentage of their width, specified by
-// +link{eventOverlapPercent}.  The default is true.
+// +link{eventOverlapPercent}.  The default is true for Calendars and false for
+// +link{class:Timeline, Timelines}.
 //
 // @group calendarEvent
 // @visibility calendar
@@ -8873,16 +10018,7 @@ getVisibleEndDate : function (view) {
 //<
 getPeriodStartDate : function (view) {
     view = view || this.getSelectedView();
-
-    if (view.isDayView()) {
-        return this.chosenDateStart.duplicate();
-    } else if (view.isWeekView()) {
-        return this.chosenWeekStart.duplicate();
-    } else if (view.isMonthView()) {
-        return isc.DateUtil.getStartOf(this.chosenDate, isc.DateUtil.getTimeUnitKey("month"));
-    } else if (view.isTimelineView()) {
-        return this.getVisibleStartDate(view);
-    }
+    if (view) return view.getPeriodStartDate();
 },
 
 //> @method calendar.getPeriodEndDate()
@@ -8896,22 +10032,13 @@ getPeriodStartDate : function (view) {
 //<
 getPeriodEndDate : function (view) {
     view = view || this.getSelectedView();
-
-    if (view.isDayView()) {
-        return this.chosenDateEnd.duplicate();
-    } else if (view.isWeekView()) {
-        return this.chosenWeekEnd.duplicate();
-    } else if (view.isMonthView()) {
-        return isc.DateUtil.getEndOf(this.chosenDate, isc.DateUtil.getTimeUnitKey("month"));
-    } else if (view.isTimelineView()) {
-        return this.getVisibleEndDate(view);
-    }
+    if (view) return view.getPeriodEndDate();
 },
 
 // Data & Fetching
 // ---------------------------------------------------------------------------------------
 
-//> @attr calendar.data (Array of CalendarEvent[] : null : IRW)
+//> @attr calendar.data (Array of CalendarEvent : null : IRW)
 // A List of CalendarEvent objects, specifying the data to be used to populate the
 // calendar.
 // <p>
@@ -8958,7 +10085,13 @@ getPeriodEndDate : function (view) {
 
 //> @attr Calendar.initialCriteria (Criteria : null :IR)
 // @include dataBoundComponent.initialCriteria
+// @group searchCriteria
 // @visibility calendar
+//<
+
+//> @attr Calendar.implicitCriteria (Criteria : null : IRW)
+// @include dataBoundComponent.implicitCriteria
+// @visibility external
 //<
 
 //> @attr calendar.showDetailFields (Boolean : true : IR)
@@ -9034,7 +10167,14 @@ showTimelineView: false,
 // @visibility calendar
 //<
 
-// now works and is the default for all views
+//> @attr calendar.renderEventsOnDemand (boolean : true : IR)
+// When set to true, the default, each +link{class:EventCanvas, event} is rendered as it
+// appears in the viewport.  If set to false, all events are rendered up-front, whenever the
+// current range changes.
+// <P>
+// Has no effect when +link{calendar.showColumnLayouts, showColumnLayouts} is true.
+// @visibility external
+//<
 renderEventsOnDemand: true,
 
 //> @attr calendar.timelineGranularity (TimeUnit : "day" : IR)
@@ -9107,7 +10247,7 @@ canResizeTimelineEvents: false,
 // To set different start and +link{calendar.endDate, end} dates after initial draw,
 // see +link{calendar.setTimelineRange, setTimelineRange}.
 // <P>
-// Note that this attribute may be automatically altered if showing
+// Note that the value you provide may be automatically altered if showing
 // +link{calendar.headerLevels, header-levels}, to fit to header boundaries.
 // @visibility external
 //<
@@ -9133,7 +10273,7 @@ defaultTimelineColumnSpan: 20,
 // To set different +link{calendar.startDate, start} and end dates after initial draw,
 // see +link{calendar.setTimelineRange, setTimelineRange}.
 // <P>
-// Note that this attribute may be automatically altered if showing
+// Note that the value you provide may be automatically altered if showing
 // +link{calendar.headerLevels, header-levels}, to fit to header boundaries.
 // @visibility external
 //<
@@ -9149,7 +10289,7 @@ defaultTimelineColumnSpan: 20,
 // @visibility external
 //<
 
-//> @attr headerLevel.headerWidth (integer : null : IR)
+//> @attr headerLevel.headerWidth (Integer : null : IR)
 // If set, the width for each of the spans in this headerLevel.  Note that this setting only
 // has an effect on the innermost headerLevel.
 // @visibility external
@@ -9312,6 +10452,21 @@ hoverDelay: 0,
 // @visibility calendar
 //<
 
+//> @attr lane.styleName  (CSSStyleName : null : IRW)
+// The base style-name for normal cells in this Lane.
+//
+// @group appearance
+// @visibility calendar
+//<
+
+//> @attr lane.fieldStyleName  (CSSStyleName : null : IRW)
+// The base style-name for +link{Calendar.laneFields, lane-fields} displayed in this Lane.
+//
+// @group appearance
+// @visibility calendar
+//<
+
+
 //> @attr calendar.canGroupLanes (Boolean : null : IRW)
 // If true, allows the lanes in a Timeline to be grouped by providing a value for
 // +link{calendar.laneGroupByField, laneGroupByField}.  The fields available for grouping on
@@ -9371,16 +10526,36 @@ laneGroupStartOpen: "first",
 // +link{showDayLanes} is true.
 //
 // @param lanes (Array of Lane) array of lanes to display
+// @param [skipRefreshEvents] (boolean) set to false to prevent events from being refreshed
 //
 // @visibility external
 //<
-setLanes : function (lanes) {
+setLanes : function (lanes, skipRefreshEvents) {
     // bail if nothing passed
     if (!lanes) { return; }
+    // make sure there's a lane.name on each lane - see comment in the method
+    this.checkLaneNames(lanes);
     // store lanes but don't call through if not yet draw()n
     this.lanes = lanes;
-    if (this.timelineView) { this.timelineView.setLanes(this.lanes); }
-    if (this.showDayLanes && this.dayView) { this.dayView.setLanes(this.lanes); }
+    if (this.timelineView) { this.timelineView.setLanes(this.lanes, skipRefreshEvents); }
+    if (this.showDayLanes && this.dayView) { this.dayView.setLanes(this.lanes, skipRefreshEvents); }
+},
+
+checkLaneNames : function (lanes) {
+    if (!lanes || lanes.length == 0) return;
+    // attempt to set a "name" property on each lane if there isn't one
+    var cal = this;
+    if (cal.laneNameField && cal.laneNameField != "name") {
+
+        lanes.map(function (lane) {
+            if (!lane.name && lane[cal.laneNameField]) {
+                cal.logInfo("No lane.name provided - mapping to laneNameField (" +
+                    cal.laneNameField + ") - lane.name is now '" +
+                    lane[cal.laneNameField] + "'");
+                lane.name = lane[cal.laneNameField];
+            }
+        });
+    }
 },
 
 //> @method calendar.addLane()
@@ -9470,7 +10645,7 @@ setShowDayLanes : function (showDayLanes) {
         this.dayView._scrollRowAfterRefresh = this.dayView.body.getScrollTop();
         this.dayView.rebuildFields();
         if (this.dayViewSelected()) {
-            this.dayView.refreshEvents();
+            this.dayView.refreshEvents("setShowDayLanes");
         } else {
             this.dayView._needsRefresh = true;
         }
@@ -9590,7 +10765,7 @@ sizeEventsToGrid: true,
 // i18n
 // ---------------------------------------------------------------------------------------
 
-//> @attr calendar.dayViewTitle (string : "Day" : IR)
+//> @attr calendar.dayViewTitle (String : "Day" : IR)
 // The title for the +link{dayView, day view}.
 //
 // @group i18nMessages
@@ -9598,7 +10773,7 @@ sizeEventsToGrid: true,
 //<
 dayViewTitle: "Day",
 
-//> @attr calendar.weekViewTitle (string : "Week" : IR)
+//> @attr calendar.weekViewTitle (String : "Week" : IR)
 // The title for the +link{weekView, week view}.
 //
 // @group i18nMessages
@@ -9606,7 +10781,7 @@ dayViewTitle: "Day",
 //<
 weekViewTitle: "Week",
 
-//> @attr calendar.monthViewTitle (string : "Month" : IR)
+//> @attr calendar.monthViewTitle (String : "Month" : IR)
 // The title for the +link{monthView, month view}.
 //
 // @group i18nMessages
@@ -9614,7 +10789,7 @@ weekViewTitle: "Week",
 //<
 monthViewTitle: "Month",
 
-//> @attr calendar.timelineViewTitle (string : "Timeline" : IR)
+//> @attr calendar.timelineViewTitle (String : "Timeline" : IR)
 // The title for the +link{timelineView, timeline view}.
 //
 // @group i18nMessages
@@ -9776,6 +10951,7 @@ monthButtonTitle: "&lt; ${monthName}",
 //<
 monthMoreEventsLinkTitle: "+ ${eventCount} more...",
 
+
 //> @attr calendar.backButtonTitle (HTMLString : "Back" : IR)
 // The title of the +link{calendar.monthButton, month} on Handsets when the
 // +link{calendar.monthView, month view} is the current visible view.
@@ -9788,7 +10964,7 @@ monthMoreEventsLinkTitle: "+ ${eventCount} more...",
 //<
 backButtonTitle: "Back",
 
-//> @attr calendar.previousButtonHoverText (string : "Previous" : IR)
+//> @attr calendar.previousButtonHoverText (String : "Previous" : IR)
 // The text to be displayed when a user hovers over the +link{calendar.previousButton, previous}
 // toolbar button.
 //
@@ -9797,7 +10973,7 @@ backButtonTitle: "Back",
 //<
 previousButtonHoverText: "Previous",
 
-//> @attr calendar.nextButtonHoverText (string : "Next" : IR)
+//> @attr calendar.nextButtonHoverText (String : "Next" : IR)
 // The text to be displayed when a user hovers over the +link{calendar.nextButton, next}
 // toolbar button
 //
@@ -9806,7 +10982,7 @@ previousButtonHoverText: "Previous",
 //<
 nextButtonHoverText: "Next",
 
-//> @attr calendar.addEventButtonHoverText (string : "Add an event" : IR)
+//> @attr calendar.addEventButtonHoverText (String : "Add an event" : IR)
 // The text to be displayed when a user hovers over the +link{calendar.addEventButton, add event}
 // toolbar button
 //
@@ -9815,7 +10991,7 @@ nextButtonHoverText: "Next",
 //<
 addEventButtonHoverText: "Add an event",
 
-//> @attr calendar.datePickerHoverText (string : "Choose a date" : IR)
+//> @attr calendar.datePickerHoverText (String : "Choose a date" : IR)
 // The text to be displayed when a user hovers over the +link{calendar.datePickerButton, date picker}
 // toolbar button
 //
@@ -9854,7 +11030,13 @@ mainViewDefaults : {
 
 dateChooserConstructor: "DateChooser",
 dateChooserDefaults: {
-    visibility: "hidden"
+    left: 0,
+    top: -9999,
+    autoDraw: false,
+    visibility: "hidden",
+    autoHide: true,
+    showCancelButton: true,
+    closeOnEscapeKeypress: true
 },
 
 //> @attr calendar.eventDialog (AutoChild Window : null : R)
@@ -9875,7 +11057,8 @@ eventDialogDefaults: {
     keepInParentRect: true,
     maxWidth: 400,
     height: 100,
-    visibility: "hidden"
+    visibility: "hidden",
+    autoDraw: false
 },
 
 //> @attr calendar.eventEditorLayout (AutoChild Window : null : R)
@@ -9891,7 +11074,8 @@ eventEditorLayoutDefaults: {
     showMinimizeButton: false,
     showMaximumButton: false,
     canDragReposition: false,
-    visibility: "hidden"
+    visibility: "hidden",
+    autoDraw: false
 },
 
 
@@ -9910,7 +11094,7 @@ eventEditorDefaults : {
     width: 460,
     titleWidth: 80,
     wrapItemTitles: false,
-    visiibililty: "hidden"
+    autoDraw: false
 },
 
 //> @attr calendar.eventEditorButtonLayout (AutoChild HLayout : null : R)
@@ -9989,6 +11173,7 @@ addEventButtonDefaults : {
     showRollOver: false,
     showDown: false,
     showFocused:false,
+    autoDraw: false,
     width: 16,
     height: 16
 },
@@ -10012,7 +11197,8 @@ datePickerButtonDefaults : {
     width: 16,
     height: 16,
     showRollOver: false,
-    showFocused: false
+    showFocused: false,
+    autoDraw: false
 },
 
 //> @attr calendar.showControlsBar (Boolean : true : IR)
@@ -10039,6 +11225,8 @@ controlsBarDefaults : {
     width: 1,
     height: 1,
     overflow: "visible",
+    autoDraw: false,
+    layoutMargin: 5,
     membersMargin: 5
 },
 
@@ -10142,6 +11330,14 @@ dateLabelDefaults : {
 
 // initial setup of the calendar
 initWidget : function () {
+    if (this.startDate && this.endDate && this.endDate.getTime() < this.startDate.getTime()) {
+        // inverted range-dates - flip them and log a warning
+        this.logWarn("endDate (" + this.endDate + ") is before startDate (" +
+            this.startDate + ") - switching values");
+        var sDate = this.startDate.duplicate();
+        this.startDate = this.endDate.duplicate();
+        this.endDate = sDate;
+    }
     if (!this.chosenDate) {
 
         if (this.startDate) this.chosenDate = this.startDate.duplicate();
@@ -10152,6 +11348,18 @@ initWidget : function () {
     var displayDate = isc.Calendar._getAsDisplayDate(this.chosenDate);
     this.year = displayDate.getFullYear();
     this.month = displayDate.getMonth();
+    this.displayDate = displayDate.getDate();
+
+    if (this.twentyFourHourTime == null) {
+        // unset - assume the global default so that editors are inline with formatters
+        this.twentyFourHourTime = isc.Time.use24HourTime;
+    } else {
+        if (!this.timeFormatter) {
+            // no timeFormatter - default it based on twentyFourHourTime
+            this.timeFormatter = this.twentyFourHourTime ? "toShortPadded24HourTime" :
+                "toShortPaddedTime";
+        }
+    }
 
     if (this.firstDayOfWeek == null)
         this.firstDayOfWeek = Number(isc.DateChooser.getInstanceProperty("firstDayOfWeek"));
@@ -10161,6 +11369,18 @@ initWidget : function () {
 
     if (this.laneGroupByField && !isc.isAn.Array(this.laneGroupByField)) {
         this.laneGroupByField = [this.laneGroupByField];
+    }
+
+    if (this.showTimelineView) {
+        // prepare the initial timeline column-span
+        if (this.endDate) {
+            // calculate columns per unit in the range
+            this.timelineColumnSpan = Math.round(isc.DateUtil.getPeriodLength(this.startDate,
+                this.endDate, this.timelineGranularity) / this.timelineUnitsPerColumn);
+        } else {
+            //// otherwise, apply the default columnSpan
+            if (!this.timelineColumnSpan) this.timelineColumnSpan = this.defaultTimelineColumnSpan;
+        }
     }
 
     //>!BackCompat 2012.03.14 - previously undoc'd attributes, now being replaced
@@ -10240,6 +11460,10 @@ initWidget : function () {
     }
 
     if (!this.data) this.data = this.getDefaultData();
+
+    // create the selection model
+    if (this.canSelectEvents) this.createSelectionModel();
+
     // set hover text strings for toolbar buttons
     // can't set dynamically in defaults block, so have to do it here.
     this.previousButtonDefaults.prompt = this.previousButtonHoverText;
@@ -10249,17 +11473,20 @@ initWidget : function () {
 
     if (this.dataSource) this.autoDetectFieldNames();
 
-    this._storeChosenDateRange(this.chosenDate);
-
-    this.createChildren();
-    this._setWeekTitles();
-
     // initialize the data object, setting it to an empty array if it hasn't been defined
     //this.setData(null);
 
+    if (this.showColumnLayouts) {
+        // when showColumnLayouts is true, the views are essentially not showing times at all
+        // - some features need to switched off or set up
+        this.showLabelColumn = false;
+        this.canResizeEvents = false;
+        this.renderEventsOnDemand = false;
+    }
+
     this.invokeSuper(isc.Calendar, "initWidget");
 
-    this.createEditors();
+    this.createChildren();
 },
 
 updateMonthButton : function () {
@@ -10475,17 +11702,17 @@ setData : function (newData) {
     if (!this.data) return;
 
     // observe the data so we will update automatically when it changes
-    this.observe(this.data, "dataChanged", "observer.dataChanged()");
+    this.observe(this.data, "dataChanged", "observer.dataChanged(arguments)");
     if (this.hasData()) {
         // invoke dataChanged so calendar refreshes when passed new data
-        this.dataChanged();
+        this.dataChanged("fetch");
     }
 },
 
 //> @method calendar.getData()
 // Get the data that is being displayed and observed
 //
-// @return (object) The data that is being displayed and observed
+// @return (Object) The data that is being displayed and observed
 //<
 getData : function () {
     return this.data;
@@ -10504,6 +11731,8 @@ hasData : function () {
 
 dataChanged : function () {
     if (this.destroying || this.destroyed) return;
+
+    //this.logWarn("*** dataChanged(" + isc.echoFull(arguments) + ")");
 
     if (!this.dataIsAvailable()) {
         this._ignoreDataChanged = true;
@@ -10531,7 +11760,13 @@ dataIsAvailable : function () {
 
 destroy : function () {
     if (this.orientationEventId) isc.Page.clearEvent("orientationChange", this.orientationEventId);
-    if (this.data) this.ignore(this.data, "dataChanged");
+    if (this.data) {
+        // ignore observations on the data and clear it
+        if (this.isObserving(this.data, "dataChanged")) this.ignore(this.data, "dataChanged");
+        if (this.isObserving(this.data, "dataArrived")) this.ignore(this.data, "dataArrived");
+        if (this.data.destroy) this.data.destroy();
+        this.data = null;
+    }
     if (this.controlsBar) this.controlsBar.destroy();
     if (this.controlsBarContainer) this.controlsBarContainer.destroy();
     if (this.dateChooser) this.dateChooser.destroy();
@@ -10549,19 +11784,19 @@ refreshSelectedView : function () {
         return;
     }
     if (this.dayViewSelected()) {
-        this.dayView.refreshEvents();
+        this.dayView.delayedRefreshEvents("refreshSelectedView");
         if (this.weekView) this.weekView._needsRefresh = true;
         if (this.monthView) this.monthView._needsRefresh = true;
     } else if (this.weekViewSelected()) {
-        this.weekView.refreshEvents();
+        this.weekView.delayedRefreshEvents("refreshSelectedView");
         if (this.dayView) this.dayView._needsRefresh = true;
         if (this.monthView) this.monthView._needsRefresh = true;
     } else if (this.monthViewSelected()) {
-        this.monthView.refreshEvents();
+        this.monthView.refreshEvents("refreshSelectedView");
         if (this.dayView) this.dayView._needsRefresh = true;
         if (this.weekView) this.weekView._needsRefresh = true;
     } else if (this.timelineViewSelected()) {
-        this.timelineView.refreshEvents();
+        this.timelineView.delayedRefreshEvents("refreshSelectedView");
     }
 },
 
@@ -10620,12 +11855,12 @@ setRowHeight : function (newHeight, skipScroll) {
     this.rowHeight = newHeight;
     if (this.dayView) {
         this.dayView.setCellHeight(this.rowHeight);
-        this.dayView.refreshEvents();
+        this.dayView.refreshEvents("setRowHeight");
         if (this.scrollToWorkday && !skipScroll) this.dayView.scrollToWorkdayStart();
     }
     if (this.weekView) {
         this.weekView.setCellHeight(this.rowHeight);
-        this.weekView.refreshEvents();
+        this.weekView.refreshEvents("setRowHeight");
         if (this.scrollToWorkday && !skipScroll) this.weekView.scrollToWorkdayStart();
     }
 },
@@ -10678,41 +11913,32 @@ getEventPKs : function (ds) {
     }
     return this._eventPKs || [];
 },
-getEventCanvasID : function (view, event) {
-    if (!event || !view || !view._eventCanvasMap) return null;
-    var eventKey = this.getEventKey(event);
-    if (eventKey) {
-        return view._eventCanvasMap[eventKey];
-    } else {
-        return event._eventCanvasMap ? event._eventCanvasMap[this.getID() + "_" + view.viewName] : null;
-    }
+getRandomEventKey : function () {
+    return "_event_" + (Math.random()*100) + "_" + ((Math.random()*Math.random()) * 100);
 },
 _eventKeySB:null,
 getEventKey : function (event) {
-    var pks = this.getEventPKs().duplicate(),
-        eventKey = this._eventKeySB
-    ;
-    if (!eventKey) eventKey = isc.StringBuffer.create();
-    if (pks.length > 0) {
-        eventKey.append(this.getID(), "_event_");
-        for (var i=0; i<pks.length; i++) {
-            eventKey.append(event[pks[i]]);
-            if (i==pks.length) break;
+    if (!event.__key) {
+        if (!this.dataSource) {
+            event.__key = this.getRandomEventKey();
+            return event.__key;
+        } else {
+            var pks = this.getEventPKs().duplicate(),
+                eventKey = this._eventKeySB
+            ;
+            if (!eventKey) eventKey = isc.StringBuffer.create();
+            if (pks.length > 0) {
+                eventKey.append(this.getID(), "_event_");
+                for (var i=0; i<pks.length; i++) {
+                    eventKey.append(event[pks[i]]);
+                    if (i==pks.length) break;
+                }
+            }
+            var result = eventKey.release(false);
+            event.__key = result;
         }
     }
-    var result = eventKey.release(false);
-    return result == "" ? null : result;
-},
-setEventCanvasID : function (view, event, eventCanvasID) {
-    if (!view._eventCanvasMap) view._eventCanvasMap = {};
-    var eventKey = this.getEventKey(event);
-    if (eventKey) {
-        view._eventCanvasMap[eventKey] = eventCanvasID;
-    } else {
-        if (!event._eventCanvasMap) event._eventCanvasMap = {};
-        // _eventCanvasMap stores multiple canvases IDs, one per applicable view, per calendar
-        event._eventCanvasMap[this.getID() + "_" + view.viewName] = eventCanvasID;
-    }
+    return event.__key;
 },
 
 //< @method calendar.clearViewSelection()
@@ -10763,11 +11989,7 @@ getEventLeft : function (event, view) {
         eLeft = 0
     ;
     if (view.isWeekView()) {
-        var dayDiff = this.getDayDiff(this.getEventStartDate(event), this.chosenWeekStart,
-            (this.showWeekends == false));
-        //isc.logWarn('getEventLeft:' + [event.name, event.startDate.toShortDate(),
-        //                   this.chosenWeekStart.toShortDate(),dayDiff ]);
-        eLeft = (dayDiff * colSize);
+        var eLeft = view.getColumnLeft(view.getColFromDate(this.getEventStartDate(event)));
     } else if (this.showDayLanes) {
         var fieldId = view.completeFields.findIndex("name", event[this.laneNameField]);
         if (fieldId) {
@@ -10786,11 +12008,13 @@ getEventLeft : function (event, view) {
 },
 
 //> @method calendar.getEventHeaderHTML()
-// Returns the title text for the passed event, for display in the header area of an event
-// canvas.  The default implementation returns the event's
+// Returns the title text for the passed event, which is displayed in the header area of an
+// eventCanvas rendered in a vertical or horizontal view, or as a clickable link in a cell in a
+// +link{calendar.showMonthView, Month view}.
+// <P>
+// The default implementation returns the event's
 // +link{calendar.nameField, name field} for timelines, and that same value pre-pended with
-// the event's +link{calendar.startDateField, start} and +link{calendar.endDateField, end}
-// dates for day and week views.
+// the event's +link{calendar.startDateField, start} for day, week and month views.
 //
 // @param event (CalendarEvent) the event to get the description text for
 // @param [view] (CalendarView) the view in which the event is being rendered
@@ -10799,8 +12023,9 @@ getEventLeft : function (event, view) {
 //<
 getEventHeaderHTML : function (event, view) {
     if (!event) return null;
-    var sTime = view.isTimelineView() ? null :
-            isc.Time.toTime(this.getEventStartDate(event), this.timeFormatter, true),
+    var sDate = this.getEventStartDate(event);
+    var fTime = isc.Time.toShortTime(sDate, this.timeFormatter, false);
+    var sTime = view.isTimelineView() ? null : fTime,
         eTitle = (sTime ? sTime + " " : "") + (event[this.nameField] || "")
     ;
     return eTitle;
@@ -10848,6 +12073,17 @@ getEventStartDate : function (event, view) {
     return event[this.startDateField].duplicate();
 },
 
+// helper to return all four dates associated with an event (leading, start, end, trailing)
+getEventDates : function (event, view) {
+    // return
+    var result = {};
+    result[this.leadingDateField] = this.getEventLeadingDate(event);
+    result[this.startDateField] = this.getEventStartDate(event);
+    result[this.endDateField] = this.getEventEndDate(event);
+    result[this.trailingDateField] = this.getEventTrailingDate(event);
+    return result;
+},
+
 //> @method calendar.getEventEndDate()
 // Returns the +link{calendar.endDateField, end date} of the passed event.  If the event is
 // +link{calendar.allowDurationEvents, duration-based}, the result is calculated from the
@@ -10867,7 +12103,10 @@ getEventEndDate : function (event, view) {
         // there's a duration specified - calculate an end date
         var unit = this.getEventDurationUnit(event) || "mn"
         date = this.getEventStartDate(event);
-        if (unit) date = isc.DateUtil.dateAdd(date, unit, duration);
+        if (unit) {
+            date = isc.DateUtil.dateAdd(date, unit, duration, null, null, null,
+                this.firstDayOfWeek);
+        }
     }
     return date ? date.duplicate() : null;
 },
@@ -10904,37 +12143,13 @@ isZeroLengthEvent : function (event) {
 // @visibility calendar
 //<
 setShowWeekends : function (showWeekends) {
+    if (showWeekends == this.showWeekends) return;
     this.showWeekends = showWeekends;
-    if (isc.isA.TabSet(this.mainView)) {
-        var tabNum = this.mainView.getSelectedTabNumber();
-        this.mainView.removeTabs(this.mainView.tabs);
-
-        if (this.dayView) this.dayView.destroy();
-
-        if (this.weekView) this.weekView.destroy();
-
-        if (this.monthView) this.monthView.destroy();
-
-        var newTabs = this._getTabs();
-        this._setWeekTitles();
-
-        this.mainView.addTabs(newTabs);
-        this.mainView.selectTab(tabNum);
-
-    } else {
-        var memLayout = this.children[0].members[1];
-        if (!memLayout) return;
-        var oldMem = memLayout.members[1];
-        var newMem = this._getTabs()[0].pane;
-
-        memLayout.removeMember(oldMem);
-        oldMem.destroy();
-        memLayout.addMember(newMem);
-        //memLayout.redraw();
-        //newMem.show();
-
-        this._setWeekTitles();
-    }
+    // rebuild the views, they might all show weekends
+    this.dayView && this.dayView.rebuild();
+    this.weekView && this.weekView.rebuild();
+    this.monthView && this.monthView.rebuild();
+    this.timelineView && this.timelineView.rebuild();
     this.setDateLabel();
 },
 
@@ -10944,14 +12159,28 @@ setShowWeekends : function (showWeekends) {
 // <P>
 // By default, returns the +link{canEditField} on the provided +link{CalendarEvent} if its set,
 // and +link{canEditEvents} otherwise.
-//
+// <P>
+// Note that vertical views do not support editing of multi-day events.
 // @param event (CalendarEvent)
 // @return (boolean) whether the user should be allowed to edit the provided CalendarEvent
 //<
-canEditEvent : function (event) {
+canEditEvent : function (event, view) {
     if (!event) return false;
-    else if (event[this.canEditField] != null) return event[this.canEditField];
-    else return this.canEditEvents;
+    view = view || this.getSelectedView();
+    // event has a canEdit setting
+    if (event[this.canEditField] != null) return event[this.canEditField];
+    // indicator-events are zero-duration and can be drag-moved if editing is enabled
+    if (event.duration == 0) return this.canEditEvents;
+    // don't use date.isToday() because it calls getStart/EndOf(), and those methods have been
+    // altered to always convert to the current display timezone, which is no good here
+    var sDate = isc.DateUtil.getLogicalDateOnly(this.getEventStartDate(event)),
+        eDate = isc.DateUtil.getLogicalDateOnly(new Date(this.getEventEndDate(event).getTime()-1)),
+        isToday = (isc.DateUtil.compareLogicalDates(sDate, eDate) == 0)
+    ;
+    if (!view.allowMultiDayEvents && !isToday) {
+        // multi-day event - editing only supported if allowMultiDayEvents is true (timelines)
+        return false;
+    } else return this.canEditEvents;
 },
 
 //> @method calendar.canDragEvent()
@@ -10967,8 +12196,9 @@ canEditEvent : function (event) {
 // @param event (CalendarEvent)
 // @return (boolean) whether the user should be allowed to drag the provided CalendarEvent
 //<
-canDragEvent : function (event) {
-    if (!event || !this.canEditEvent(event)) return false;
+canDragEvent : function (event, view) {
+    view = view || this.getSelectedView();
+    if (!event || !this.canEditEvent(event, view)) return false;
     if (event[this.canDragEventField] != null) return event[this.canDragEventField];
     else return this.canDragEvents;
 },
@@ -10986,9 +12216,12 @@ canDragEvent : function (event) {
 // @param event (CalendarEvent)
 // @return (boolean) whether the user should be allowed to edit the provided CalendarEvent
 //<
-canResizeEvent : function (event) {
-    if (!event || !this.canEditEvent(event) || !this.canDragEvent(event)) return false;
-    else if (event[this.canResizeEventField] != null) return event[this.canResizeEventField];
+canResizeEvent : function (event, view) {
+    view = view || this.getSelectedView();
+    if (!event || !this.canEditEvent(event, view) || !this.canDragEvent(event, view)) return false;
+    // showColumnLayouts:true causes canvases to auto-size - no manual resizing
+    if (view.shouldShowColumnLayouts()) return false;
+    if (event[this.canResizeEventField] != null) return event[this.canResizeEventField];
     // if the passed event is a "duration" and the duration is zero, this is considered an
     // "instant", a moment in time.  For such events, disallow drag-resize - it doesn't really
     // make sense - drag-move is ok
@@ -11007,18 +12240,19 @@ canResizeEvent : function (event) {
 // @param event (CalendarEvent)
 // @return (boolean) whether the user should be allowed to remove the provided CalendarEvent
 //<
-canRemoveEvent : function (event) {
+canRemoveEvent : function (event, view) {
     if (!event) return false;
     // return the canRemoveField value if its set
-    else if (event[this.canRemoveField] != null) return event[this.canRemoveField];
+    if (event[this.canRemoveField] != null) return event[this.canRemoveField];
     // return true if canRemoveEvents is true AND the event is editable
-    else return this.canRemoveEvents && this.canEditEvent(event);
+    return this.canRemoveEvents && this.canEditEvent(event, view || this.getSelectedView());
 },
 
 getDateEditingStyle : function () {
     // ensure backward compatibility
-    if (!this.timelineView) {
-        return "time";
+    var view = this.getSelectedView();
+    if (view.dateEditingStyle) {
+        return view.dateEditingStyle;
     }
     var result = this.dateEditingStyle;
     if (!result) {
@@ -11059,7 +12293,7 @@ getDateEditingStyle : function () {
 // @param [endDate]       (Date) end date of event
 // @param [name]          (String) name of event
 // @param [description]   (String) description of event
-// @param [otherFields]   (any) new values of additional fields to be updated
+// @param [otherFields]   (Any) new values of additional fields to be updated
 //
 // @visibility calendar
 // @deprecated in favor of +link{calendar.addCalendarEvent}
@@ -11072,9 +12306,11 @@ addLaneEvent : function (laneName, startDate, endDate, name, description, otherF
 },
 
 getCleanEventRecord : function (event) {
-    if (isc.propertyDefined(event, "_overlapProps")) delete event._overlapProps;
-    if (isc.propertyDefined(event, "_slotNum")) delete event._slotNum;
-    if (isc.propertyDefined(event, "_tagged")) delete event._tagged;
+    if (isc.propertyDefined(event, "overlapProps")) delete event.overlapProps;
+    if (isc.propertyDefined(event, "overlapRangeId")) delete event.overlapRangeId;
+    if (isc.propertyDefined(event, "slotNum")) delete event.slotNum;
+    if (isc.propertyDefined(event, "tagged")) delete event.tagged;
+    //if (isc.propertyDefined(event, "__key")) delete event["__key"];
     return event;
 },
 
@@ -11192,7 +12428,7 @@ removeEvent : function (event, ignoreDataChanged) {
             self.weekView.removeEvent(event);
         }
         if (self._shouldRefreshMonth(startDate, endDate)) {
-            self.monthView.refreshEvents();
+            self.monthView.refreshEvents("removeEvent");
         }
         if (self._shouldRefreshTimeline(startDate, endDate)) {
             self.timelineView.removeEvent(event);
@@ -11203,11 +12439,11 @@ removeEvent : function (event, ignoreDataChanged) {
         // so that they fill any space made available by the removed event
         if (self.eventAutoArrange) {
             if (self.dayView) {
-                if (self.dayView.isSelectedView()) self.dayView.refreshEvents();
+                if (self.dayView.isSelectedView()) self.dayView.refreshEvents("removeEvent");
                 else self.dayView._needsRefresh = true;
             }
             if (self.weekView) {
-                if (self.weekView.isSelectedView()) self.weekView.refreshEvents();
+                if (self.weekView.isSelectedView()) self.weekView.retagDayEvents(startDate);
                 else self.weekView._needsRefresh = true;
             }
         }
@@ -11276,16 +12512,18 @@ updateCalendarEvent : function (event, newEvent, otherFields, ignoreDataChanged)
     var view = this.getSelectedView();
     var canvas = view.getCurrentEventCanvas(event);
     if (canvas) {
-        view.clearEventCanvas(canvas);
+        if (this.dataSource) view.clearEventCanvas(canvas);
     }
 
     if (this.dataSource) {
         var ds = isc.DataSource.get(this.dataSource);
         var updatedRecord = this.getCleanEventRecord(isc.addProperties({}, newEvent, otherFields));
+        var oldEventRecord = this.getCleanEventRecord(isc.addProperties({}, event));
+
         var _this = this;
         ds.updateData(updatedRecord, function (dsResponse, data, dsRequest) {
-            _this.processSaveResponse(dsResponse, data, dsRequest, event);
-        }, {oldValues: event, componentId: this.ID, willHandleError: true});
+            _this.processSaveResponse(dsResponse, data, dsRequest, oldEventRecord);
+        }, {oldValues: oldEventRecord, componentId: this.ID, willHandleError: true});
         return;
     } else {
         var oldEvent = isc.addProperties({}, event);
@@ -11308,22 +12546,35 @@ processSaveResponse : function (dsResponse, data, dsRequest, oldEvent) {
 
     if (dsResponse && dsResponse.status < 0) {
         var errors = dsResponse ? dsResponse.errors : null;
-        // show any validation errors inline in the appropriate UI
-        if (fromDialog) {
-            if (errors) this.eventDialog.items[0].setErrors(errors, true);
-            this.displayEventDialog();
-        } else if (fromEditor) {
-            this.eventEditorLayout.show();
-            if (errors) this.eventEditor.setErrors(errors, true);
-        } else if (isUpdate && oldEvent) {
+        if (dsResponse.status == isc.RPCResponse.STATUS_VALIDATION_ERROR) {
+            // show any validation errors inline in the appropriate UI and don't fire central
+            // error handling
+            if (fromDialog) {
+                if (errors) this.eventDialog.items[0].setErrors(errors, true);
+                this.displayEventDialog(true);
+                return;
+            } else if (fromEditor) {
+                this.eventEditorLayout.show();
+                if (errors) this.eventEditor.setErrors(errors, true);
+                return;
+            }
+        }
+        if (isUpdate && oldEvent) {
             // if the save was an update, re-add the old event back to the view's eventData array
             var view = this.getSelectedView();
-            if (view) view.addEvent(oldEvent);
-            // if there were errors, show the message returned in response.data
-            if (errors) isc.RPCManager._handleError(dsResponse, dsRequest);
+            if (view) {
+                view.addEvent(oldEvent);
+                // Re-Focus in the canvas if the attempt to update came from a user edit
+                if (this.canSelectEvents && (fromDialog || fromEditor)) {
+                    var eventCanvas = view.getCurrentEventCanvas(oldEvent);
+                    if (eventCanvas) eventCanvas.focus();
+                }
+            }
         }
-        // have RPCManager handle other errors
-        if (!errors) isc.RPCManager._handleError(dsResponse, dsRequest);
+
+
+        // fire central RPCManager/DataSource error-handlers
+        isc.RPCManager._handleError(dsResponse, dsRequest);
         return;
     }
 
@@ -11366,10 +12617,10 @@ processSaveResponse : function (dsResponse, data, dsRequest, oldEvent) {
                     view.retagLaneEvents(oldLane);
                     if (newLane != oldLane) view.retagLaneEvents(newLane)
                 } else {
-                    view.retagColumnEvents(0);
+                    view.refreshEvents("processSaveResponse");
                 }
             } else if (isAdd) {
-                this.dayView.refreshEvents();
+                view.refreshEvents("processSaveResponse");
             }
         }
     }
@@ -11378,9 +12629,35 @@ processSaveResponse : function (dsResponse, data, dsRequest, oldEvent) {
         else {
             var view = this.weekView;
             if (isUpdate) {
-                view.retagDayEvents(oldStart);
-                if (isc.DateUtil.compareLogicalDates(oldStart, startDate) != 0) {
-                    view.retagDayEvents(startDate);
+                // with showColumnLayouts, only need to update stuff if update was via one of
+                // the dialogs (ie, not following a drag-drop)
+                if (!this.showColumnLayouts || (fromDialog || fromEditor)) {
+                    var lOldDate = isc.DateUtil.getLogicalDateOnly(oldStart);
+                    var lNewDate = isc.DateUtil.getLogicalDateOnly(startDate);
+
+                    if (!this.showColumnLayouts) {
+                        view.retagDayEvents(lOldDate);
+
+                    } else {
+                        // setEvent() to update title/body text and sortValue
+                        var eventCanvas = view.getCurrentEventCanvas(oldEvent);
+                        if (eventCanvas) eventCanvas.setEvent(newEvent);
+                        // if need be, resort the columnLayout in this mode
+                        var oldField = view.getField(view.getColFromDate(lOldDate));
+                        if (oldField.eventLayoutID) {
+                            view.columnLayoutMap[oldField.eventLayoutID].resort();
+                        }
+                    }
+                    if (isc.DateUtil.compareLogicalDates(lOldDate, lNewDate) != 0) {
+                        view.retagDayEvents(lNewDate);
+                        if (this.showColumnLayouts) {
+                            // if need be, resort the columnLayout in this mode
+                            var newField = view.getField(view.getColFromDate(lOldDate));
+                            if (newField.eventLayoutID) {
+                                view.columnLayoutMap[newField.eventLayoutID].resort();
+                            }
+                        }
+                    }
                 }
             } else if (isAdd) {
                 view.addEvent(newEvent, true);
@@ -11390,7 +12667,7 @@ processSaveResponse : function (dsResponse, data, dsRequest, oldEvent) {
     }
     if (this._shouldRefreshMonth(startDate, endDate)) {
         if (!this.monthViewSelected()) this.monthView._needsRefresh = true;
-        else this.monthView.refreshEvents();
+        else this.monthView.refreshEvents("processSaveResponse");
     }
     if (this._shouldRefreshTimeline(startDate, endDate)) {
         if (!this.timelineViewSelected()) this.timelineView._needsRefresh = true;
@@ -11401,7 +12678,7 @@ processSaveResponse : function (dsResponse, data, dsRequest, oldEvent) {
                 view.retagLaneEvents(newLane);
             } else if (isAdd) {
                 //view.addEvent(newEvent, true);
-                view.refreshEvents();
+                view.refreshEvents("processSaveResponse");
             }
         }
     }
@@ -11410,9 +12687,18 @@ processSaveResponse : function (dsResponse, data, dsRequest, oldEvent) {
     // case a dev hooks eventChanged or eventAdded and does something like adding more events
     if (this._ignoreDataChanged) delete this._ignoreDataChanged;
 
+    // Re-Focus in the canvas if the change came from a user edit
+    if (this.canSelectEvents && (fromDialog || fromEditor)) {
+        // oldEvent is null for new adds, so use newEvent in that case
+        var eventCanvas = view.getCurrentEventCanvas(oldEvent || newEvent);
+        if (eventCanvas) eventCanvas.focus();
+    }
+
     // fire eventChanged or eventAdded as appropriate
     if (isUpdate && this.eventChanged) this.eventChanged(newEvent);
     if (isAdd && this.eventAdded) this.eventAdded(newEvent);
+
+
 },
 
 //> @method calendar.refreshEvent()
@@ -11469,9 +12755,12 @@ eventsAreSame : function (first, second) {
 // Date / time formatting customization / localization
 
 
-//> @attr calendar.twentyFourHourTime (Boolean : null : [IR])
-// If set to true, causes the +link{calendar.eventEditor, eventEditor} to hide the AM/PM picker
-// and provide the full 24-hour range in the hour picker.
+//> @attr calendar.twentyFourHourTime  (Boolean : null : [IR])
+// Dictates whether times throughout the widget are formatted and edited as 24-hour values.  If
+// unset, defaults to the +link{Time.use24HourTime, global 24-hour setting}.  If set, and no
+// +link{Calendar.timeFormatter, local formatter} is installed, causes the
+// Calendar to choose an appropriate builtin formatter.
+//
 // @visibility external
 //<
 
@@ -11483,15 +12772,26 @@ eventsAreSame : function (first, second) {
 //<
 dateFormatter:null,
 
-//> @attr calendar.timeFormatter (TimeDisplayFormat : "toShortPaddedTime" : [IRW])
-// Display format to use for the time portion of events' date information.
+//> @attr calendar.timeFormatter (TimeDisplayFormat : null : [IRW])
+// Display format to use for the time portion of events' date information.  By default, times
+// are displayed in the global format, including the influence of the global
+// +link{Time.use24HourTime, 24-hour} option, which is true by default.
 // P>
 // Note that this display setting does not affect the way in which time values are edited in the
 // +link{calendar.eventEditor, eventEditor} - see +link{calendar.twentyFourHourTime} for more
 // information.
 // @visibility external
 //<
-timeFormatter:"toShortPaddedTime",
+timeFormatter:null,
+
+//> @attr calendar.alwaysShowEventHovers (Boolean : false : IRW)
+// By default, EventCanvases show their content in hovers, and will only show a hover if the
+// content is clipped.  If you have customized hover-content, or just want your events to
+// always show hovers, you can set this attribute to true.
+//
+// @visibility external
+//<
+alwaysShowEventHovers: false,
 
 //> @method calendar.getEventHoverHTML()
 // Gets the hover HTML for an event being hovered over. Override here to return custom
@@ -11509,17 +12809,16 @@ _getEventHoverHTML : function (event, eventCanvas, view) {
      // format date & times
     var cal = this,
         startDate = cal.getEventStartDate(event),
-        sDate = startDate.toShortDate(this.dateFormatter, false),
-        sTime = isc.Time.toTime(startDate, this.timeFormatter, false),
+        sDate = startDate.toShortDate(this.dateFormatter, true),
+        sTime = isc.Time.toShortTime(startDate, this.timeFormatter, false),
         endDate = this.getEventEndDate(event),
         eDate = endDate.toShortDate(this.dateFormatter, false),
-        eTime = isc.Time.toTime(endDate, this.timeFormatter, false),
+        eTime = isc.Time.toShortTime(endDate, this.timeFormatter, false),
         name = event[cal.nameField],
         description = event[cal.descriptionField],
         sb = isc.StringBuffer.create()
     ;
 
-    sb.append("<nobr>");
     if (view.isTimelineView()) {
         if (isc.DateUtil.compareLogicalDates(startDate, endDate) != 0) {
             // Timeline dates can span days
@@ -11530,7 +12829,6 @@ _getEventHoverHTML : function (event, eventCanvas, view) {
     } else {
         sb.append(sDate, "&nbsp;", sTime, "&nbsp;-&nbsp;", eTime);
     }
-    sb.append("<nobr>");
 
 
     if (name) sb.append("<br><br>", name);
@@ -11561,6 +12859,20 @@ _getZoneHoverHTML : function (zone, zoneCanvas, view) {
 },
 getZoneHoverHTML : function (zone, zoneCanvas, view, defaultValue) {
     return defaultValue;
+},
+
+//> @method calendar.indicatorClick()
+// Called whenever an +link{class:IndicatorCanvas} is clicked in the
+// +link{calendar.timelineView, timelineView}.  There is no default implementation.
+//
+// @param indicatorEvent (CalendarEvent) indicator that was clicked on
+// @param viewName (ViewName) view where the event's canvas was clicked
+// @return (Boolean) false to cancel the default action
+//
+// @visibility calendar
+//<
+indicatorClick : function (indicatorEvent, viewName) {
+    return true;
 },
 
 //> @attr calendar.showIndicatorsInFront (boolean : true : IR)
@@ -11639,7 +12951,8 @@ _getCellHoverHTML : function (view, record, rowNum, colNum) {
         if (!view.shouldShowCellHovers()) return;
         var date = view.getDateFromPoint();
         if (date) {
-            defaultValue = "<nobr>" + this.__getLocalDatetimeString(date) + "</nobr>";
+            // don't include the time in monthView
+            defaultValue = "<nobr>" + this.__getLocalDatetimeString(date, view.isMonthView()) + "</nobr>";
         }
     }
     return this.getCellHoverHTML(view, record, rowNum, colNum, date, defaultValue)
@@ -11803,10 +13116,14 @@ _getDragHoverHTML : function (view, event) {
     return this.getDragHoverHTML(view, event, defaultValue);
 },
 
-__getLocalDatetimeString : function (date) {
-    var result = date.toShortDate(this.dateFormatter, false) + " " +
-            isc.Time.toTime(date, this.timeFormatter)
-    ;
+__getLocalDatetimeString : function (date, dateOnly) {
+    var lDate = isc.DateUtil.getLogicalDateOnly(date);
+    var lTime = isc.DateUtil.getLogicalTimeOnly(date);
+    var result = lDate.toShortDate(this.dateFormatter);
+    if (!dateOnly) {
+        // monthView doesn't show times on rollover
+        result += " " + isc.Time.toShortTime(lTime, this.timeFormatter, true);
+    }
     return result;
 },
 
@@ -11814,41 +13131,6 @@ getDragHoverHTML : function (view, event, defaultValue) {
     return defaultValue;
 },
 
-_mouseMoved : function (view, mouseTarget, mouseDate, oldMouseDate, rowNum, colNum) {
-    if (!view) return;
-    if (isc.DateUtil.compareDates(mouseDate, oldMouseDate) != 0) {
-        // useful (undocumented) override point
-        if (this.mouseDateChanged) this.mouseDateChanged(view, mouseDate, oldMouseDate);
-    }
-    var field = view.getField(colNum),
-        isLaneFieldHover = field && (field.isLaneField || field.isLabelField),
-        isDateCellHover = field && field.date,
-        headerHover = mouseTarget && mouseTarget._isFieldObject,
-        html
-    ;
-    if (isLaneFieldHover && !view.shouldShowLaneFieldHovers()) return;
-    if (isDateCellHover && !view.shouldShowCellHovers()) return;
-    if (!headerHover) {
-        if (mouseTarget == view || mouseTarget == view.body || mouseTarget == view.frozenBody) {
-            html = view.getHoverHTML();
-            if (html) {
-                view.startHover();
-            }
-        } else {
-            html = mouseTarget.getHoverHTML();
-            if (isc.Hover.lastHoverCanvas != mouseTarget) {
-                mouseTarget.startHover();
-            }
-        }
-    } else if (mouseTarget && mouseTarget.getHoverHTML) {
-
-        if (!view.isMonthView()) {
-            if (isc.Hover.lastHoverCanvas != mouseTarget) {
-                mouseTarget.startHover();
-            }
-        }
-    }
-},
 
 // trickiest case. 3 separate cases to handle:
 // 1. event changed within chosen day
@@ -11860,20 +13142,22 @@ _mouseMoved : function (view, mouseTarget, mouseDate, oldMouseDate, rowNum, colN
 // - for updating, must call this twice, both with old dates and new dates. see updateEvent.
 _shouldRefreshDay : function (startDate, endDate) {
     if (!this.dayView || !this.dayView.body) return false;
-    var validStart = startDate.getTime() < this.chosenDateEnd.getTime(),
-        validEnd = endDate.getTime() > this.chosenDateStart.getTime()
-    ;
+    var lViewDate = isc.DateUtil.getLogicalDateOnly(this.dayView.startDate);
+    var lStartDate = isc.DateUtil.getLogicalDateOnly(startDate);
+    var lEndDate = isc.DateUtil.getLogicalDateOnly(endDate);
+    var validStart = isc.DateUtil.compareLogicalDates(lStartDate, lViewDate) == 0;
+    var validEnd = isc.DateUtil.compareLogicalDates(lEndDate, lViewDate) == 0;
     // if start is less than rangeEnd and end is greater than rangeStart, its in range
-    return (validStart && validEnd);
+    return (validStart || validEnd);
 },
 
 _shouldRefreshWeek : function (startDate, endDate) {
     if (!this.weekView || !this.weekView.body) return false;
-    var validStart = startDate.getTime() < this.chosenWeekEnd.getTime(),
-        validEnd = endDate.getTime() > this.chosenWeekStart.getTime()
+    var validStart = startDate.getTime() < this.weekView.endDate.getTime(),
+        validEnd = endDate.getTime() > this.weekView.startDate.getTime()
     ;
     // if start is less than rangeEnd and end is greater than rangeStart, its in range
-    return (validStart && validEnd);
+    return (validStart || validEnd);
 },
 
 _shouldRefreshMonth : function (startDate, endDate) {
@@ -11896,7 +13180,21 @@ _shouldRefreshTimeline : function (startDate, endDate) {
 
 
 
+
+
+//> @attr calendar.eventCanvasConstructor (String : "EventCanvas" : IR)
+// The constructor with which to create the canvases used to represent events.  The default
+// value is "EventCanvas".  You can customize these canvases by creating a subclass of
+// +link{class:EventCanvas} and setting this attribute to the name of that class.
+// @getter Calendar.getEventCanvasConstructor()
+// @visibility internal
+//<
 eventCanvasConstructor: "EventCanvas",
+eventCanvasDefaults: {
+    autoDraw: false,
+    visibility: "hidden",
+    _redrawWithParent:false
+},
 
 //> @method calendar.getEventCanvasConstructor()
 // Returns the +link{Class, constructor} to use when creating a canvas to render the passed
@@ -11913,6 +13211,148 @@ getEventCanvasConstructor : function (event, view) {
     // each view can specify a canvas constructor
     return view.getEventCanvasConstructor(event) || this.eventCanvasConstructor;
 },
+
+
+//> @attr calendar.showEventCanvasComponents (boolean : false : IR)
+// Whether +link{calendar.eventCanvas, event-canvases} should show a custom widget as content,
+// rather than the default +link{eventCanvas.showHeader, header} and
+// +link{eventCanvas.showBody, body} HTML.
+// @see calendar.createEventCanvasComponent()
+// @see calendar.updateEventCanvasComponent()
+// @visibility external
+//<
+showEventCanvasComponents: false,
+
+//> @attr calendar.eventCanvasComponent (MultiAutoChild Canvas : null : IR)
+// Multi-AutoChild component, created as a space-filling member in individual
+// +link{class:EventCanvas, event-canvases}, when +link{calendar.showEventCanvasComponents} is
+// true.
+// <P>
+// @see calendar.showEventCanvasComponents
+// @see calendar.createEventCanvasComponent()
+// @see calendar.updateEventCanvasComponent()
+// @visibility external
+//<
+eventCanvasComponentConstructor: "DetailViewer",
+eventCanvasComponentDefaults: {
+    colWidths: [100, "*"],
+    getHoverHTML : function () {
+        return this.creator.getHoverHTML();
+    },
+    //FIXME
+    handleClick : function () {
+        return isc.EH.STOP_BUBBLING;
+    }
+},
+
+//> @method calendar.showEventCanvasComponent()
+// Should a component be applied to the passed +link{class:EventCanvas, canvas} in the
+// +link{eventCanvas.calendarView, view} in which it appears?  Return false from this method to
+// override the global value of
+// +link{calendar.showEventCanvasComponents, showEventCanvasComponents} for this canvas.
+// @param canvas (EventCanvas) should this eventCanvas get a component component?
+// @return (boolean) boolean
+// @see calendar.createEventCanvasComponent()
+// @see calendar.updateEventCanvasComponent()
+// @visibility external
+//<
+showEventCanvasComponent : function (canvas) {
+    return canvas._shouldShowComponent();
+},
+
+//> @method calendar.createEventCanvasComponent()
+// Called from +link{eventCanvas.setEvent} when +link{calendar.showEventCanvasComponents} is
+// true and an eventCanvas needs a component.   The method is expected to create and return a
+// single component to apply as a space-filling member of the passed +link{class:EventCanvas}
+// in the +link{eventCanvas.calendarView, view} in which it appears.
+// <P>
+// By default, this method returns a +link{class:DetailViewer} showing values from the
+// associated event, according to the fields in the Calendar's
+// +link{calendar.dataSource, dataSource}, or the default event-fields if no dataSource is
+// present.
+// <P>
+// However, the component can be any +link{class:Canvas, canvas-based} widget, including a Layout
+// containing an arrangement of other widgets.  When applied as a member of an
+// eventCanvas, the component fills its container and limits its own content to that size,
+// showing scrollbars as appropriate.
+// <P>
+// See +link{calendar.updateEventCanvasComponent} for details on updating components that have
+// already been created and applied.
+// @param canvas (EventCanvas) the eventCanvas to get the component for
+// @return (Canvas) any Canvas
+// @see calendar.updateEventCanvasComponent()
+// @visibility external
+//<
+createEventCanvasComponent : function (canvas) {
+    if (!this.showEventCanvasComponent(canvas)) return;
+    var component = this.createAutoChild("eventCanvasComponent", {
+        // fill the canvas and set overflow: auto
+        width: "100%",
+        // showColumnLayouts fits events to content, needs height:1px and overflow:visible
+        height: this.showColumnLayouts ? 1 : "100%",
+        overflow: this.showColumnLayouts ? "visible" : "auto",
+        autoDraw: false,
+        //
+        dragTarget: canvas,
+        // without this, the hover only moves as the mouse changes background view-cell
+        hoverMoveWithMouse: canvas.hoverMoveWithMouse,
+        getHoverHTML : function () {
+            return this.dragTarget.getHoverHTML();
+        },
+        dataSource: this.getClientOnlyEventDS(canvas.calendarView)
+    });
+    return component;
+},
+
+//> @method calendar.updateEventCanvasComponent()
+// Called from +link{eventCanvas.setEvent} when +link{calendar.showEventCanvasComponents} is
+// true and the eventCanvas already has a
+// +link{calendar.createEventCanvasComponent, component}.  This method is expected to update
+// the passed <code>component</code> as necessary, based on the
+// +link{eventCanvas.event, current event}.
+// <P>
+// By default, if the passed <code>component</code> has methods called
+// <code>setEvent</code> or <code>setData</code>, those methods are called automatically.
+// @param canvas (EventCanvas) the eventCanvas to update the component for
+// @param component (Canvas) the component to be updated the canvas in question
+// @see calendar.createEventCanvasComponent()
+// @visibility external
+//<
+updateEventCanvasComponent : function (canvas, component) {
+    if (!this.showEventCanvasComponent(canvas)) return;
+    if (component) {
+        // call setData() and/or setEvent() on the component, if those methods exist
+        if (component.setData) component.setData(canvas.event);
+        if (component.setEvent) component.setEvent(canvas.event);
+    }
+},
+
+// helper to get a clientOnly DS configured with the CalendarEvent fields, from the DS or
+// just a default set - used for field-lists in default eventCanvasComponents
+getClientOnlyEventDS : function (view, dsID) {
+    var dsProps = { ID: dsID, clientOnly: true };
+    var eccProps = this.eventCanvasComponentProperties,
+        ds = (eccProps && eccProps.dataSource) || this.dataSource;
+    if (ds) {
+        // get the fields from the true event-DS
+        dsProps.inheritsFrom = isc.DataSource.getDataSource(ds).getID();
+    } else {
+        // get a list of standard fields
+        var fields = [
+            { name: this.nameField, width: "*" },
+            { name: this.descriptionField, width: "*" },
+            { name: this.startDateField, type: "datetime", width: "*" },
+            { name: this.endDateField, type: "datetime", width: "*" }
+        ];
+        if (view.usesLanes()) {
+            fields.add({ name: this.laneNameField, width: "*" });
+        }
+        dsProps.fields = fields;
+    }
+    var newDS = isc.DataSource.create(dsProps);
+    return newDS;
+},
+
 
 //> @method calendar.getEventCanvasStyle()
 // Returns the +link{CSSStyleName, styleName} to use for the passed
@@ -12016,7 +13456,7 @@ hideEventCanvasControls : function (canvas, propertyName) {
         // remove it's ref to the eventCanvas that last used it
         delete comp.eventCanvas;
         // and re-add it as a child of the Calendar, which removes it from the eventCanvas
-        if (!skipThese.contains(key)) this.addChild(comp);
+        if (!skipThese.contains(key)) this.addChild(comp, null, false);
     }
     delete canvas[propertyName];
 },
@@ -12036,16 +13476,15 @@ _createEventCanvasControls : function (canvas, focusControl) {
     }
     controls.buttonLayout = layout;
     if (this.canResizeEvents != false) {
+        var view = this.getSelectedView();
+        var vertical = (canvas && canvas.verticalResize) || view.verticalEvents;
         // if passed a view, add correct resizers for it's orientation - otherwise, add all 3
-        if (!canvas || canvas.vertical) {
+        if (!canvas || vertical) {
             // add the bottom resizer
-            //controls.add(this.getEventCanvasResizer(null, "B"));
             controls.endResizerB = this.getEventCanvasResizer(null, "B", focusControl);
         }
-        if (!canvas || !canvas.vertical) {
+        if (!canvas || !vertical) {
             // add the left and right resizers
-            //controls.add(this.getEventCanvasResizer(null, "L"));
-            //controls.add(this.getEventCanvasResizer(null, "R"));
             controls.startResizerL = this.getEventCanvasResizer(null, "L", focusControl);
             controls.endResizerR = this.getEventCanvasResizer(null, "R", focusControl);
         }
@@ -12062,7 +13501,186 @@ _getRolloverControls : function () {
 },
 
 
+// Selection - use a Selection object to maintain event-selection
+
+
+//> @attr calendar.canSelectEvents (Boolean : null : IR)
+// When set to true, makes individual +link{class:EventCanvas, event canvases} selectable.
+// Events may be selected via a single click, as well as being
+// included in the page's tab order. The current selected event is shown in a special
+// style and pressing TAB or Shift-TAB will move the selection first among the events
+// in the same lane, and then among those in the next or previous lane.
+// <P>
+// Pressing Enter while an editable event is selected
+// will show either the event- +link{calendar.eventDialog, dialog} or
+// +link{calendar.eventEditor, editor}.  Pressing Delete will remove the event.
+// <P>
+// Note that when this property is false, single clicking the event canvas for an
+// editable event will bring up an editing interface for that event.
+// When true this is no longer the case - a user can double click to bring up the editing
+// interface instead (a single click will simply select the event canvas).
+//
+// @visibility external
+//<
 //canSelectEvents: null,
+
+//> @attr calendar.selectionManager (Selection : null : [RA])
+// The +link{group:selection,Selection object} associated with the <code>Calendar</code>.
+// @group selection
+// @visibility external
+//<
+
+//> @method calendar.selectSingleEvent()
+// Selects a single event in the current view, showing it in a selected style and deselecting
+// any other selected events.
+// @param event (CalendarEvent) the event to select
+// @return (Boolean) true if the selection was changed, false otherwise
+// @visibility external
+//<
+selectSingleEvent : function (event, canvas) {
+    return this.selectEvent(event, canvas, true)
+},
+//> @method calendar.selectEvent()
+// Adds an event to the list of selected events in the current view, showing it in a selected
+// style.
+// @param event (CalendarEvent) the event to add to the selection
+// @return (Boolean) true if the selection was changed, false otherwise
+// @visibility external
+//<
+selectEvent : function (event, canvas, clearSelection) {
+    var selection = this.getSelection();
+    if (clearSelection) {
+        this.deselectAllEvents();
+    }
+    var result = selection.select(event);
+    if (result) {
+        if (!canvas) {
+            var view = this.getSelectedView();
+            canvas = view.getCurrentEventCanvas(event);
+        }
+        this.selectEventCanvas(canvas);
+        this.selectionChanged(event, selection.getSelection());
+    }
+    return result;
+},
+//> @method calendar.selectEvents()
+// Adds one or more events to the list of selected events in the current view, showing them in
+// a selected style.
+// @param events (Array of CalendarEvent) the events to add to the selection
+// @return (Boolean) true if the selection was changed, false otherwise
+// @visibility external
+//<
+selectEvents : function (events) {
+    var result = false;
+    if (events && events.length > 0) {
+        for (var i=0; i<events.length; i++) {
+            var iResult = this.selectEvent(events[i]);
+            if (iResult) result = true;
+        }
+    }
+    return result;
+},
+selectEventCanvas : function (canvas) {
+    canvas.bringToFront();
+    canvas.isSelected = true;
+    canvas.event.isSelected = true;
+    canvas.setEventStyle(canvas._cacheValues.eventStyleName);
+},
+
+//> @method calendar.deselectEvent()
+// Removes an event from the list of selected events in the current view, clearing its selected
+// style.
+// @param event (CalendarEvent) the event to deselect
+// @return (Boolean) true if the selection was changed, false otherwise
+// @visibility external
+//<
+deselectEvent : function (event, canvas) {
+    var selection = this.getSelection();
+    var result = selection.deselect(event);
+    if (result) {
+        if (!canvas) {
+            var view = this.getSelectedView();
+            canvas = view.getCurrentEventCanvas(event);
+        }
+        this.deselectEventCanvas(canvas);
+        this.selectionChanged(event, selection.getSelection());
+    }
+    return result;
+},
+//> @method calendar.deselectEvents()
+// Removes one or more events from the list of selected events in the current view, clearing
+// their selected styles.
+// @param events (Array of CalendarEvent) the events to deselect
+// @return (Boolean) true if the selection was changed, false otherwise
+// @visibility external
+//<
+deselectEvents : function (events) {
+    var result = false;
+    if (events && events.length > 0) {
+        for (var i=0; i<events.length; i++) {
+            var iResult = this.deselectEvent(events[i]);
+            if (iResult) result = true;
+        }
+    }
+    return result;
+},
+deselectAllEvents : function () {
+    var result = false;
+    var selected = this.getSelectedEvents();
+    for (var i=0; i<selected.length; i++) {
+        var iResult = this.deselectEvent(selected[i]);
+        if (iResult) result = true;
+    }
+    return result;
+},
+deselectEventCanvas : function (canvas) {
+    canvas.isSelected = false;
+    canvas.event.isSelected = false;
+    canvas.setEventStyle(canvas._cacheValues.eventStyleName);
+},
+
+
+selectionChanged : function (event, selectedList) {
+},
+
+selectionUpdated : function (event, selectedList) {
+},
+
+getSelection : function () {
+    return this.selectionManager;
+},
+clearSelection : function () {
+    this.deselectAllEvents();
+},
+
+
+//> @method calendar.getSelectedEvent()
+// Returns the currently selected +link{class:CalendarEvent, event}, or the first one if more
+// than one is selected.
+// @return (CalendarEvent) the selected event
+// @visibility external
+//<
+getSelectedEvent : function () {
+    // return the first selected event
+    var result = this.getSelectedEvents();
+    if (result) result = result[0];
+    return result;
+},
+
+//> @method calendar.getSelectedEvents()
+// Returns the currently selected list of +link{class:CalendarEvent, events}.
+// @return (Array of CalendarEvent) the list of selected events
+// @visibility external
+//<
+getSelectedEvents : function () {
+    // return all selected events
+    var selected = this.getSelection();
+    if (selected) selected = selected.getSelection();
+    return selected;
+},
+
+// ----------------
+
 
 _getFocusControls : function () {
     // returns the single set of rolloverControls applied to an eventCanvas on focus
@@ -12074,7 +13692,9 @@ _getFocusControls : function () {
 
 _focusEventCanvas : function (canvas) {
     // fired when an eventCanvas receives focus
-    if (!canvas || canvas._staticControls) {
+    if (!canvas) return;
+
+    if (canvas._staticControls) {
         // no canvas or calendar.useEventCanvasRolloverControls is false - every canvas has its
         // own set of components, so nothing to do here
         return;
@@ -12084,6 +13704,17 @@ _focusEventCanvas : function (canvas) {
         this.hideEventCanvasControls(canvas, "_rolloverControls");
     }
     canvas.updateRolloverControls();
+
+    // Ensure the target is visible in the viewport
+    canvas.parentElement.scrollIntoView(
+        canvas.getLeft(), canvas.getTop(), canvas.getWidth(), canvas.getHeight()
+    );
+
+    if (this._focusShouldSelect) {
+        // if Tab triggered this focus, select the new focus item
+        delete this._focusShouldSelect;
+        this.selectSingleEvent(canvas.event, canvas);
+    }
 },
 
 _blurEventCanvas : function (canvas) {
@@ -12096,6 +13727,13 @@ _blurEventCanvas : function (canvas) {
     // remove the focus controls
     this.hideEventCanvasControls(canvas, "_focusControls");
     canvas.updateRolloverControls();
+
+    if (this._tabPressed) {
+        // if blur() was triggered by the Tab key, set a flag that causes _focusEventCanvas()
+        // to single-select the new focus-item
+        delete this._tabPressed;
+        this._focusShouldSelect = true;
+    }
 },
 
 //> @attr calendar.eventCanvasGripper (MultiAutoChild Img : null : A)
@@ -12118,13 +13756,13 @@ eventCanvasGripperDefaults:{
     showRollOver:false,
     canDrag: true,
     layoutAlign:"center",
-    cursor: "move"
+    cursor: isc.Canvas.MOVE
 },
 getEventCanvasGripper : function (props, canvas, view) {
     props = props || {};
     props.src = this.getEventCanvasGripperIcon(canvas, view);
     var gripper = this.createAutoChild("eventCanvasGripper", props);
-    view.addChild(gripper);
+    view.addChild(gripper, null, false);
     return gripper;
 },
 
@@ -12170,7 +13808,7 @@ eventCanvasLabelDefaults:{
 },
 getEventCanvasLabel : function (props, view) {
     var label = this.createAutoChild("eventCanvasLabel", props);
-    view.addChild(label);
+    view.addChild(label, null, false);
     return label;
 },
 
@@ -12205,7 +13843,7 @@ eventCanvasCloseButtonDefaults:{
     showRollOver:true,
     layoutAlign:"center",
     src:"[SKIN]/headerIcons/close.png",
-    styleName: "eventCanvasCloseButton",
+    baseStyle: "eventCanvasCloseButton",
     click : function () {
         var canvas = this.eventCanvas;
         this.creator._eventCanvasCloseClick(canvas);
@@ -12272,6 +13910,7 @@ eventCanvasVResizerConstructor:"Img",
 eventCanvasVResizerDefaults: {
     width:12, height:6, overflow:"hidden", src:"[SKIN]/Window/v_resizer.png",
     autoDraw: false,
+    cursor: isc.Canvas.ROW_RESIZE,
     canDragResize: true
 },
 //> @attr calendar.eventCanvasHResizer (MultiAutoChild Img : null : A)
@@ -12283,6 +13922,7 @@ eventCanvasHResizerConstructor:"Img",
 eventCanvasHResizerDefaults: {
     width:6, height:12, overflow:"hidden", src:"[SKIN]/Window/h_resizer.png",
     autoDraw: false,
+    cursor: isc.Canvas.COL_RESIZE,
     canDragResize: true
 },
 getEventCanvasResizer : function (canvas, snapTo, focusControl) {
@@ -12291,7 +13931,12 @@ getEventCanvasResizer : function (canvas, snapTo, focusControl) {
     ;
     if (!this.useEventCanvasRolloverControls || !widget) {
         var className = "eventCanvas" + (["T", "B"].contains(snapTo) ? "V" : "H") + "Resizer",
-            props = { snapTo: snapTo, getEventEdge : function () { return this.snapTo; } }
+            props = {
+                snapTo: snapTo,
+                getEventEdge : function () {
+                    return this.snapTo;
+                }
+            }
         ;
         widget = this.createAutoChild(className, props);
         if (!focusControl && this.useEventCanvasRolloverControls) this[widgetName] = widget;
@@ -12307,7 +13952,7 @@ getEventCanvasResizer : function (canvas, snapTo, focusControl) {
 setShowZones : function (showZones) {
     this.showZones = showZones;
     var view = this.timelineView;
-    if (view && view.isSelectedView()) view.refreshEvents();
+    if (view && view.isSelectedView()) view.refreshEvents("setShowZones");
     else if (view) view._needsRefresh = true;
 },
 
@@ -12373,6 +14018,20 @@ removeZone : function (zone) {
     }
 },
 
+//> @method calendar.zoneClick()
+// Called whenever a +link{class:ZoneCanvas} is clicked in the
+// +link{calendar.timelineView, timelineView}.  There is no default implementation.
+//
+// @param zoneEvent (CalendarEvent) zone that was clicked on
+// @param viewName (ViewName) view where the event's canvas was clicked
+// @return (Boolean) false to cancel the default action
+//
+// @visibility calendar
+//<
+zoneClick : function (zoneEvent, viewName) {
+    return true;
+},
+
 //> @attr calendar.zoneStyleName (CSSStyleName : "zoneCanvas" : IRW)
 // CSS style to apply to the +link{calendar.zoneCanvas, canvases} created for each
 // specified +link{calendar.zones, zone}.
@@ -12430,7 +14089,7 @@ getZoneCanvasStyle : function (zone, view) {
 setShowIndicators : function (showIndicators) {
     this.showIndicators = showIndicators;
     var view = this.timelineView;
-    if (view && view.isSelectedView()) view.refreshEvents();
+    if (view && view.isSelectedView()) view.refreshEvents("setShowIndicators");
     else if (view) view._needsRefresh = true;
 },
 
@@ -12462,7 +14121,7 @@ getIndicatorCanvas : function (indicator, view) {
     view = view || this.getSelectedView();
     var props = { calendar: this, calendarView: view, event: indicator, isIndicatorCanvas: true,
             styleName: this.getIndicatorCanvasStyle(indicator, view),
-            dragTarget: view.eventDragTarget
+            dragTarget: view.eventDragCanvas
         },
         canvas = this.createAutoChild("indicatorCanvas", props, this.indicatorCanvasConstructor)
     ;
@@ -12545,78 +14204,157 @@ removeIndicator : function (indicator) {
 // @visibility external
 //<
 
-_getEventCanvas : function (event, view) {
-    var canDrag = this.canDragEvent(event),
-        canEdit = this.canEditEvent(event),
-        canResize = this.canResizeEvent(event),
-        canRemove = this.canRemoveEvent(event),
-        styleName = this.getEventCanvasStyle(event, view),
-        reclaimed = false
-    ;
 
+
+
+//> @attr calendar.showColumnLayouts (Boolean : false : IR)
+// When true, causes +link{calendar.columnLayout, layouts} to be added to each column in
+// vertical views.  In this mode, eventCanvases are stacked in these layouts, filling width
+// and auto-sizing vertically to content, rather than being placed, sized and overlapped
+// according to their times.
+// <P>
+// Because times are ignored in this mode, various behaviors are switched off automatically;
+// for example, the +link{calendar.showLabelColumn, time-column} is hidden and event-canvases
+// cannot be +link{calendar.canResizeEvents, resized} or rendered
+// +link{calendar.renderEventsOnDemand, on-demand}.
+//
+// @group appearance
+// @visibility calendar
+//<
+showColumnLayouts: false,
+
+//> @attr calendar.columnLayout (MultiAutoChild VLayout : null : A)
+// When +link{calendar.showColumnLayouts} is true, the layouts added to each column to stack
+// events.
+// @visibility calendar
+//<
+columnLayoutDefaults: {
+    _constructor: "VLayout",
+    height: "100%",
+    overflow: "auto",
+    // this style should be opaque by default, to avoid grid-lines showing through
+    styleName: "calendarColumnLayout",
+    border: null,
+    canDrag: false,
+    canDragReposition: false,
+    canDragResize: false,
+    mouseDown : function () {
+        var cal = this.creator;
+        if (cal.canCreateEvents) {
+            var field = this.calendarView.getFieldByName(this.fieldName);
+            var newEvent = cal.createEventObject({}, field.startDate, field.endDate);
+            this.creator.showNewEventDialog(newEvent);
+            return isc.EH.STOP_BUBBLING;
+        }
+    },
+    canDragReorder: false,
+    canAcceptDrop: true,
+    canDropComponents: false,
+    showDragPlaceHolder: false,
+    dropTypes: ["EventCanvas"],
+    drop : function () {
+        var cal = this.calendar;
+        var canvas = isc.EH.dragTarget;
+        if (!canvas) return;
+
+        var field = this.calendarView.getFieldByName(this.fieldName),
+            sTime = isc.DateUtil.getLogicalTimeOnly(cal.getEventStartDate(canvas.event)),
+            eTime = isc.DateUtil.getLogicalTimeOnly(cal.getEventEndDate(canvas.event)),
+            // fix the dates to the current day
+            // ToDo: although start and end date values on the field are not really used in
+            // vertical views, look into why they're both wrong at this point (+ 1 day)
+            newStart = isc.DateUtil.combineLogicalDateAndTime(field.date, sTime),
+            newEnd = isc.DateUtil.combineLogicalDateAndTime(field.date, eTime)
+        ;
+        var newEvent = cal.createEventObject(canvas.event, newStart, newEnd)
+
+        // update the sortValue on the canvas and save the event
+        canvas.sortValue = newStart.duplicate();
+        this.calendar.updateCalendarEvent(canvas.event, newEvent); //, null, true);
+
+        // add the eventCanvas to this columnLayout
+        this.addMember(canvas);
+
+        // hide the dropLine
+        this.hideDropLine();
+
+        return isc.EH.STOP_BUBBLING;
+    },
+    getDropPosition : function () {
+        // return the sorted insert-position for the eventCanvas being dragged
+        var cal = this.calendar;
+        var canvas = isc.EH.getDragTarget();
+        var evt = canvas.event;
+        var time = evt && isc.DateUtil.getLogicalTimeOnly(evt[cal.startDateField]);
+        if (time) {
+            for (var i=0; i<this.members.length; i++) {
+                var iEvt = this.members[i].event;
+                var eTime = iEvt && isc.DateUtil.getLogicalTimeOnly(iEvt[cal.startDateField]);
+                if (isc.DateUtil.compareDates(time, eTime) > 0) {
+                    break;
+                }
+            }
+            return Math.max(i, 0);
+        }
+        return this.Super("getDropPosition", arguments);
+    },
+    addMember : function (member) {
+        // store the event startDate as a sortValue, for use by resort() below
+        if (member.event) member.sortValue = member.event[this.calendar.startDateField].duplicate();
+        else member.sortValue = null;
+        return this.Super("addMember", arguments);
+    },
+    resort : function () {
+        var cal = this.calendar;
+        // resort the members and reflow
+        this.members.setSort([{ property: "sortValue", direction: "ascending" }]);
+        this.reflowNow();
+    },
+
+    getPrintHTML : function (printProperties, callback) {
+        if (callback) {
+            this.delayCall("asyncGetPrintHTML", [printProperties, callback]);
+            return null;
+        } else {
+            return this.asyncGetPrintHTML(printProperties, callback);
+        }
+    },
+
+    asyncGetPrintHTML : function (printProperties, callback) {
+        return this.getHandle().innerHTML;
+    }
+},
+
+createColumnLayout : function (view, fieldName, props) {
+    if (!this.showColumnLayouts) return;
+    props = isc.addProperties({}, this.columnLayoutProperties, props);
+    props.calendar = this;
+    props.calendarView = view;
+    props.fieldName = fieldName;
+    return this.createAutoChild("columnLayout", props);
+},
+
+_getEventCanvas : function (event, view) {
     var props = isc.addProperties({
-            autoDraw: false,
             calendar: this,
             calendarView: view,
-            baseStyle: styleName,
-            canDragReposition: canDrag,
-            canDragResize: canResize,
-            _redrawWithParent:false,
-            showCloseButton: canRemove,
-            descriptionText: event[this.descriptionField],
-            dragTarget: view.eventDragTarget,
-            headerProps: isc.addProperties({}, {dragTarget: view.eventDragTarget}),
-            footerProperties: {dragTarget: view.eventDragTarget}
-        }, this.eventWindowDefaults, this.eventWindowProperties
+            overflow: this.showColumnLayouts ? "visible" :
+                (this.showEventCanvasComponents ? "auto" : "hidden")
+        }, this.eventCanvasDefaults, this.eventCanvasProperties
     );
 
-    // see if there's a *current* eventCanvas that already shows this event - will
-    // save time on updating titles and styles, if those things haven't changed
-    var canvasPool = view._eventCanvasPool,
-        // the event may already be visible, in which case get its current canvas
-        canvas = view.getCurrentEventCanvas(event),
-        canvasFound = (canvas != null)
-    ;
-
-    if (canvasFound) {
-        view._eventCanvasPool.remove(canvas);
-    } else if (view.useEventCanvasPool) {
-        // no canvas currently showing this event - get one from the pool
-        canvas = view.getPooledEventCanvas(event);
-        if (canvas) {
-            reclaimed = true;
-            //canvas.VSnapOrigin = 0;
-        }
-    }
-    if (canvas) {
-        if (!canvas.setEvent) {
-            if (!canvasFound) canvas.setProperties(props);
-            canvas.event = event;
-            canvas.setEventStyle(styleName);
-        }
-        //canvas.setDragProperties(
-    } else {
-        props = {
-            calendar: this,
-            calendarView: view
-        };
-        // create eventWindow as an autoChild so it can be customized.
-        var canvasClass = this.getEventCanvasConstructor(event, view);
+    // create canvas as an autoChild so it can be customized.
+    var canvasClass = this.getEventCanvasConstructor(event, view),
         canvas = this.createAutoChild("eventCanvas", props, canvasClass);
-    }
-    // add the canvas to the drawnCanvasList
-    if (view._drawnCanvasList && !view._drawnCanvasList.contains(canvas))
-        view._drawnCanvasList.add(canvas);
-    if (view._drawnEvents && !view._drawnEvents.contains(event))
-        view._drawnEvents.add(event);
 
-    canvas._availableForUse = false;
+    // add the canvas to the canvasMap and links between it and the event
+    view._allCanvasMap[canvas.ID] = canvas;
+    view._usedCanvasMap[canvas.ID] = event.__key;
+    view._usedEventMap[event.__key] = canvas.ID;
 
-    if (canvas.setEvent) canvas.setEvent(event, styleName);
+    //canvas.setEvent(event, styleName);
 
-    this.setEventCanvasID(view, event, canvas.ID);
-
-    if (this.customizeCanvas) this.customizeCanvas(canvas, view);
+    //if (this.customizeCanvas) this.customizeCanvas(canvas, view);
 
     return canvas;
 },
@@ -12658,7 +14396,7 @@ _getEventsInRange : function (start, end, view, visibleLanesOnly) {
                 && eventStart.getTime() <= end.getTime()
                 && (this.showWeekends || !wends.contains(eventStart.getDay())))
             {
-                if (view && view.isWeekView()) results.add(curr);
+                if (view && (view.isWeekView() || view.isMonthView())) results.add(curr);
                 else if (!this.showDayLanes || laneNames.contains(curr[this.laneNameField]))
                     results.add(curr);
             }
@@ -12668,8 +14406,7 @@ _getEventsInRange : function (start, end, view, visibleLanesOnly) {
 },
 
 getDayEnd : function (startDate) {
-    return isc.DateUtil.getEndOf(startDate, "d", null, this.firstDayOfWeek);
-    //return new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(),23,59,59);
+    return isc.DateUtil.getEndOf(startDate, "d", false, this.firstDayOfWeek);
 },
 
 isTimeline : function () {
@@ -12678,30 +14415,6 @@ isTimeline : function () {
 },
 
 eventsOverlapGridLines: true,
-
-_storeChosenDateRange : function (date) {
-    // store off the start and end of the chosenDate, for clarity later
-    this.chosenDateStart = isc.DateUtil.getStartOf(date, "d", false);
-    this.chosenDateEnd = isc.DateUtil.getEndOf(date, "d", false);
-
-    var startDate =
-        this.chosenWeekStart = isc.DateUtil.getStartOf(date, "w", null, this.firstDayOfWeek)
-    ;
-
-    // make sure the current week surrounds the current date.
-    // if chosen date is less than startDate, shift week window back one week.
-    if (isc.DateUtil.compareDates(this.chosenDate,startDate) == 1) {
-        this.chosenWeekStart.setDate(this.chosenWeekStart.getDate() - 7);
-    }
-    this.chosenWeekEnd = isc.DateUtil.getEndOf(this.chosenWeekStart.duplicate(), "w", null,
-        this.firstDayOfWeek);
-
-    // similarly, if chosen date is greater than chosenWeekEnd, shift week window up one week.
-    if (isc.DateUtil.compareDates(this.chosenDate, this.chosenWeekEnd) == -1) {
-        this.chosenWeekStart.setDate(this.chosenWeekStart.getDate() + 7);
-        this.chosenWeekEnd.setDate(this.chosenWeekEnd.getDate() + 7);
-    }
-},
 
 //> @method calendar.setChosenDate()
 // Set the current date for which the calendar will display events.
@@ -12713,80 +14426,18 @@ _storeChosenDateRange : function (date) {
 setChosenDate : function (newDate, fromTimelineView) {
     var view = this.getSelectedView();
 
-    // set year and month consistently with the appropriate display date
-    var displayDate = isc.Calendar._getAsDisplayDate(newDate);
-    this.year = displayDate.getFullYear();
-    this.month = displayDate.getMonth();
+    // store the logicalDate (which is in the displayTimezone), set year and month consistently
+    this.chosenDate = isc.DateUtil.getLogicalDateOnly(newDate);
+    this.year = this.chosenDate.getFullYear();
+    this.month = this.chosenDate.getMonth();
+    this.displayDate = this.chosenDate.getDate();
 
-    // preserve the old display date so we can use it below in calculations
-    var oldDisplayDate = isc.Calendar._getAsDisplayDate(this.chosenDate);
-    this.chosenDate = newDate;
-
-    // set the start and end dates for the chosenDate in day and week views
-    this._storeChosenDateRange(newDate.duplicate());
-
-    if (this.dayView) {
-        var props = {
-                date: isc.DateUtil.createLogicalDate(
-                    newDate.getFullYear(), newDate.getMonth(), newDate.getDate()
-                ),
-                _dayNum: newDate.getDay(),
-                _dateNum: newDate.getDate(),
-                _monthNum: newDate.getMonth(),
-                _yearNum: newDate.getFullYear()
-            },
-            field
-        ;
-
-        for (var i=0; i<this.dayView.body.fields.length; i++) {
-            field = this.dayView.body.getField(i);
-            // update the date-parts on ALL fields in a dayView (lanes need the date too)
-            if (field) isc.addProperties(field, props);
-        }
-
-        isc.DaySchedule._getCellDates(this, this.dayView, this.chosenDate);
-    }
-
-    // redraw monthView if need be
-    if (oldDisplayDate.getFullYear() != this.year || oldDisplayDate.getMonth() != this.month) {
-        if (this.monthView) {
-            if (this.monthViewSelected()) this.monthView._refreshEvents();
-            else this.monthView._needsRefresh = true;
-        }
-    } else if (this.selectChosenDate) {
-        // month hasn't changed - just update the selection
-        if (this.monthView) this.monthView.selectChosenDateCells();
-    }
-
-    // refresh the weekView if necessary
-    if (this.weekView) {
-        if (displayDate.getWeek(this.firstDayOfWeek) != this.weekView.startDate.getWeek(this.firstDayOfWeek)) {
-            this._setWeekTitles();
-            if (this.weekViewSelected()) this.weekView._refreshEvents();
-            else this.weekView._needsRefresh = true;
-        }
-    }
-
-    var chosenTime = displayDate.getTime();
-
-    // check for day redraw
-    if (chosenTime != oldDisplayDate.getTime()) {
-        if (this.dayView) {
-            this.dayView.markForRedraw();
-            if (this.dayViewSelected()) this.dayView._refreshEvents();
-            else this.dayView._needsRefresh = true;
-        }
-    }
-
-    if (this.timelineView && !fromTimelineView) {
-        this.timelineView.setTimelineRange(this.chosenDate, null, null, null, null, this.headerLevels, true);
-    } else {
-        if (this.scrollToWorkday && view.scrollToWorkdayStart) {
-            view.scrollToWorkdayStart();
-        } else {
-            view.redraw();
-        }
-    }
+    // have the views prepare for the new chosen date
+    if (this.dayView) this.dayView.setChosenDate(this.chosenDate);
+    if (this.weekView) this.weekView.setChosenDate(this.chosenDate);
+    if (this.monthView) this.monthView.setChosenDate(this.chosenDate);
+    // for the timeline, pass the newDate, which may not be logical
+    if (this.timelineView) this.timelineView.setChosenDate(newDate);
 
     if (this.monthButton) this.updateMonthButton();
     // reset date label
@@ -12798,8 +14449,8 @@ setChosenDate : function (newDate, fromTimelineView) {
 
 //> @method calendar.dateIsWorkday()
 // Should the parameter date be considered a workday? By default this method tries to find the
-// parameter date day in +link{workdays}, and returns true if found. Override this method to
-// provide custom logic for determining workday, for example returning false on holidays.
+// parameter date day in +link{calendar.workdays}, and returns true if found. Override this
+// method to provide custom logic for determining workday, perhaps returning false on holidays.
 // <P>
 // Note that, when showing +link{calendar.showDayLanes, vertical lanes} in the
 // +link{dayView, day view}, this method is also passed the name of the associated lane.
@@ -12811,7 +14462,8 @@ setChosenDate : function (newDate, fromTimelineView) {
 //<
 dateIsWorkday : function (date, laneName) {
     if (!date || !this.workdays) return false;
-    return this.workdays.contains(date.getDay());
+    var lDate = isc.DateUtil.getLogicalDateOnly(date);
+    return this.workdays.contains(lDate.getDay());
 },
 
 //> @method calendar.adjustCriteria()
@@ -12905,55 +14557,6 @@ getRangeCriteria : function (view) {
     return criteria;
 },
 
-_usDateRegex:/^\d{4}.\d\d?.\d\d?$/,
-_jpDateRegex:/^\d\d?.\d\d.\d{4}?$/,
-_setWeekTitles : function () {
-    if (!this.weekView) return;
-    var nDate = this.chosenWeekStart.duplicate();
-    // set day titles
-    var sdNames = isc.DateUtil.getShortDayNames();
-    var weekends = this.getWeekendDays();
-
-    isc.DaySchedule._getCellDates(this, this.weekView, this.chosenWeekStart);
-
-    for (var i = 1; i < 8; i++) {
-        // for hidden columns, getFieldNum will return -1. without this check, a logWarn is
-        // produced when weekends are hidden
-        if (this.weekView.getFieldNum("day" + i) >= 0) {
-            // We want a format like "Mon 28/11" or "Mon 11/28" depending on whether the
-            // dateFormatter specified is Euro / US / Japanese.
-            // We don't currently have anything built into Date for this so get the shortDate
-            // and lop off the year + separator.
-            var dateStr = nDate.toShortDate(this.dateFormatter, false);
-
-            if (dateStr.match(this._usDateRegex) != null) dateStr = dateStr.substring(5);
-            else if (dateStr.match(this._jpDateRegex)) dateStr = dateStr.substring(0,dateStr.length-5);
-
-            var ntitle = sdNames[nDate.getDay()] + " " + dateStr;
-            //(nDate.getMonth() + 1) + "/" + nDate.getDate();
-            // _dayNum is used in colDisabled()
-            // _dateNum, monthNum, yearNum are used in headerClick
-            var p = {
-                title: ntitle, align: "right",
-                _dayNum: nDate.getDay(),
-                _dateNum: nDate.getDate(),
-                _monthNum: nDate.getMonth(),
-                _yearNum: nDate.getFullYear()
-            };
-            p.date = isc.DateUtil.createLogicalDate(p._yearNum, p._monthNum, p._dateNum),
-            this.weekView.setFieldProperties("day" + i, p);
-            if (this.weekView.header) this.weekView.header.markForRedraw();
-            //isc.logWarn('here:' + [nDate.toShortDate(), "day" + i]);
-        }
-
-        nDate.setDate(nDate.getDate() + 1);
-    }
-
-    this.weekView.startDate = this.chosenWeekStart;
-    this.weekView.endDate = this.chosenWeekEnd;
-    this.weekView.redraw();
-},
-
 //> @method calendar.next()
 // Move to the next day, week, or month, depending on which tab is selected.
 //
@@ -12963,8 +14566,7 @@ next : function () {
    // var tab = this.mainView.selectedTab;
     var newDate;
     if (this.dayViewSelected()) {
-        newDate = isc.DateUtil.createDatetime(this.year, this.month,
-                                              this.chosenDate.getDate() + 1);
+        newDate = isc.DateUtil.createLogicalDate(this.year, this.month, this.displayDate + 1);
         // if hiding weekends, find next non-weekend day
         if (!this.showWeekends) {
             var wends = this.getWeekendDays();
@@ -12973,16 +14575,15 @@ next : function () {
             }
         }
     } else if (this.weekViewSelected()) {
-        newDate = isc.DateUtil.createDatetime(this.year, this.month,
-                                              this.chosenDate.getDate() + 7);
+        newDate = isc.DateUtil.createLogicalDate(this.year, this.month, this.chosenDate.getDate() + 7);
     } else if (this.monthViewSelected()) {
-        newDate = isc.DateUtil.createDatetime(this.year, this.month + 1, 1);
+        newDate = isc.DateUtil.createLogicalDate(this.year, this.month + 1, 1);
     } else if (this.timelineViewSelected()) {
-        newDate = this.chosenDate.duplicate();
         this.timelineView.nextOrPrev(true);
         return;
     }
-    this.dateChooser.setData(newDate);
+    // only update the dateChooser now if it's part of the UI, rather than a popup
+    if (this.showDateChooser && this.dateChooser) this.dateChooser.setData(newDate);
     this.setChosenDate(newDate);
 },
 
@@ -12993,10 +14594,8 @@ next : function () {
 //<
 previous : function () {
     var newDate;
-    //var tab = this.mainView.selectedTab;
     if (this.dayViewSelected()) {
-        newDate = isc.DateUtil.createDatetime(this.year, this.month,
-                                              this.chosenDate.getDate() - 1);
+        newDate = isc.DateUtil.createLogicalDate(this.year, this.month, this.displayDate - 1);
         // if hiding weekends, find next non-weekend day
         if (!this.showWeekends) {
             var wends = this.getWeekendDays();
@@ -13005,14 +14604,15 @@ previous : function () {
             }
         }
     } else if (this.weekViewSelected()) {
-        newDate = isc.DateUtil.dateAdd(isc.DateUtil.getStartOf(this.chosenDate, "w"), "w", 1, -1)
+        newDate = isc.DateUtil.createLogicalDate(this.year, this.month, this.displayDate - 7)
     } else if (this.monthViewSelected()) {
-        newDate = isc.DateUtil.createDatetime(this.year, this.month - 1, 1);
+        newDate = isc.DateUtil.createLogicalDate(this.year, this.month - 1, 1);
     } else if (this.timelineViewSelected()) {
         this.timelineView.nextOrPrev(false);
         return;
     }
-    this.dateChooser.setData(newDate);
+    // only update the dateChooser now if it's part of the UI, rather than a popup
+    if (this.showDateChooser) this.dateChooser.setData(newDate);
     this.setChosenDate(newDate);
 },
 
@@ -13058,37 +14658,49 @@ draw : function (a, b, c, d) {
     }
 },
 
-_getTabs : function () {
-    var nTabs = [],
-        props = { calendar: this, baseStyle: this.baseStyle },
-        lanes = this.lanes ? this.lanes.duplicate() : null
-    ;
-    // viewName used by calendar internals, so don't put into defaults
-    if (this.showDayView != false) {
-        this.dayView = this.createAutoChild("dayView", isc.addProperties({viewName: "day",
-            startDate: this.chosenDateStart, endDate: this.chosenDateEnd},
-            props,
-            { cellHeight: this.rowHeight, enforceVClipping: true } )
+_getTabPane : function (viewName) {
+    var props = { viewName: viewName, calendar: this, baseStyle: this.baseStyle, chosenDate: this.chosenDate };
+    if (viewName == "day") {
+        this.dayView = this.createAutoChild("dayView",
+            isc.addProperties({}, props,
+                { cellHeight: this.rowHeight, enforceVClipping: true }
+            )
         );
-        nTabs.add({title: this.dayViewTitle, pane: this.dayView, viewName: "day" });
+        return this.dayView;
+    } else if (viewName == "week") {
+        this.weekView = this.createAutoChild("weekView",
+            isc.addProperties({_refreshEventsOnDraw: true}, props,
+                { cellHeight: this.rowHeight, enforceVClipping: true }
+            )
+        );
+        return this.weekView;
+    } else if (viewName == "month") {
+        this.monthView = this.createAutoChild("monthView",
+            isc.addProperties({}, props,
+                { bodyConstructor:"MonthScheduleBody"}
+            )
+        );
+        return this.monthView;
+    } else if (viewName == "timeline") {
+        this.timelineView = this.createAutoChild("timelineView",
+            isc.addProperties({}, props));
+        return this.timelineView;
+    }
+},
+
+_getTabs : function () {
+    var nTabs = [];
+    if (this.showDayView != false) {
+        nTabs.add({title: this.dayViewTitle, pane: null, viewName: "day" });
     }
     if (this.showWeekView != false) {
-        this.weekView = this.createAutoChild("weekView", isc.addProperties({viewName: "week"},
-            props,
-            { cellHeight: this.rowHeight, enforceVClipping: true } )
-        );
-        nTabs.add({title: this.weekViewTitle, pane: this.weekView, viewName: "week" });
+        nTabs.add({title: this.weekViewTitle, pane: null, viewName: "week" });
     }
     if (this.showMonthView != false) {
-        this.monthView = this.createAutoChild("monthView", isc.addProperties({viewName: "month"},
-            props,
-            { bodyConstructor:"MonthScheduleBody"} ));
-        nTabs.add({title: this.monthViewTitle, pane: this.monthView, viewName: "month" });
+        nTabs.add({title: this.monthViewTitle, pane: null, viewName: "month" });
     }
     if (this.showTimelineView != false) {
-        this.timelineView = this.createAutoChild("timelineView",
-            isc.addProperties({viewName: "timeline", startDate: this.startDate, endDate: this.endDate}, props));
-        nTabs.add({title: this.timelineViewTitle, pane: this.timelineView, viewName: "timeline" });
+        nTabs.add({title: this.timelineViewTitle, pane: null, viewName: "timeline" });
     }
     return nTabs;
 },
@@ -13102,16 +14714,29 @@ _createTabSet : function (tabsArray) {
                 this.Super("_tabSelected", arguments);
                 // store selected view name for later use, in day/week/monthViewSelected functions
                 var tabPane = this.getTabPane(tab);
+                if (!tabPane) {
+                    // lazily create calendar views on tab selection
+                    this.updateTab(tab, this.creator._getTabPane(tab.viewName));
+                    tabPane = this.getTabPane(tab);
+                }
                 this.creator._selectedViewName = tabPane.viewName;
                 this.creator.setDateLabel();
                 var view = this.creator.getSelectedView();
+                // update the column dates and titles, and the row datetimes
+                if (view._needsUpdateRange) view.updateRange();
                 // if the view is already drawn, redraw it now to ensure that cellStyles update
                 if (view.isDrawn()) view.redraw();
+                else {
+                    // if the view isn't drawn yet, delay the currentViewChanged() notification until draw
+                    view._fireViewChangedOnDraw = true;
+                }
                 if (view._needsRefresh) {
                     view._refreshEvents();
                     //this.creator.refreshSelectedView();
                 }
-                this.creator.currentViewChanged(tabPane.viewName);
+                if (!view._fireViewChangedOnDraw) {
+                    this.creator.currentViewChanged(tabPane.viewName);
+                }
             }
         } );
         var tabToSelect;
@@ -13138,13 +14763,15 @@ _createTabSet : function (tabsArray) {
             }
         }
     } else {
-        this.mainView = tabsArray[0].pane;
+        this.mainView = this._getTabPane(tabsArray[0].viewName);
     }
 },
 
 getLaneMap : function () {
     if (!this.isTimeline() && !this.showDayLanes) return {};
-
+    // if cached, return it
+    if (this.laneMap) return this.laneMap;
+    // otherwise, cache it
     var data = this.showDayLanes ? this.lanes :
             this.canGroupLanes ? this.timelineView.getOriginalData() : this.timelineView.data,
         laneMap = {}
@@ -13156,6 +14783,7 @@ getLaneMap : function () {
         ;
         laneMap[name] = title;
     }
+    this.laneMap = isc.addProperties({}, laneMap);
     return laneMap;
 },
 
@@ -13221,6 +14849,22 @@ getLaneEvents : function (lane, view) {
     return visibleEvents;
 },
 
+// helper to return whether any *visible* events are available for the passed lane - works like
+// getLaneEvents() but returns a boolean on the first match, rather than returning all matches
+laneHasVisibleEvents : function (lane, view) {
+    // deal with being passed a lane object - bail if there's no appropriate lane-name
+    var laneName = isc.isAn.Object(lane) ? lane.name : lane;
+    if (!laneName || !isc.isA.String(laneName)) return [];
+    // default to the selected view
+    view = view || this.getSelectedView();
+    var allEvents = this.data.findAll(this.laneNameField, laneName) || [];
+    for (var i=0; i<allEvents.length; i++) {
+        if (!allEvents[i]) continue;
+        if (this.shouldShowEvent(allEvents[i], view)) return true;
+    }
+    return false;
+},
+
 //> @method calendar.getSublaneEvents()
 // For views that support +link{calendar.lanes, lanes} and allow
 // +link{calendar.useSublanes, sublanes}, returns the array of events in the
@@ -13262,25 +14906,22 @@ createChildren : function () {
         this.dateLabel = this.createAutoChild("dateLabel");
         // addEventButton
         this.addEventButton = this.createAutoChild("addEventButton", {
-            click: function () {
+            click : function () {
                 var cal = this.creator;
                 var currView = cal.getSelectedView();
 
-                cal.eventDialog.event = null;
-                cal.eventDialog.isNewEvent = true;
-                cal.eventDialog.items[0].createFields();
-
                 var sDate = new Date(),
                     eDate = null,
-                    pickedDate = cal.chosenDate.duplicate();
-                // if dayView is chosen, set dialog date to chosen date
+                    pickedDate = cal.chosenDate.duplicate()
+                ;
+
                 if (currView.isDayView()) {
+                    // start-date to chosen date
                     sDate = pickedDate;
-                // if weekView, set dialog to first day of chosen week unless
-                // today is greater
                 } else if (currView.isWeekView()) {
-                    if (cal.chosenWeekStart.getTime() > sDate.getTime()) {
-                        sDate = cal.chosenWeekStart.duplicate();
+                    // if weekView, set dialog to first day of chosen week unless today is greater
+                    if (currView.startDate.getTime() > sDate.getTime()) {
+                        sDate = currView.startDate.duplicate();
                     }
                     // if hiding weekends, find next non-weekend day
                     if (!this.showWeekends) {
@@ -13296,16 +14937,15 @@ createChildren : function () {
                         sDate.setHours(0);
                     } // otherwise move to next hour
                     else sDate.setHours(sDate.getHours() + 1);
-                // if monthView, set dialog to first day of chosen month unless
-                // today is greater
                 } else if (currView.isMonthView()) {
+                    // if monthView, set dialog to first day of chosen month unless
+                    // today is greater
                     pickedDate.setDate(1);
                     if (pickedDate.getTime() > sDate.getTime()) sDate = pickedDate;
                 } else if (cal.isTimeline()) {
                     var tl = cal.timelineView,
                         dates = tl.getVisibleDateRange();
                     sDate = dates[0];
-
                     eDate = sDate.duplicate();
                     eDate = tl.addUnits(eDate, 1, cal.timelineGranularity);
                 }
@@ -13313,13 +14953,7 @@ createChildren : function () {
                 var newEvent = {};
                 newEvent[cal.startDateField] = sDate;
                 newEvent[cal.endDateField] = eDate;
-                cal.eventDialog.event = newEvent;
-                cal.eventDialog.setDate(sDate, eDate);
-                // place the dialog at the left edge of the calendar, right below the button itself
-                cal.eventDialog.setPageLeft(cal.getPageLeft());
-                cal.eventDialog.setPageTop(this.getPageTop() + this.getVisibleHeight());
-
-                cal.displayEventDialog();
+                cal.showEventEditor(newEvent, true);
             }
         } );
 
@@ -13328,10 +14962,24 @@ createChildren : function () {
             click: function () {
 
                 var cal = this.creator;
-                if (!cal.dateChooser.isDrawn()) cal.dateChooser.draw();
-                else cal.dateChooser.redraw();
-                cal.dateChooser.placeNear(this.getPageLeft(), this.getPageTop() + this.getHeight());
-                cal.dateChooser.show();
+                var dateChooser = cal.getDateChooser();
+                // dateChooser shows the same firstDayOfWeek as the parent Calendar
+                dateChooser.firstDayOfWeek = cal.firstDayOfWeek;
+                // only the TimelineView supports data-type inclusion of the TimeItem - other
+                // views never show it
+                var view = cal.getSelectedView();
+                var showTime = cal.getSelectedView().showDateChooserTimeItem;
+                if (showTime == null) {
+                    var editingStyle = cal.getDateEditingStyle();
+                    showTime = !(editingStyle == "date");
+                }
+                if (showTime != null) dateChooser.showTimeItem = showTime;
+                dateChooser.setData(view.chosenDate, showTime == null);
+
+                if (!dateChooser.isDrawn()) dateChooser.draw();
+                else dateChooser.redraw();
+                dateChooser.placeNear(this.getPageLeft(), this.getPageTop() + this.getHeight());
+                dateChooser.show();
             }
         } );
 
@@ -13361,49 +15009,26 @@ createChildren : function () {
 
     var cal = this;
 
-    // date chooser
-    this.dateChooser = this.createAutoChild("dateChooser", {
-
-        disableWeekends: this.disableChooserWeekends != null ? this.disableChooserWeekends : false,
-        showWeekends: this.showChooserWeekends != null ? this.showChooserWeekends : true,
-        weekendDays: this.getWeekendDays(),
-        chosenDate: this.chosenDate,
-        month: this.month,
-        year: this.year,
-        closeOnEscapeKeypress: true,
-        autoHide: true,
-        autoClose: true,
-        // override dateClick to change the selected day
-        dateClick : function (year, month, day) {
-            var nDate = this.Super("dateClick", arguments);
-            if (nDate) this.creator.setChosenDate(nDate);
-            return nDate;
-        },
-        show : function () {
-            this.Super("show", arguments);
-            this.bringToFront();
-            this.focus();
-        }
-    } );
-
-    // add the dateChooser as a child of the Calendar, so that it shows at the correct offset
-    // in the FE
-    this.addChild(this.dateChooser);
-
     // layout for date chooser and main calendar view
     if (!this.children) this.children = [];
     var mainMembers = [];
-    var subMembers = [];
-    //if (this.canCreateEvents) subMembers.add(this.addEventButton);
-    subMembers.add(this.dateChooser);
+
+    // if showDateChooser is true, add the dateChooser as a child of the Calendar, because it
+    // will be visible - otherwise, deparent the dateChooser so it's size isn't clipped when
+    // displayed by the picker button later, if the calendar itself is smaller than the
+    // dateChooser will be
     if (this.showDateChooser) {
+        this.addChild(this.getDateChooser());
+        var subMembers = [];
+        //if (this.canCreateEvents) subMembers.add(this.addEventButton);
+        subMembers.add(this.dateChooser);
         mainMembers.add(isc.VLayout.create({
-                    autoDraw:false,
-                    width: "20%",
-                    membersMargin: 10,
-                    layoutTopMargin: 10,
-                    members: subMembers
-                }));
+            autoDraw:false,
+            width: "20%",
+            membersMargin: 10,
+            layoutTopMargin: 10,
+            members: subMembers
+        }));
     }
 
     if (this.mainView.isA("TabSet")) {
@@ -13434,32 +15059,72 @@ createChildren : function () {
     this.children.add(
         isc.HLayout.create({
             autoDraw:false,
+            overflow: "hidden",
             width: "100%",
             height: "100%",
             members:mainMembers
-
         })
     );
 
-    this.setDateLabel();
 }, // end createChildren
 
-createEditors : function () {
+getDateChooser : function () {
+    if (this.dateChooser) return this.dateChooser;
+    this.dateChooser = this.createAutoChild("dateChooser", {
+
+        disableWeekends: this.disableChooserWeekends != null ? this.disableChooserWeekends : false,
+        showWeekends: this.showChooserWeekends != null ? this.showChooserWeekends : true,
+        weekendDays: this.getWeekendDays(),
+        chosenDate: this.chosenDate,
+        month: this.month,
+        year: this.year,
+        closeOnEscapeKeypress: true,
+        autoHide: true,
+        autoClose: true,
+        visibility: "hidden",
+        // dateChooser shows the same firstDayOfWeek as the parent Calendar
+        firstDayOfweek: this.firstDayOfWeek,
+        // override dataChanged to change the selected day
+        dataChanged : function () {
+            var nDate = this.getData();  // this call combines data and time appropriately
+            // no need to rebuild lanes when just changing date - TimelineView only
+            this.creator.getSelectedView()._skipSetLanes = true;
+            if (nDate) this.creator.setChosenDate(nDate);
+            // clear _skipSetLanes - TimelineView only
+            delete this.creator.getSelectedView()._skipSetLanes;
+            return nDate;
+        },
+        show : function () {
+            this.Super("show", arguments);
+            this.bringToFront();
+            this.focus();
+        }
+    } );
+    this.dateChooser.deparent();
+    return this.dateChooser;
+},
+
+getEventDialog : function () {
+    // create the eventDialog lazily, as required
+    if (this.eventDialog) return this.eventDialog;
+
     var cal = this;
 
     // quick event dialog
     this.eventDialog = this.createAutoChild("eventDialog", {
-
         items: [
             isc.DynamicForm.create({
                 autoDraw: false,
                 padding:4,
                 calendar: this,
                 saveOnEnter: true,
+                implicitSave: false,
+                implicitSaveOnBlur: false,
                 useAllDataSourceFields: true,
                 numCols: 2,
                 colWidths: [80, "*"],
                 _internalFields : [cal.nameField, cal.laneNameField, cal.sublaneNameField],
+
                 getCustomValues : function () {
                     if (!this.calendar.eventDialogFields) return;
                     var internalValues = this._internalFields;
@@ -13509,9 +15174,9 @@ createEditors : function () {
                                 }
                         },
                         {name: cal.sublaneNameField, title: cal.eventSublaneFieldTitle,
-                                type: "select", width: 150,
-                                valueMap: [], //cal.getLaneMap(),
-                                showIf: showSublane ? "true" : "false"
+                            type: "select", width: 150,
+                            valueMap: [], //cal.getLaneMap(),
+                            showIf: showSublane ? "true" : "false"
                         },
                         {name: "save", title: cal.saveButtonTitle, editorType: "SubmitItem", endRow: false },
                         {name: "details", title: cal.detailsButtonTitle, type: "button", startRow: false,
@@ -13532,13 +15197,20 @@ createEditors : function () {
                             }
                         }
                     ];
-                    // create internal dataSource
-                    var dialogDS = isc.DataSource.create({
-                        addGlobalId: false,
-                        fields: fieldList
+
+                    // remove internal DS if it exists
+                    if (this.ds) {
+                        if (this.ds.destroy) this.ds.destroy();
+                        this.ds = null;
+                    }
+                    // create an internal ds and bind to it so that the default fields can be
+                    // overridden. See forms->validation->customized binding in the feature explorer
+                    this.ds = isc.DataSource.create({
+                        fields: fieldList,
+                        clientOnly: true
                     });
-                    // set dataSource then fields...other way around doesn't work
-                    this.setDataSource(dialogDS);
+                    // only dataSource then fields seems to work
+                    this.setDataSource(this.ds);
                     this.setFields(isc.shallowClone(this.calendar.eventDialogFields));
                 },
                 submit : function () {
@@ -13562,16 +15234,28 @@ createEditors : function () {
                     var customValues = isc.addProperties({}, dataForm.getCustomValues());
 
                     cal._fromEventDialog = true;
-                    var newEvent = cal.createEventObject(evt, sdate, edate,
+                    var newEvent = cal.createEventObject(evt,
+                            evt[cal.startDateField], evt[cal.endDateField],
                             lane, sublane, dataForm.getValue(cal.nameField)
                     );
-
                     if (!isNewEvent) { // event window clicked, so update
                         cal.updateCalendarEvent(evt, newEvent, customValues);
                     } else { // create new event
                         cal.addCalendarEvent(newEvent, customValues);
                     }
                     cal.hideEventDialog();
+                },
+                getCalendarView : function () {
+                    return this.calendar.getSelectedView();
+                },
+                destroy : function () {
+                    if (this.ds) {
+                        // destroy the ds used for the custom form
+                        if (this.ds.destroy) this.ds.destroy();
+                        this.ds = null;
+                    }
+                    this.calendar = null;
+                    return this.Super("destroy", arguments);
                 }
             })
         ],
@@ -13583,14 +15267,25 @@ createEditors : function () {
                 // do a 1/2 hour long event
                 if (startDate.getHours() == 23
                         && startDate.getMinutes() == (60 - cal.getSelectedView().getTimePerCell())) {
-                    endDate = new Date(startDate.getFullYear(), startDate.getMonth(),
+                    endDate = isc.DateUtil.createDatetime(startDate.getFullYear(), startDate.getMonth(),
                     startDate.getDate() + 1);
                 } else {
-                    endDate = new Date(startDate.getFullYear(), startDate.getMonth(),
+                    endDate = isc.DateUtil.createDatetime(startDate.getFullYear(), startDate.getMonth(),
                         startDate.getDate(), startDate.getHours() + 1, startDate.getMinutes());
                 }
             }
+
+            this.logicalStartDate = isc.DateUtil.getLogicalDateOnly(startDate);
+            this.logicalStartTime = isc.DateUtil.getLogicalTimeOnly(startDate);
+
+            this.logicalEndDate = isc.DateUtil.getLogicalDateOnly(endDate);
+            this.logicalEndTime = isc.DateUtil.getLogicalTimeOnly(endDate);
+
             this.setTitle(cal._getEventDialogTitle(startDate, endDate));
+            if (this.isNewEvent) {
+                this.event[cal.startDateField] = startDate.duplicate();
+                this.event[cal.endDateField] = endDate.duplicate();
+            }
             this.currentStart = startDate;
             this.currentEnd = endDate;
             this.items[0].setValue(cal.nameField, "");
@@ -13615,7 +15310,7 @@ createEditors : function () {
                 canEditLane = isNew || cal.canEditEventLane(event, view)
             ;
 
-            theForm.getItem(cal.laneNameField).setDisabled(!canEditLane);
+            if (view.usesLanes()) theForm.getItem(cal.laneNameField).setDisabled(!canEditLane);
 
             // if we have custom fields, clear errors and set those custom fields
             if (cal.eventDialogFields) {
@@ -13624,7 +15319,7 @@ createEditors : function () {
             }
             this.setDate(cal.getEventStartDate(event), cal.getEventEndDate(event));
 
-            if (cal.useSublanes && event[cal.laneNameField]) {
+            if (view.hasSublanes() && event[cal.laneNameField]) {
                 var lane = view.getLane(event[cal.laneNameField]);
                 if (lane) {
                     var slItem = theForm.getItem(cal.sublaneNameField);
@@ -13635,7 +15330,17 @@ createEditors : function () {
         },
 
         closeClick : function () {
-            this.Super('closeClick');
+            this.Super('closeClick', arguments);
+            // When the dialog is dismissed, select the event
+            // (So a user can tab to an event, hit enter, hit escape and focus goes
+            // back to the event as expected)
+            if (this.creator.canSelectEvents) {
+                var view = this.creator.getSelectedView(),
+                    eventCanvas = view && view.getCurrentEventCanvas(this.event);
+                if (eventCanvas && eventCanvas._canFocus()) {
+                    eventCanvas.focus();
+                }
+            }
             this.creator.clearViewSelection();
         },
 
@@ -13643,7 +15348,7 @@ createEditors : function () {
             if (this.creator.showQuickEventDialog) {
 
                 if (!this.isDrawn()) this.draw();
-                this.Super('show');
+                this.Super('show', arguments);
                 this.items[0].getItem(this.creator.nameField).focusInItem();
             } else {
                 this.creator.showEventEditor(this.event, this.isNewEvent);
@@ -13651,28 +15356,44 @@ createEditors : function () {
         },
 
         hide : function () {
-            this.Super('hide');
+            this.Super('hide', arguments);
             this.moveTo(0, 0);
+        },
+
+        destroy : function () {
+            this.calendar = null;
+            this.Super("destroy", arguments);
         }
 
     } );
+    this.eventDialog.form = this.eventDialog.items[0];
+    return this.eventDialog;
+},
+
+getEventEditorLayout : function () {
+    // create the eventEditor and layout lazily, as required
+    if (this.eventEditorLayout) return this.eventEditorLayout;
+
+    var cal = this;
 
     // event editor form
     this.eventEditor = this.createAutoChild("eventEditor", {
         useAllDataSourceFields: true,
         titleWidth: 80,
+        calendar: this,
         initWidget : function () {
             // invoke initWidget here rather than at the end of the function, or we get multiple
             // log warnings about form fields being clobbered
             this.invokeSuper(isc.DynamicForm, "initWidget", arguments);
 
             var cal = this.creator;
-
             this.timeFormat = cal.timeFormat;
-            //this.rebuildFieldList();
+            this.rebuildFieldList();
         },
         rebuildFieldList : function () {
-            var fieldList = [],
+            var cal = this.creator,
+                view = cal.getSelectedView(),
+                fieldList = [],
                 editStyle = cal.getDateEditingStyle(),
                 durationFields = [
                     { name: "endType", type: "text", showTitle: false, width: "*",
@@ -13680,6 +15401,7 @@ createEditors : function () {
                         valueMap: [ cal.eventDurationFieldTitle, cal.eventEndDateFieldTitle ],
                         endRow: false,
                         changed : function (form, item, value) {
+                            var cal = form.calendar;
                             editStyle = cal.getDateEditingStyle();
                             if (value == cal.eventDurationFieldTitle) {
                                 form.getItem(cal.durationField).show();
@@ -13722,7 +15444,7 @@ createEditors : function () {
                 cal.endDateField
             ]);
 
-            if (cal.timelineView || (cal.dayViewSelected() && cal.showDayLanes)) {
+            if (view.usesLanes()) {
                 // if the calendar allows laneEditing, show the lane picker - if a given event
                 // is canEditLane: false, the picker will be disabled
                 var laneMap = cal.getLaneMap(),
@@ -13731,6 +15453,7 @@ createEditors : function () {
                         width: "*", colSpan: 3,
                         changed : function (form, item, value) {
                             // when the lane changes, refetch the list of sublanes
+                            var cal = form.calendar;
                             var lane = cal.lanes.find("name", value);
                             if (value && lane) {
                                 var slItem = form.getItem(cal.sublaneNameField);
@@ -13773,13 +15496,26 @@ createEditors : function () {
                 ]);
             } else if (editStyle == "time") {
                 var baseStyleName = isc.SelectItem.getInstanceProperty("textBoxStyle"),
+                    ctrlStyleName = isc.SelectItem.getInstanceProperty("controlStyle"),
+                    iconStyleName = isc.SelectItem.getInstanceProperty("pickerIconStyle"),
                     // get the extra width to add to the render-width of the widest valueMap entry
                     extraWidth = isc.SelectItem.getInstanceProperty("pickerIconWidth") +
-                        isc.Element._getLeftMargin(baseStyleName) +
-                        isc.Element._getRightMargin(baseStyleName) +
+                        isc.Element.getHMarginSize(baseStyleName) +
                         isc.Element._getHBorderPad(baseStyleName) +
                         4 // this last is necessary because there is no right-padding
                 ;
+
+                if (ctrlStyleName) {
+                    // include padding/margin/border from the controlStyle
+                    extraWidth += isc.Element.getHMarginSize(ctrlStyleName);
+                    extraWidth += isc.Element._getHBorderPad(ctrlStyleName);
+                }
+
+                if (iconStyleName) {
+                    // include padding/margin/border from the pickerIcon's style
+                    extraWidth += isc.Element.getHMarginSize(iconStyleName);
+                    extraWidth += isc.Element._getHBorderPad(iconStyleName);
+                }
 
                 // calculate widths for the hour, minute and AM/PM pickers, wide enough for
                 // whatever the contents will be
@@ -13806,7 +15542,8 @@ createEditors : function () {
                     {name: "startAMPM", showTitle: false, type: "select", width: ampmWidth,
                         valueMap: this.getTimeValues(), endRow: true,
                         showIf: function (item) {
-                            return item.form.creator.twentyFourHourTime ? "false" : "true";
+                            if (!item.form) return "false";
+                            return item.form.calendar.twentyFourHourTime ? "false" : "true";
                         }
                     },
                     {name: "invalidDate", type: "blurb", colSpan: 4, visible: false,
@@ -13823,7 +15560,8 @@ createEditors : function () {
                     {name: "endAMPM", showTitle: false, type: "select", width: ampmWidth,
                         valueMap: this.getTimeValues(), endRow: true,
                         showIf: function (item) {
-                            return item.form.creator.twentyFourHourTime ? "false" : "true";
+                            if (!item.form) return "false";
+                            return item.form.calendar.twentyFourHourTime ? "false" : "true";
                         }
                     }
                 ]);
@@ -13836,21 +15574,26 @@ createEditors : function () {
                     type: "textArea", colSpan: "*", width: "*", height: 50, startRow: true}
             ]);
 
+            // remove internal DS if it exists
+            if (this.ds) {
+                if (this.ds.destroy) this.ds.destroy();
+                this.ds = null;
+            }
             // create an internal ds and bind to it so that the default fields can be
             // overridden. See forms->validation->customized binding in the feature explorer
-            var editorDS = isc.DataSource.create({
-                addGlobalId: false,
-                fields: fieldList
+            this.ds = isc.DataSource.create({
+                fields: fieldList,
+                clientOnly: true
             });
             // only dataSource then fields seems to work
-            this.setDataSource(editorDS);
+            this.setDataSource(this.ds);
             var fieldsToUse = isc.shallowClone(cal.eventEditorFields);
             this.setFields(fieldsToUse);
             this._fieldListSet = true;
         },
         getTimeValues : function (type) {
             var obj = {},
-                cal = this.creator
+                cal = this.calendar
             ;
             if (type == "hours") {
                 // use 0-23 for 24-hour time and 1-12 for 12-hour time
@@ -13880,7 +15623,7 @@ createEditors : function () {
                 "endMinutes", "endAMPM" ],
         getCustomValues : function () {
             if (!this.creator.eventEditorFields) return;
-            var cal = this.creator,
+            var cal = this.calendar,
                 internalValues = this._internalFields;
             var fields = this.creator.eventEditorFields;
             var cFields = {};
@@ -13893,9 +15636,9 @@ createEditors : function () {
             return cFields;
         },
         setCustomValues : function (values) {
-            if (!this.creator.eventEditorFields) return;
+            if (!this.calendar.eventEditorFields) return;
             var internalValues = this._internalFields;
-            var fields = this.creator.eventEditorFields;
+            var fields = this.calendar.eventEditorFields;
             for (var i = 0; i < fields.length; i++) {
                 var fld = fields[i];
                 if (fld.name && !internalValues.contains(fld.name)) {
@@ -13903,6 +15646,15 @@ createEditors : function () {
                 }
             }
 
+        },
+        destroy : function () {
+            if (this.ds) {
+                // destroy the ds used for the custom form
+                if (this.ds.destroy) this.ds.destroy();
+                this.ds = null;
+            }
+            this.calendar = null;
+            return this.Super("destroy", arguments);
         }
     } );
 
@@ -13913,9 +15665,16 @@ createEditors : function () {
         setDate : function (startDate, endDate, eventName, lane, sublane) {
             if (!eventName) eventName = "";
             if (!endDate) {
-                endDate = isc.DateUtil.dateAdd(startDate.duplicate(), "h");
+                endDate = isc.DateUtil.dateAdd(startDate, "h");
             }
-            var cal = this.creator;
+            var cal = this.calendar;
+
+            this.logicalStartDate = isc.DateUtil.getLogicalDateOnly(startDate);
+            this.logicalStartTime = isc.DateUtil.getLogicalTimeOnly(startDate);
+
+            this.logicalEndDate = isc.DateUtil.getLogicalDateOnly(endDate);
+            this.logicalEndTime = isc.DateUtil.getLogicalTimeOnly(endDate);
+
             this.setTitle(cal._getEventDialogTitle(startDate, endDate));
             this.currentStart = startDate;
             this.currentEnd = endDate;
@@ -13929,16 +15688,17 @@ createEditors : function () {
                 form.setValue(cal.endDateField, endDate.duplicate());
             } else if (editStyle == "time") {
                 var formatter = cal.twentyFourHourTime ? "toShortPadded24HourTime" : cal.timeFormatter,
-                    sTime = isc.Time.toTime(startDate, formatter, true),
-                    eTime = isc.Time.toTime(endDate, formatter, true)
+                    // use the logicalTime to cater for positioning with a custom display timezone
+                    sTime = this.logicalStartTime,
+                    eTime = this.logicalEndTime
                 ;
-                form.setValue("startHours", parseInt(sTime.substring(0, sTime.indexOf(":"))));
-                form.setValue("endHours", parseInt(eTime.substring(0, eTime.indexOf(":"))));
-                form.setValue("startMinutes", parseInt(sTime.substring(sTime.indexOf(":") + 1, sTime.indexOf(":") + 3)));
-                form.setValue("endMinutes", parseInt(eTime.substring(eTime.indexOf(":") + 1, eTime.indexOf(":") + 3)));
+                form.setValue("startHours", sTime.getHours());
+                form.setValue("endHours", eTime.getHours());
+                form.setValue("startMinutes", sTime.getMinutes());
+                form.setValue("endMinutes", eTime.getMinutes());
                 if (!cal.twentyFourHourTime) {
-                    form.setValue("startAMPM", this.getAMPM(startDate.getHours()));
-                    form.setValue("endAMPM", this.getAMPM(endDate.getHours()));
+                    form.setValue("startAMPM", this.getAMPM(sTime.getHours()));
+                    form.setValue("endAMPM", this.getAMPM(eTime.getHours()));
                 }
             }
         },
@@ -13974,7 +15734,7 @@ createEditors : function () {
             }
 
             var form = this.items[0],
-                cal = this.creator,
+                cal = this.calendar,
                 view = this.view,
                 laneSwitcher = form.getItem(cal.laneNameField),
                 sublaneSwitcher = form.getItem(cal.sublaneNameField),
@@ -14001,7 +15761,7 @@ createEditors : function () {
             if (laneSwitcher) {
                 laneSwitcher.setValueMap(cal.getLaneMap());
                 laneSwitcher.setValue(event[cal.laneNameField]);
-                laneSwitcher.setDisabled(this.isNewEvent ? false : !cal.canEditEventLane(event));
+                laneSwitcher.setDisabled(this.isNewEvent ? false : !cal.canEditEventLane(event, view));
                 var showSwitcher = view.isTimelineView() || (view.isDayView() && cal.showDayLanes);
                 if (showSwitcher) laneSwitcher.show();
                 else laneSwitcher.hide();
@@ -14057,11 +15817,11 @@ createEditors : function () {
                 event[cal.descriptionField] = this.getDefaultItemValue(cal.descriptionField);
             }
             form.setValue(cal.descriptionField, event[cal.descriptionField]);
-            this.originalStart = isc.clone(this.currentStart);
-            this.originalEnd = isc.clone(this.currentEnd);
+            this.originalStart = this.currentStart.duplicate();
+            this.originalEnd = this.currentEnd.duplicate();
 
             // show/hide the "Remove Event" button according to canRemoveEvent(event)
-            if (!this.isNewEvent && cal.canRemoveEvent(event)) this.removeButton.show();
+            if (!this.isNewEvent && cal.canRemoveEvent(event, view)) this.removeButton.show();
             else this.removeButton.hide();
         },
 
@@ -14072,60 +15832,46 @@ createEditors : function () {
         },
 
         hide : function () {
-            this.Super('hide');
-            this.creator.clearViewSelection();
+            this.Super('hide', arguments);
+            this.calendar.clearViewSelection();
             // clear any errors
-            this.creator.eventEditor.hideItem("invalidDate");
+            this.calendar.eventEditor && this.calendar.eventEditor.hideItem("invalidDate");
         },
 
         sizeMe : function () {
-            this.setWidth(this.creator.mainView.getVisibleWidth());
-            this.setHeight(this.creator.mainView.getVisibleHeight());
-            this.setLeft(this.creator.mainView.getLeft());
+            this.setWidth(this.calendar.mainView.getVisibleWidth());
+            this.setHeight(this.calendar.mainView.getVisibleHeight());
+            this.setLeft(this.calendar.mainView.getLeft());
         },
 
         draw : function () {
             var form = this.items && this.items[0];
             if (form && !form._fieldListSet) form.rebuildFieldList();
             this.Super("draw", arguments);
-        }
-    }, this.eventEditorLayoutProperties
-    ));
-    this.eventEditorLayout.addItem(this.eventEditor);
-    //this.eventEditorLayout.hide();
-},
+        },
 
-measureText : function (text, minWidth) {
-    var canvas = isc.Label.create({
-        ID: "_calendarMeasureCanvas",
-        autoDraw: true,
-        backgroundColor: "red",
-        top: -1000,
-        height: 20,
-        width: 1,
-        wrap: false,
-        autoFit: true
-    });
-    canvas.setContents("<span style='overflow:visible;white-space:nowrap;'>" + text + "</span>")
-    canvas.redraw();
-    canvas.show();
-    canvas.bringToFront();
-    var width = canvas.getVisibleWidth();
-    canvas.hide();
-    canvas.destroy();
-    canvas = null;
-    return width;
+        items: [this.eventEditor]
+    }, this.eventEditorLayoutProperties));
+    //this.eventEditorLayout.addItem(this.eventEditor);
+    //this.eventEditorLayout.hide();
+
+    return this.eventEditorLayout;
 },
 
 hideEventDialog : function () {
-    this.eventDialog.hide();
+    if (this.eventDialog && this.eventDialog.isVisible()) this.eventDialog.hide();
 },
-displayEventDialog : function () {
-    this.eventDialog.show();
+displayEventDialog : function (reposition) {
+    var dialog = this.eventDialog;
+    if (reposition && dialog._lastRect) {
+        dialog.placeNear(dialog._lastRect[0], dialog._lastRect[1]);
+    }
+    dialog.show();
 },
 
 addEventOrUpdateEventFields : function () {
     var cal = this,
+        view = this.getSelectedView(),
         isNewEvent = cal.eventEditorLayout.isNewEvent,
         evt = cal.eventEditorLayout.event,
         form = cal.eventEditor,
@@ -14185,11 +15931,9 @@ addEventOrUpdateEventFields : function () {
             sMins = values["startMinutes"]
         ;
 
-        var startDate = cal.eventEditorLayout.currentStart.duplicate();
-        startDate.setHours(sHrs);
-        startDate.setMinutes(sMins);
+        var startDate = isc.DateUtil.createDatetime(cal.eventEditorLayout.logicalStartDate, null, null, sHrs, sMins, 0, 0);
         var startMillis = startDate.getTime(),
-            maxEndDate = isc.DateUtil.getEndOf(startDate.duplicate(), "d")
+            maxEndDate = isc.DateUtil.getEndOf(startDate, "D", false)
         ;
 
         newEvent[cal.startDateField] = startDate;
@@ -14232,11 +15976,10 @@ addEventOrUpdateEventFields : function () {
             // developer are enforced
             if (!form.validate()) return false;
 
-            var endDate = startDate.duplicate();
-            endDate.setHours(eHrs);
-            endDate.setMinutes(eMins);
+            var elDate = isc.DateUtil.getLogicalDateOnly(startDate);
+            var endDate = isc.DateUtil.createDatetime(elDate, null, null, eHrs, eMins, 0, 0);
             if (endDate.getTime() > maxEndDate.getTime()) {
-                endDate = maxEndDate.duplicate();
+                //endDate = maxEndDate.duplicate();
             }
 
             // check for equal start and end times (specifically, midnight to midnight)
@@ -14249,6 +15992,27 @@ addEventOrUpdateEventFields : function () {
 
             cal._fromEventEditor = true;
 
+        }
+    }
+
+    if (view.isTimelineView()) {
+        // update leading and trailing dates after an edit - there's no editing UI for these
+        // dates
+        if (evt[cal.leadingDateField] && evt[cal.startDateField] != newEvent[cal.startDateField]) {
+            var leadingDate = evt[cal.leadingDateField].duplicate();
+            // get difference in minutes
+            var diff = isc.DateUtil.getPeriodLength(
+                    evt[cal.startDateField], newEvent[cal.startDateField], "mn");
+            leadingDate.setMinutes(leadingDate.getMinutes()+diff);
+            newEvent[cal.leadingDateField] = leadingDate;
+        }
+        if (evt[cal.trailingDateField] && evt[cal.endDateField] != newEvent[cal.endDateField]) {
+            var trailingDate = evt[cal.trailingDateField].duplicate();
+            // get difference in minutes
+            var diff = isc.DateUtil.getPeriodLength(
+                    evt[cal.endDateField], newEvent[cal.endDateField], "mn");
+            trailingDate.setMinutes(trailingDate.getMinutes()+diff);
+            newEvent[cal.trailingDateField] = trailingDate;
         }
     }
 
@@ -14268,28 +16032,13 @@ addEventOrUpdateEventFields : function () {
 // sets the date label of the calendar. Called whenever the chosenDate or selected tab
 // changes
 setDateLabel : function () {
-    if (!this.dateLabel) return;
-
-    var content="",
-        startDate = this.chosenDate,
-        endDate = null,
-        viewName = this.getCurrentViewName()
-    ;
-
-    if (viewName == "day") { // day tab
-    } else if (viewName == "week") { // week tab
-        var dateRange = this._getWeekRange();
-        startDate = dateRange[0];
-        endDate = dateRange[1];
-    } else if (viewName == "month") { // month tab
-        startDate = isc.DateUtil.getStartOf(startDate, "M");
-        endDate = isc.DateUtil.getEndOf(startDate, "M");
-    } else if (viewName == "timeline") {
-        var ebtView = this.timelineView;
-        startDate = ebtView.startDate;
-        endDate = ebtView.endDate;
-    }
-    content = this.getDateLabelText(viewName, startDate, endDate);
+    var view = this.getSelectedView();
+    if (!view || !this.dateLabel) return;
+    var endDate = view.isDayView() ? null : view.endDate;
+    var content = this.getDateLabelText(view.viewName,
+            view.logicalDate || view.startDate,
+            view.logicalEndDate || view.endDate
+    );
     this.dateLabel.setContents(content);
 },
 
@@ -14305,37 +16054,11 @@ setDateLabel : function () {
 getDateLabelText : function (viewName, startDate, endDate) {
     var view = (viewName ? this.getView(viewName) : null) || this.getSelectedView();
 
-    if (isc.Time._customTimezone) {
-        startDate = isc.DateUtil._getDisplayOffsetDate(startDate);
-        endDate   = isc.DateUtil._getDisplayOffsetDate(endDate);
-    }
-    var result = view && view.getDateLabelText(startDate, endDate)
+    var result = view && view.getDateLabelText(
+            startDate ? isc.DateUtil.getLogicalDateOnly(startDate) : null,
+            endDate ? isc.DateUtil.getLogicalDateOnly(endDate) : null
+    );
     return result || "";
-},
-
-_getWeekRange : function () {
-    var start = this.chosenWeekStart.duplicate();
-    var end = this.chosenWeekEnd.duplicate();
-    if (!this.showWeekends) {
-        var wEnds = this.getWeekendDays();
-        var numDays = 7 - wEnds.length;
-        // first augment start so its not sitting on a weekend
-        while (wEnds.contains(start.getDay())) {
-            start.setDate(start.getDate() + 1);
-        }
-        // number of days to add to numDays when calculating end day
-        // The idea is to add weekdays length to start date to arrive at end date. If there are
-        // weekends in between, however, we need to add those days to the end date as well
-        var addDays = 0, cursorDate = start.duplicate();
-        for (var i = 0; i < numDays; i++) {
-            if (wEnds.contains(cursorDate.getDay())) addDays++;
-            cursorDate.setDate(cursorDate.getDate() + 1);
-        }
-        end = start.duplicate();
-        //isc.logWarn('here:' + [numDays, addDays]);
-        end.setDate(end.getDate() + (numDays - 1) + addDays);
-    }
-    return [start, end];
 },
 
 dayViewSelected : function () {
@@ -14369,10 +16092,10 @@ cancelEditing : function () {
     var view = this.getSelectedView();
     if (view && view.clearSelection) view.clearSelection();
     if (this.eventDialog && this.eventDialog.isVisible()) {
-        this.eventDialog.hide();
+        this.hideEventDialog();
     }
     if (this.eventEditor && this.eventEditor.isVisible()) {
-        this.eventEditor.hide();
+        this.hideEventDialog();
     }
 },
 
@@ -14430,118 +16153,65 @@ showNewEventDialog : function (event) {
 // Displays the event entry/edit dialog at row/col position calculated from the start/endDates
 // set on the passed event object
 _showEventDialog : function (event, isNewEvent) {
-    event = event || {};
-    var startDate = this.getEventStartDate(event) || new Date(),
-        endDate = this.getEventEndDate(event),
-        view = this.getSelectedView(),
-        eventWindow = view.isMonthView() ? null : view.getCurrentEventCanvas(event),
-        rowNum, colNum, coords,
-        bodyLeft = view.body.getLeft(),
-        bodyTop = view.body.getTop(),
-        dialog = this.eventDialog
-    ;
+    // clear out the stored eventWindow and event - set isNewEvent and create the fields
+    var dialog = this.getEventDialog();
+    dialog.eventWindow = null;
+    dialog.event = null;
+    dialog.isNewEvent = isNewEvent;
+    dialog.items[0].createFields();
+    // draw the dialog off-screen - measure it later
+    dialog.moveTo(0, -9999);
+    if (!dialog.isDrawn()) dialog.draw();
+    else dialog.redraw();
 
-    // no event window means that an empty slot was clicked, so show dialog for creating a
-    // new event
-    if (!eventWindow) {
-        if (this.eventEditorLayout) {
-            this.eventEditorLayout.event = event;
-            this.eventEditorLayout.isNewEvent = isNewEvent;
-        }
+    var view = this.getSelectedView();
 
-        // clear out the stored eventWindow and store the passed event - indicate whether
-        // it's new via eventDialog.isNewEvent
-        dialog.eventWindow = null;
-        dialog.event = event;
-        dialog.isNewEvent = isNewEvent;
-        dialog.items[0].createFields();
+    // get view-specific start/end dates, if they aren't specified on the event
+    if (isNewEvent) event = view.getNewEventDefaults(event);
 
-        var sDate = startDate,
-            eDate = endDate;
+    var eventCanvas = view.getCurrentEventCanvas(event);
 
-        event[this.startDateField] = sDate;
-
-        if (view.isMonthView()) { // get date for clicked month day cell
-            var sHrs = new Date();
-            sHrs = sHrs.getHours();
-            // take an hour off so the event stays within the day
-            if (sHrs > 22) sHrs -= 1;
-            sDate.setHours(sHrs);
-            event[this.startDateField] = sDate;
-            rowNum = view.getEventRow();
-            colNum = view.getEventColumn();
-            // default new events in the month view to being 1 hour long
-            eDate = isc.DateUtil.dateAdd(sDate.duplicate(), "h", 1);
-        } else if (view.isTimelineView()) {
-            var tl = this.timelineView;
-
-            rowNum = tl.getEventLaneIndex(event);
-            colNum = tl.getColFromDate(sDate);
-            // assume a default length of one unit of the timelineGranularity for new events
-            eDate = endDate || this.getDateFromPoint(tl.getDateLeftOffset(sDate) + tl.getColumnWidth(colNum));
-            // set the lane
-            dialog.setLane(event[this.laneNameField]);
-        } else {
-            rowNum = startDate.getHours() * this.getRowsPerHour(view);
-            rowNum += Math.floor(startDate.getMinutes() / view.getTimePerCell());
-            if (this.showDayLanes && view.isDayView()) {
-                colNum = view.getEventLaneIndex(event);
-            } else {
-                colNum = view.getColFromDate(startDate);
-            }
-            // assume a default length of one hour (two rows) for new Calendar events
-            eDate = endDate || this.getCellDate(rowNum, colNum, view);
-        }
-
-        event[this.endDateField] = eDate;
-
-        dialog.setEvent(event);
-    } else { // otherwise show dialog for clicked event
-        if (view.isTimelineView()) {
-            rowNum = view.getEventLaneIndex(event);
-            colNum = view.getColFromDate(startDate);
-        } else if (view.isDayView() || view.isWeekView()) {
-            rowNum = startDate.getHours() * this.getRowsPerHour(view);
-            rowNum += Math.floor(startDate.getMinutes() / view.getTimePerCell());
-            colNum = view.getColFromDate(startDate, event[this.laneNameField]);
-        }
-        dialog.eventWindow = eventWindow;
-        dialog.isNewEvent = false;
-        dialog.items[0].createFields();
-
-        dialog.setEvent(eventWindow.event);
-        if (this.bringEventsToFront) eventWindow.bringToFront();
+    var offset = {};
+    if (eventCanvas) {
+        // bring the canvas to the front
+        if (this.bringEventsToFront) eventCanvas.bringToFront();
+        // use canvas left and top, keeping inside body page-rect
+        var rect = eventCanvas.getPageRect();
+        offset.left = Math.max(rect[0], view.body.getPageLeft());
+        offset.top = Math.max(rect[1], view.body.getPageTop());
+    } else {
+        offset = view.getEditDialogPosition(event);
     }
 
+    dialog.setEvent(eventCanvas ? eventCanvas.event : event);
 
-
-    // use the cellPageRect of the appropriate cell
-    var cellPageRect = view.body.getCellPageRect(rowNum, colNum);
-    var dTop = cellPageRect[1];
-
-    // deparent the dialog if it's been added as a child
-    if (dialog.parentWidget) dialog.deparent();
-
-    // draw the dialog off-screen and measure it
-    dialog.moveTo(0, -9999);
-    dialog.draw();
-    var dHeight = dialog.getVisibleHeight();
+    if (this.eventEditorLayout) {
+        this.eventEditorLayout.event = event;
+        this.eventEditorLayout.isNewEvent = isNewEvent;
+    }
 
     // ensure the dialog won't render off the bottom of the Calendar
     var thisHeight = this.getPageTop() + this.getHeight();
+    // use the offset returned by the view
+    var dHeight = dialog.getVisibleHeight();
+    var dTop = offset.top;
     if (dTop + dHeight >= thisHeight) {
         dTop = thisHeight - (dHeight + 2);
     }
 
-    dialog.placeNear(cellPageRect[0], dTop);
+    dialog._lastRect = [offset.left, dTop];
+    dialog.placeNear(dialog._lastRect[0], dialog._lastRect[1]);
     dialog.show();
     dialog.bringToFront();
+
+    // show the UI disabled if the event can't be edited
+    dialog.form.setDisabled(!this.canEditEvent(event, view));
 
     return;
 },
 
 visibilityChanged : function (isVisible) {
-    if (!isVisible && this.eventDialog) this.eventDialog.hide();
+    if (!isVisible) this.hideEventDialog();
 },
 
 //> @method calendar.showEventEditor()
@@ -14579,35 +16249,44 @@ showNewEventEditor : function (event) {
     this.showEventEditor(event, true);
 },
 
-newEventEditorWindowTitle: "New Event",
+newEventWindowTitle: "New Event",
 _showEventEditor : function (event, isNewEvent) {
+    var editorLayout = this.getEventEditorLayout();
 
-    if (!this.eventEditorLayout.isDrawn()) {
+    if (!editorLayout.isDrawn()) {
 
-        this.eventEditorLayout.setVisibility(isc.Canvas.INHERIT);
-        this.eventEditorLayout.draw();
+        editorLayout.setVisibility(isc.Canvas.INHERIT);
+        editorLayout.draw();
     }
-    this.eventEditorLayout.setWidth(this.mainView.getVisibleWidth());
-    this.eventEditorLayout.setHeight(this.mainView.getVisibleHeight());
+    editorLayout.setWidth(this.mainView.getVisibleWidth());
+    editorLayout.setHeight(this.mainView.getVisibleHeight());
     // move the eventEditor to cover the mainView only
 
-    this.eventEditorLayout.setPageLeft(this.mainView.getPageLeft());
-    this.eventEditorLayout.setPageTop(this.getPageTop());
+    editorLayout.setPageLeft(this.mainView.getPageLeft());
+    editorLayout.setPageTop(this.getPageTop());
 
-    this.eventEditorLayout.isNewEvent = isNewEvent;
+    editorLayout.isNewEvent = isNewEvent;
 
-    this.eventEditorLayout.view = this.getSelectedView();
+    editorLayout.view = this.getSelectedView();
+
+    var editingStyle = this.getDateEditingStyle();
+    if (this.eventEditor.dateEditingStyle != editingStyle) {
+        // if dateEditingStyle is different, re-initialize the eventEditor
+        // with appropriate edit items
+        this.eventEditor.dateEditingStyle = editingStyle;
+        this.eventEditor.rebuildFieldList();
+    }
 
     //if (this.eventEditorFields) this.eventEditor.reset();
     if (event) {
-        this.eventEditorLayout.setEvent(event);
+        editorLayout.setEvent(event);
     } else {
         this.eventEditor.clearValues();
-        this.eventEditorLayout.setTitle(this.newEventEditorWindowTitle);
+        editorLayout.setTitle(this.newEventWindowTitle);
         if (this.eventDialog && this.eventDialog.isVisible()) {
             // pass any custom field values through to the event editor
             if (this.eventEditorFields) {
-                this.eventEditorLayout.items[0].setCustomValues(this.eventDialog.items[0].getCustomValues());
+                editorLayout.items[0].setCustomValues(this.eventDialog.items[0].getCustomValues());
             }
             var eventName = this.eventDialog.items[0].getValue(this.nameField);
             var laneItem = this.eventDialog.items[0].getItem(this.laneNameField);
@@ -14615,7 +16294,7 @@ _showEventEditor : function (event, isNewEvent) {
 
             var startDate = new Date();
 
-            this.eventEditorLayout.setDate(
+            editorLayout.setDate(
                 startDate,
                 this.eventDialog.currentEnd,
                 eventName, lane
@@ -14625,16 +16304,23 @@ _showEventEditor : function (event, isNewEvent) {
 
     this.hideEventDialog();
 
-    this.eventEditorLayout.show();
+    var canEdit = this.canEditEvent(event, this.getSelectedView());
+    // show the UI disabled if the event can't be edited
+    this.eventEditor.setDisabled(!canEdit);
+    editorLayout.saveButton.setDisabled(!canEdit);
+
+    editorLayout.show();
 },
 
 _getEventDialogTitle : function (startDate, endDate) {
     var days   = isc.DateUtil.getShortDayNames(),
         months = isc.DateUtil.getShortMonthNames(),
-        sTime = isc.Time.toTime(startDate, this.timeFormatter, false),
-        eTime = isc.Time.toTime(endDate, this.timeFormatter, false),
+        sTime = isc.Time.toShortTime(startDate, this.timeFormatter),
+        eTime = isc.Time.toShortTime(endDate, this.timeFormatter),
         result
     ;
+
+
     if (this.isTimeline()) {
         var differentDays = (isc.DateUtil.compareLogicalDates(startDate, endDate) != 0);
 
@@ -14685,7 +16371,9 @@ _getCellCSSText : function (grid, record, rowNum, colNum) {
     if (this.todayBackgroundColor) {
         // if todayBackgroundColor is set and the passed logical date is today,
         // return CSS for that...
-        var dateComp = isc.DateUtil.compareLogicalDates(currDate, new Date());
+        var today = isc.DateUtil._getDisplayOffsetDate(new Date());
+        //this.logWarn(new Date() + "\n" + today);
+        var dateComp = isc.DateUtil.compareLogicalDates(currDate, today);
         if ((dateComp !== false && dateComp == 0)) {
             return "background-color:" + this.todayBackgroundColor + ";";
         }
@@ -14982,7 +16670,7 @@ getEventSublane : function (event, view) {
 //<
 getLaneFromPoint : function (x, y, view) {
     view = view || this.getSelectedView();
-    if (!view.hasLanes()) return null;
+    if (!view.usesLanes()) return null;
     if (view.getLaneFromPoint) return view.getLaneFromPoint(x, y);
     return null;
 },
@@ -15033,7 +16721,7 @@ currentViewChanged : function (viewName) {
 // @param calendar (Calendar) the calendar itself
 // @param rowNum (int) the row number to which the parameter date belongs
 // @param colNum (int) the column number to which the parameter date belongs
-// @return (HTML) HTML to display
+// @return (HTMLString) HTML to display
 //
 // @group monthViewFormatting
 // @visibility calendar
@@ -15069,16 +16757,17 @@ getDayBodyHTML : function (date, events, calendar, rowNum, colNum) {
     if (moreItemIndex == null) moreItemIndex = events.length;
 
     for (var i = 0; i < moreItemIndex; i++) {
-        var eTime = isc.Time.toTime(this.getEventStartDate(events[i]), this.timeFormatter, true) + " ";
-        if (!this.isPrinting && this.canEditEvent(events[i])) {
+        var title = this.getEventHeaderHTML(events[i], view);
+        if (!this.isPrinting && this.canEditEvent(events[i], view)) {
             // clicking these (active) links fires the Canvas.eventClick() notification
             var template  = "<a href='javascript:" + this.ID + ".monthViewEventClick(" +
-                rowNum + "," + colNum + "," + i + ");' class='"
-                + this.calMonthEventLinkStyle + "'>";
+                    rowNum + "," + colNum + "," + i + ");' class='"
+                    + this.calMonthEventLinkStyle + "'>"
+            ;
 
-            html += template + eTime + events[i][this.nameField] + "</a><br/>";
+            html += template + title + "</a><br/>";
         } else {
-            html += eTime + events[i][this.nameField] + "<br/>";
+            html += title + "<br/>";
         }
     }
     if (moreItemIndex != events.length && !this.isPrinting) {
@@ -15087,7 +16776,7 @@ getDayBodyHTML : function (date, events, calendar, rowNum, colNum) {
                 rowNum + "," + colNum + "," + moreItemIndex + ");' class='"
                 + this.calMonthEventLinkStyle + "'>",
             str = this.monthMoreEventsLinkTitle,
-            title = str.evalDynamicString(this, { eventCount: (events.length - 1 - i) })
+            title = str.evalDynamicString(this, { eventCount: (events.length - i) })
         ;
         html += moreLink + title + "</a><br/>";
     }
@@ -15095,6 +16784,7 @@ getDayBodyHTML : function (date, events, calendar, rowNum, colNum) {
 },
 
 monthViewEventClick : function (rowNum, colNum, eventIndex) {
+    if (this.monthView.isDisabled()) return;
     var events = this.monthView.getEvents(rowNum, colNum);
     var evt = events[eventIndex];
     if (this.eventClick(evt, "month")) this.showEventEditor(evt);
@@ -15132,7 +16822,7 @@ monthMoreEventsLinkClick : function (rowNum, colNum, startIndex) {
         var event = events[i];
         items.add({
             title: event[this.nameField],
-            enabled: this.canEditEvent(event),
+            enabled: this.canEditEvent(event, view),
             event: event,
             calendar: cal,
             click : function () {
@@ -15158,7 +16848,7 @@ monthMoreEventsLinkClick : function (rowNum, colNum, startIndex) {
 //
 // @param date (Date) Date the user is hovering over
 // @param events (Array of CalendarEvent) array of events occurring on the current date. May be empty.
-// @return (HTML) HTML string to display
+// @return (HTMLString) HTML string to display
 //
 // @visibility calendar
 //<
@@ -15167,7 +16857,7 @@ getMonthViewHoverHTML : function(currDate, events) {
         var retVal = "";
         var target = this.creator || this;
         for (var i = 0; i < events.length; i++) {
-            var eTime = isc.Time.toTime(target.getEventStartDate(events[i]), target.timeFormatter, true);
+            var eTime = isc.Time.toShortTime(target.getEventStartDate(events[i]), target.timeFormatter, true);
             retVal += "<nobr>" + eTime + " " + events[i][target.nameField] + "<nobr/><br/>";
         }
         return retVal;
@@ -15182,7 +16872,7 @@ getMonthViewHoverHTML : function(currDate, events) {
 // @param date (Date) JavaScript Date object representing this day
 // @param events (Array of CalendarEvent) events that fall on this day
 // @param calendar (Calendar) the calendar itself
-// @return (HTML) HTML to show in the header of a day in the month view
+// @return (HTMLString) HTML to show in the header of a day in the month view
 //
 // @group monthViewFormatting
 // @visibility calendar
@@ -15273,8 +16963,8 @@ dayHeaderClick : function (date, events, calendar, rowNum, colNum) {
 //> @method calendar.eventClick()
 // Called whenever an event is clicked on in the day, week or month views.
 // <P>
-// By default a dialog appears showing details for the event, and offering the ability to
-// edit events which are editable.  Return false to cancel the default action. This is a good
+// By default, a dialog appears showing details for the event, and offering the ability to
+// edit events that can be edited.  Return false to cancel the default action. This is a good
 // place to, for example, show a completely customized event dialog instead of the default one.
 //
 // @param event (CalendarEvent) event that was clicked on
@@ -15287,18 +16977,36 @@ eventClick : function (event, viewName) {
     return true;
 },
 
-_eventCanvasClick : function (canvas) {
+_eventCanvasClick : function (canvas, defaultOnly) {
     var event = canvas.event,
         view = canvas.calendarView,
         isWeekView = view.isWeekView(),
-        doDefault = this.eventClick(event, view.viewName)
+        doDefault = (defaultOnly ? true : this.eventClick(event, view.viewName)) != false
     ;
 
-    // bring the event to the front of the zorder
-    if (this.bringEventsToFront) canvas.bringToFront();
+    // defaultOnly is passed by _eventCanvasDoubleClick
+    if (!defaultOnly) {
+        if (this.canSelectEvents) {
+            if (isc.EH.modifierKeyDown()) {
+                if (!this.getSelection().isSelected(event)) {
+                    // CTRL down and event not already selected - select it
+                    this.selectEvent(event, canvas);
+                } else {
+                    // CTRL down and event already selected - deselect it
+                    this.deselectEvent(event, canvas);
+                }
+            } else {
+                // CTRL not down, performs a selectSingle, clearing other selected events
+                this.selectSingleEvent(event, canvas);
+            }
+            return;
+        } else if (this.bringEventsToFront) {
+            // bring the event to the front of the zorder
+            canvas.bringToFront();
+        }
+    }
 
     if (doDefault) {
-        if (!this.canEditEvent(event)) return;
         // handle the case when a selection is made, then an event is clicked
         this.clearViewSelection();
         if (!view.isTimelineView()) {
@@ -15310,7 +17018,59 @@ _eventCanvasClick : function (canvas) {
             var row = eventStart.getHours() * this.getRowsPerHour(view);
         }
 
-        this.showEventDialog(event);
+        if (!this.canEditEvent(event, view)) {
+            // show the editor in a disabled mode
+            this.showEventEditor(event);
+        } else {
+            // show the dialog in editable mode
+            this.showEventDialog(event);
+        }
+        return isc.EH.STOP_BUBBLING;
+    }
+},
+
+
+_eventCanvasKeyPress : function (canvas, key) {
+    var view = canvas.calendarView,
+        cache = canvas._cacheValues
+    ;
+    if (key) {
+        if (key == "Enter") {
+            // Enter opens the eventDialog (or eventEditor) for this event
+            if (cache.canEdit) this._eventCanvasClick(canvas, true);
+        } else if (key == "Backspace" || key == "Delete") {
+            // Delete removes this event from the calendar (close button)
+            if (cache.showCloseButton) {
+                var selected = this.getSelectedEvents();
+                for (var i=0; i<selected.length; i++) {
+                    var eCanvas = view.getCurrentEventCanvas(selected[i])
+                    this._eventCanvasCloseClick(eCanvas);
+                }
+            }
+        } else if (key == "Tab") {
+            this._tabPressed = true;
+        }
+    }
+},
+
+eventDoubleClick : function (event, viewName) {
+    return true;
+},
+_eventCanvasDoubleClick : function (canvas) {
+    var event = canvas.event,
+        view = canvas.calendarView,
+        isWeekView = view.isWeekView(),
+        doDefault = this.eventDoubleClick(event, view.viewName) != false
+    ;
+
+    // bring the event to the front of the zorder
+    if (this.canSelectEvents) {
+        // call the calendar-level handler, passing the second param, defaultOnly:true - that
+        // will skip calling bringToFront() again and firing the eventClick() notification, but
+        // still perform it's default behavior of showing the editor or dialog for the event
+        this._eventCanvasClick(canvas, true)
+    } else if (this.bringEventsToFront) {
+        canvas.bringToFront();
     }
 },
 
@@ -15434,7 +17194,8 @@ getValidSnapDate : function (referenceDate, snapDate) {
 selectTab : function (tabnum) {
     if (this.mainView && this.mainView.isA("TabSet") && this.mainView.tabs.getLength() > tabnum) {
         this.mainView.selectTab(tabnum);
-        this.refreshSelectedView();
+        // this should not be necessary, and is quite costly
+        //this.refreshSelectedView();
         return true;
     } else {
         return false;
@@ -15446,7 +17207,7 @@ parentResized : function () {
     //isc.logWarn('calendar parentResized');
      this.Super('parentResized', arguments);
      // only resize the eventEditorLayout if its shown
-     if (this.eventEditorLayout.isVisible()) this.eventEditorLayout.sizeMe();
+     if (this.eventEditorLayout && this.eventEditorLayout.isVisible()) this.eventEditorLayout.sizeMe();
 },
 
 //> @method calendar.dateChanged()
@@ -15461,7 +17222,7 @@ dateChanged : function () {
 //> @method calendar.getActiveDay()
 // Gets the day of the week (0-6) that the mouse is currently over.
 //
-// @return (integer) the day that the mouse is currently over
+// @return (Integer) the day that the mouse is currently over
 // @see calendar.getActiveTime()
 // @visibility external
 //<
@@ -15497,8 +17258,34 @@ getActiveTime : function () {
 // @param [end] (Date) end of range
 // @visibility external
 //<
-setTimelineRange : function (start, end, gran, unitCount, units, headerLevels, callback) {
-    if (this.timelineView) this.timelineView.setTimelineRange(start, end, gran, unitCount, units, headerLevels);
+setTimelineRange : function (start, end, callback) {
+    var view = this.timelineView;
+
+
+    // if there's more than one headerLevel, headerSpans need updating - needs a full rebuild
+    var needsRebuild = this.headerLevels && this.headerLevels.length > 1;
+    // if hidden dates are allowed, needs a refreshFields()
+    var needsRefreshFields = !this.showWeekends || this.shouldShowDate != null;
+
+    start = isc.DateUtil.getStartOf(start, this.timelineGranularity, false, this.firstDayOfWeek);
+    if (!end) {
+        // if no endDate passed, calculate one based on the current visiblt view range
+        var length = Math.round(isc.DateUtil.getPeriodLength(view.startDate, view.endDate,
+                this.timelineGranularity));
+        end = isc.DateUtil.dateAdd(start, this.timelineGranularity, length, 1,
+            null, null, this.firstDayOfWeek);
+    }
+
+    // cols range from the rounded start of the view to the passed or calculated end
+    var colsRequired = Math.round(isc.DateUtil.getPeriodLength(start, end,
+            this.timelineGranularity) / this.timelineUnitsPerColumn);
+
+    if (colsRequired != this.timelineColumnSpan) {
+        this.timelineColumnSpan = colsRequired;
+        if (this.timelineView) this.timelineView.setTimelineRange(start, end);
+    } else {
+        view.setChosenDate(start);
+    }
     if (callback) this.fireCallback(callback);
 },
 
@@ -15525,22 +17312,28 @@ setTimelineRange : function (start, end, gran, unitCount, units, headerLevels, c
 // @visibility external
 //<
 setResolution : function (headerLevels, unit, unitCount, granularityPerColumn, callback) {
-    if (this.timelineView) {
-        granularityPerColumn = granularityPerColumn || 1;
-        if (headerLevels && headerLevels.length > 0) {
-            // update the timelineGranularity to the unit of the innermost headerLevel, so
-            // that calculating column-dates works correctly
-            this.timelineGranularity = headerLevels[headerLevels.length-1].unit;
-        }
-        // calculate the endDate by adding (unit*unitCount) to the startDate
-        var unitKey = unit;
-        var endDate = isc.DateUtil.dateAdd(this.startDate.duplicate(), unitKey, unitCount, 1);
-        var colsRequired = Math.round(isc.DateUtil.convertPeriodUnit(unitCount, unitKey, this.timelineGranularity));
-        this.timelineView.setTimelineRange(this.startDate, endDate, this.timelineGranularity, colsRequired,
-            granularityPerColumn, headerLevels
-        );
-        this.eventEditor.rebuildFieldList();
+    // revert to one granularity per column if not passed
+    this.timelineUnitsPerColumn = granularityPerColumn || 1;
+    if (unit) this.timelineGranularity = unit;
+    if (headerLevels) this.headerLevels = headerLevels;
+    if (headerLevels.length > 0) {
+        // update the timelineGranularity to the unit of the innermost headerLevel, so
+        // that calculating column-dates works correctly
+        this.timelineGranularity = headerLevels[headerLevels.length-1].unit;
     }
+
+    // calculate the endDate by adding (unit*unitCount) to the startDate
+    var view = this.timelineView;
+    var unitKey = unit;
+    var endDate = isc.DateUtil.dateAdd(this.startDate, unitKey, unitCount, 1,
+            null, null, this.firstDayOfWeek);
+    var colsRequired = Math.round(isc.DateUtil.getPeriodLength(this.startDate, endDate,
+            this.timelineGranularity) / this.timelineUnitsPerColumn);
+    if (colsRequired != this.timelineColumnSpan) {
+        this.timelineColumnSpan = colsRequired;
+    }
+    // rebuild the timeline
+    if (view) view.setChosenDate(this.startDate);
     if (callback) this.fireCallback(callback);
 },
 
@@ -15571,6 +17364,8 @@ getEventLength : function (event, unit) {
 },
 
 canEditEventLane : function (event, view) {
+    view = view || this.getSelectedView();
+    if (!view.usesLanes()) return false;
     var canEdit = event[this.canEditLaneField] != null ?
             event[this.canEditLaneField] : this.canEditLane != false;
     return canEdit;
@@ -15751,6 +17546,31 @@ checkForOverlap : function (view, eventCanvas, event, startDate, endDate, lane) 
     }
 }
 
+,
+
+// customize printHTML - we want to write out the controlsBar and the current view, not the
+// tabSet and it's container, since the tab-buttons will be removed, but the styling still includes
+// offsets which complicate eventCanvas-placement
+getPrintHTML : function (printProperties, callback) {
+    // PrintCanvas.getPrintFrameURL() will use this to pass a URL param to the printFrame.
+    isc._printWithDensityThisTime = true;
+    if (callback) {
+        this.delayCall("asyncGetPrintHTML", [printProperties, callback]);
+        return null;
+    } else {
+        return this.asyncGetPrintHTML(printProperties, callback);
+    }
+},
+asyncGetPrintHTML : function (printProperties, callback) {
+    var html = this.controlsBar.getHandle().innerHTML; //getPrintHTML();
+    var view = this.getSelectedView();
+    html += view.getPrintHTML();
+    //html += view.body.getHandle().innerHTML;
+    if (isc.isA.Function(callback)) callback(html);
+    if (callback && isc.isA.Function(callback.callback)) callback.callback(html);
+    return html;
+}
+
 });
 
 isc.Calendar.addClassMethods({
@@ -15800,7 +17620,8 @@ isc.EventWindow.addProperties({
     minWidth: 5,
     showHover: true,
     canHover: true,
-    hoverWidth: 200,
+    hoverAutoFitWidth: true,
+    hoverAutoFitMaxWidth: 200,
 
     canDragResize: true,
     canDragReposition: true,
@@ -15828,7 +17649,7 @@ isc.EventWindow.addProperties({
     _footerProperties: {overflow:"hidden", defaultLayoutAlign:"center", height: 7},
 
     initWidget : function () {
-        //headerProps: isc.addProperties({}, {dragTarget: view.eventDragTarget}),
+        //headerProps: isc.addProperties({}, {dragTarget: view.eventDragCanvas}),
 
         this.addProperties(this.creator.viewProps);
         this.addProperties(this.creator.gridProps);
@@ -15840,7 +17661,7 @@ isc.EventWindow.addProperties({
         this.showHeader = this.calendar.showEventHeaders;
         this.showBody = this.calendar.showEventDescriptions;
 
-        this.footerProperties = isc.addProperties({dragTarget: this.eventDragTarget},
+        this.footerProperties = isc.addProperties({dragTarget: this.eventDragCanvas},
                 this.footerProperties, this._footerProperties);
 
         if (this.bodyConstructor == null) this.bodyConstructor = isc.HTMLFlow;
@@ -16006,7 +17827,7 @@ isc.EventWindow.addProperties({
 
         var doDefault = cal.eventClick(this.event, this._isWeek ? "week" : "day");
         if (doDefault) {
-            if (!cal.canEditEvent(this.event)) return;
+            if (!cal.canEditEvent(this.event, this.calendarView)) return;
             // handle the case when a selection is made, then an event is clicked
             cal.clearViewSelection();
             var offset = (this._isWeek && cal.weekView.isLabelCol(0) ? 1 : 0);
@@ -16021,7 +17842,7 @@ isc.EventWindow.addProperties({
 
     mouseDown : function () {
         if (this.dragTarget) this.dragTarget.eventCanvas = this;
-        this.calendar.eventDialog.hide();
+        this.calendar.hideEventDialog();
         return isc.EH.STOP_BUBBLING;
     },
 
@@ -16252,6 +18073,7 @@ isc.EventWindow.addProperties({
 
     parentResized : function () {
         this.Super('parentResized', arguments);
+        if (this.calendarView.shouldShowColumnLayouts()) return;
         // need to resize the event window here (columns are usually auto-fitting, so the
         // available space probably changed if the calendar as a whole changed size)
         if (this.event) this.calendarView.sizeEventCanvas(this);
@@ -16323,7 +18145,7 @@ isc.TimelineWindow.addProperties({
             doDefault = cal.eventClick(this.event, "timeline")
         ;
         if (doDefault) {
-            if (!cal.canEditEvent(this.event)) return;
+            if (!cal.canEditEvent(this.event, tl)) return;
             cal.showEventDialog(this.event);
         } else return isc.EH.STOP_BUBBLING;
     },
@@ -16473,18 +18295,36 @@ isc.EventCanvas.addProperties({
     minHeight: 1,
     minWidth: 1,
 
+    hideUsingDisplayNone: true,
+
     // hover properties - see also getHoverHTML()
     showHover: true,
     canHover: true,
     hoverMoveWithMouse: true,
-    hoverWidth: 200,
+    hoverAutoFitWidth: true,
+    hoverAutoFitMaxWidth: 200,
 
     // drag properties
+    dragType: "EventCanvas",
     snapToGrid: false,
-    keepInParentRect: true,
+    //keepInParentRect: true,
     dragAppearance: "none",
     canDragResize: true,
     canDragReposition: true,
+
+    isEventCanvas: true,
+    //> @attr eventCanvas.isZoneCanvas (boolean : false : R)
+    // Readonly property indicating whether this is a special +link{class:ZoneCanvas} subclass.
+    // @visibility calendar
+    //<
+    isZoneCanvas: false,
+
+    //> @attr eventCanvas.isIndicatorCanvas (boolean : false : R)
+    // Readonly property dictating whether this is a special +link{class:IndicatorCanvas}
+    // subclass.
+    // @visibility calendar
+    //<
+    isIndicatorCanvas: false,
 
     //> @attr eventCanvas.showHeader (Boolean : null : IRW)
     // Renders a header DIV above the main body of the event, an area of limited
@@ -16518,13 +18358,13 @@ isc.EventCanvas.addProperties({
         return this.calendar.showEventDescriptions;
     },
 
-    //> @attr eventCanvas.vertical (Boolean : true : IRW)
+    //> @attr eventCanvas.verticalResize (Boolean : null : IRW)
     // Indicates the orientation of the event in its containing view.  Affects drag and resize
     // orientation and which edges of the canvas are available for resizing.
     //
     // @visibility external
     //<
-    //vertical: true,
+    //verticalResize: true,
 
     //> @attr eventCanvas.styleName (CSSStyleName : null : IRW)
     // The CSS class for this EventCanvas.  Defaults to the style on
@@ -16635,10 +18475,50 @@ isc.EventCanvas.addProperties({
 
     //opacity: 90,
 
-    isEventCanvas: true,
+    // component implementation - see calendar.create/updateEventCanvasComponent() APIs/docs
+    showComponent: null,
+    _shouldShowComponent : function () {
+        if (this.showComponent == false) return false;
+        return this.calendar.showEventCanvasComponents;
+    },
+    getComponent : function (event) {
+        if (this.component) {
+            return this.component;
+        }
+        this.component = this.calendar.createEventCanvasComponent(this, this.calendarView);
+        this.addMember(this.component);
+        return this.component;
+    },
 
+    allowBodyScroll: false,
+    headerLabelDefaults: {
+        _constructor: "Canvas",
+        width: "100%", height: 1,
+        autoDraw: false,
+        overflow: "visible"
+    },
+    bodyLabelDefaults: {
+        _constructor: "Canvas",
+        width: "100%",
+        height: "*",
+        overflow: "auto",
+        autoDraw: false
+    },
+
+    init : function () {
+        // autoFit means size to the header and/or body content - used with showColumnLayouts
+        this.autoFit = this.calendar.showColumnLayouts;
+        if (this.autoFit) {
+            this.height = 1;
+            this.overflow = "visible";
+        } else {
+            this.overflow = "hidden";
+        }
+        return this.Super("init", arguments);
+    },
     initWidget : function () {
-        if (this.vertical == null) this.vertical = this.calendarView.verticalEvents;
+        // verticalResize is null here, use calendarView.verticalEvents
+        if (this.verticalResize == null) this.verticalResize = this.calendarView.verticalEvents;
 
         this.resizeFrom = [];
 
@@ -16647,10 +18527,19 @@ isc.EventCanvas.addProperties({
         if (this.useStaticControls == null) {
             this.useStaticControls = (this.calendar.useEventCanvasRolloverControls == false);
         }
-        if (this.canFocus == null) this.canFocus = this.calendar.canSelectEvents;
+        if (this.canFocus == null) {
+            this.setCanFocus(this.calendar.canSelectEvents);
+        }
+
+        if (this.calendar.showColumnLayouts) {
+            //this.dragType = "EventCanvas";
+            this.dragTarget = this;
+            this.dragAppearance = "target";
+            this.canDragReposition = true;
+            this.canDrop = true;
+        }
 
         //if (!this.calendar.showEventDescriptions) this.showBody = false;
-
         this.Super("initWidget", arguments);
 
         if (this.shouldShowGripper()) this.createGripper();
@@ -16661,7 +18550,36 @@ isc.EventCanvas.addProperties({
         if (this._mouseTransparent == null && !this.calendarView.shouldShowEventHovers()) {
             //this._mouseTransparent = true;
         }
+
+        this.createHeaderAndBody();
+
         this.updateShowHovers();
+    },
+
+    createHeaderAndBody : function () {
+        if (this.getShowHeader()) {
+            // header customizations
+            var hProps = { dragTarget: this };
+            if (this.headerHeight != null) {
+                hProps.height = this.headerHeight;
+                hProps.overflow = "hidden";
+            }
+            if (!this.getShowBody()) hProps.height = "*";
+            this.addAutoChild("headerLabel", hProps);
+            this.addMember(this.headerLabel);
+        }
+
+        if (this.getShowBody()) {
+            // body customizations
+            var bProps = { dragTarget: this };
+            if (this.autoFit) bProps.overflow = "visible";
+            else if (!this.allowBodyScroll) bProps.overflow = "hidden";
+            this.addAutoChild("bodyLabel", bProps);
+        }
+
+        if (this.bodyLabel) {
+            this.addMember(this.bodyLabel, (this.titleOrientation == "bottom" ? 0 : null));
+        }
     },
 
     updateShowHovers : function () {
@@ -16671,7 +18589,8 @@ isc.EventCanvas.addProperties({
     shouldShowGripper : function () {
         var cal = this.calendar;
         // don't show the gripper if there's no event, or the event can't be edited or dragged
-        if (!this.event || !cal.canEditEvent(this.event) || !cal.canDragEvent(this.event)) {
+        if (!this.event || !cal.canEditEvent(this.event, this.calendarView) ||
+                !cal.canDragEvent(this.event, this.calendarView)) {
             return false;
         }
         if (this.showGripper != null) return this.showGripper;
@@ -16727,14 +18646,225 @@ isc.EventCanvas.addProperties({
     },
 
     redraw : function () {
-        this.Super("redraw", arguments);
+        var result = this.Super("redraw", arguments);
         if (this.gripper || this.label) this.repositionPeers();
+        return result;
+    },
+
+    draw : function () {
+        var result = this.Super("draw", arguments);
+        //if (this._updateCanvasColorsOnDraw) {
+            delete this._updateCanvasColorsOnDraw;
+            this.updateCanvasColors();
+        //}
+        return result;
     },
 
     hide : function () {
         this.Super("hide", arguments);
         if (this.gripper) this.gripper.hide();
         if (this.label) this.label.hide();
+        this.hideLeadingTrailingDates();
+    },
+
+    leadingTrailingIconDefaults: {
+        _constructor: "Img",
+        autoDraw:false,
+        _redrawWithParent: false,
+        getCalendar : function () { return this.creator.calendar; },
+        getView : function () { return this.creator.calendarView; },
+        getEventCanvas : function () { return this.creator; },
+        getEventInstance : function () { return this.creator.event; },
+        mouseDown: function () {
+            this.Super("mouseDown", arguments);
+            return isc.EH.STOP_BUBBLING;
+        },
+        dragAppearance: "target",
+        dragRepositionStart : function () {
+            this.startTop = this.getTop();
+            this.lastleft = this.getLeft();
+        },
+        dragRepositionMove : function () {
+            //isc.logWarn('icon drag start:');
+            this.setTop(this.startTop);
+            var newDate = this.getView().getDateFromPoint();
+            // left-align the icon to the snap-date - the image itself is also left-aligned
+            var newLeft = this.getView().getDateLeftOffset(newDate);
+            var line = window[this.lineID];
+            if (this.type == "trail") {
+                newLeft += this.getView().getSnapGapPixels();
+                // right-align the icon to the snap-date - the image itself is also right-aligned
+                newLeft -= this.getWidth();
+                if (newLeft+1 < this.getEventCanvas().getLeft() + this.getEventCanvas().getWidth()) {
+                    // over the canvas - don't move the icon
+                    this.setLeft(this.lastleft);
+                    return;
+                }
+                line.setWidth(Math.round((newLeft - line.getLeft()) + this.getWidth()));
+            } else {
+                if (newLeft-1 > this.getEventCanvas().getLeft()) {
+                    // over the canvas - don't move the icon
+                    this.setLeft(this.lastleft);
+                    return;
+                }
+                line.setLeft(newLeft);
+                line.setWidth(Math.round(this.getEventCanvas().getLeft() - newLeft));
+            }
+            this.lastLeft = newLeft;
+            this.setLeft(newLeft);
+        },
+        dragRepositionStop : function () {
+            this.setTop(this.startTop);
+            var newLeft = this.getLeft();
+            // if it's a trailing icon, add a snapGap
+            if (this.type == "trail") newLeft -= 1;
+
+            // new leading/trailingDate is the one at the new left offset
+            var newDate = this.getView().getDateFromPoint(newLeft + 1);
+            //isc.say("dropping at " + newDate.toString());
+
+            var cal = this.getCalendar();
+            var eventObj = this.getEventInstance();
+            var dateField = this.type == "trail" ? cal.trailingDateField : cal.leadingDateField;
+            var otherFields = {};
+            otherFields[dateField] = newDate;
+            // build the new event as it would be after the drop
+            var newEvent = isc.addProperties({}, eventObj, otherFields);
+            cal.updateCalendarEvent(eventObj, newEvent); //, otherFields, true);
+
+            return true;
+        }
+    },
+    leadingTrailingLineDefaults: {
+        _constructor: "Canvas",
+        autoDraw:false,
+        _redrawWithParent: false,
+        height: 2,
+        overflow: "hidden",
+        styleName: "eventLine"
+    },
+
+    createLeadingTrailingDates : function () {
+        var view = this.calendarView;
+        if (!this.leadingIcon) {
+            // create the lead/trailing icons and lines
+            this.leadingLine = this.createAutoChild("leadingTrailingLine", {
+                type: "lead"
+            });
+            this.leadingIcon = this.createAutoChild("leadingTrailingIcon", {
+                width: view.leadIconSize, height: view.leadIconSize,
+                lineID: this.leadingLine.getID(),
+                type: "lead",
+                src: view.leadingEndPointImage,
+                canDragReposition: this.canDragReposition,
+                canDrag: this.canDrag
+            });
+            // trailing line and icon
+            this.trailingLine = this.createAutoChild("leadingTrailingLine", {
+                type: "trail"
+            });
+            this.trailingIcon = this.createAutoChild("leadingTrailingIcon", {
+                width: view.trailIconSize, height: view.trailIconSize,
+                lineID: this.trailingLine.getID(),
+                type: "trail",
+                src: view.trailingEndPointImage,
+                canDragReposition: this.canDragReposition,
+                canDrag: this.canDrag
+            });
+        }
+        if (this.leadingLine.parentElement != view.body) view.body.addChild(this.leadingLine, null, false);
+        if (this.leadingIcon.parentElement != view.body) view.body.addChild(this.leadingIcon, null, false);
+        if (this.trailingLine.parentElement != view.body) view.body.addChild(this.trailingLine, null, false);
+        if (this.trailingIcon.parentElement != view.body) view.body.addChild(this.trailingIcon, null, false);
+    },
+    hideLeadingTrailingDates : function () {
+        this.leadingIcon && this.leadingIcon.hide();
+        this.leadingLine && this.leadingLine.hide();
+        this.trailingIcon && this.trailingIcon.hide();
+        this.trailingLine && this.trailingLine.hide();
+    },
+    updateLeadingTrailingDates : function (canvas) {
+        // destroy previous lines and icons before creating new ones
+        //canvas.destroyLines();
+        if (!this.leadingIcon) {
+            this.createLeadingTrailingDates();
+        }
+
+        var showLeadingIcon = this._positionIcon(this.leadingIcon, this.leadingLine);
+        var showTrailingIcon = this._positionIcon(this.trailingIcon, this.trailingLine);
+
+        // and show/hide stuff as appropriate
+        if (this.leadingLine.getWidth() > 0) {
+            if (!this.leadingLine.isDrawn()) this.leadingLine.draw();
+            this.leadingLine.show()
+        } else this.leadingLine.hide();
+        if (showLeadingIcon) {
+            if (!this.leadingIcon.isDrawn()) this.leadingIcon.draw();
+            this.leadingIcon.show();
+        } else this.leadingIcon.hide();
+
+        if (this.trailingLine.getWidth() > 0) {
+            if (!this.trailingLine.isDrawn()) this.trailingLine.draw();
+            this.trailingLine.show()
+        } else this.trailingLine.hide();
+        if (showTrailingIcon) {
+            if (!this.trailingIcon.isDrawn()) this.trailingIcon.draw();
+            this.trailingIcon.show();
+        } else this.trailingIcon.hide();
+    },
+
+    _positionIcon : function (icon, line) {
+        var cal = this.calendar,
+            view = this.calendarView,
+            canvas = this,
+            event = canvas.event,
+            type = icon.type,
+            canvasTop = canvas.getTop(),
+            canvasLeft = canvas.getLeft(),
+            canvasWidth = canvas.getVisibleWidth(),
+            canvasHeight = canvas.getVisibleHeight()
+        ;
+
+        var iconVisible = true;
+        var iconLeft = 0;
+        var iconTop = Math.round(canvasTop + ((canvasHeight - icon.height) / 2));
+
+        if (!line) line = window[icon.lineID];
+        var lineLeft = canvasLeft;
+        var lineTop = Math.round(canvasTop + ((canvasHeight - line.getHeight()) / 2));
+        var lineWidth = 0;
+
+        if (type == "trail") {
+            // icon is visible if trailingDate < view.endDate - line to grid-edge, as required
+            iconVisible = view.compareDates(event[cal.trailingDateField],view.endDate) >= 0;
+            iconLeft = view.getDateLeftOffset(event[cal.trailingDateField]);
+            iconLeft += view.getSnapGapPixels() - 1;
+            iconLeft -= icon.width;
+
+            lineLeft += canvasWidth;
+            if (iconVisible) lineWidth = (iconLeft + icon.width) - lineLeft;
+            else lineWidth = view.body._fieldWidths.sum() - lineLeft;
+        } else {
+            // icon is visible if leadingDate > view.startDate - line to grid-edge, as required
+            iconVisible = view.compareDates(event[cal.leadingDateField],view.startDate) < 0;
+            iconLeft = view.getDateLeftOffset(event[cal.leadingDateField]);
+
+            lineLeft = Math.max(0, iconLeft);
+            lineWidth = canvasLeft - lineLeft;
+        }
+
+        //isc.logWarn(event[cal.trailingDateField].toShortDate());
+        line.setRect(Math.round(lineLeft), Math.round(lineTop),
+            (Math.round(lineWidth) > 0 ? Math.round(lineWidth) : null));
+
+        if (iconVisible) {
+            icon.setRect(Math.round(iconLeft), Math.round(iconTop));
+            //icon.show();
+        } else {
+            icon.hide();
+        }
+
+        return iconVisible;
     },
 
     repositionPeers : function (skipDraw) {
@@ -16842,31 +18972,70 @@ isc.EventCanvas.addProperties({
 
         // pre-calculate a bunch of date/sizing/edit values for the new event to save time later
         var cache = this._updateValueCache(event, styleName, headerStyle, bodyStyle);
+        this.sortValue = event[cal.startDateField].duplicate();
 
         // apply some drag-related properties
         //this.showCloseButton = cache.canRemove;
         this.canDragReposition = cache.canDragMove;
         this.canDragResize = cache.canDragResize;
         //this.setProperty("canDrag", cache.canDrag);
+        if (this.canDragReposition == false) {
+            this.setCursor(isc.Canvas.DEFAULT);
+        } else {
+            this.setCursor(isc.Canvas.MOVE);
+        }
 
         this.resizeFrom = [];
         if (cache.canDragResize) {
             if (cache.canDragStartDate) {
-                if (!this.vertical) this.resizeFrom.add("L");
+                if (!this.verticalResize) this.resizeFrom.add("L");
             }
             if (cache.canDragEndDate) {
-                if (!this.vertical) this.resizeFrom.add("R");
+                if (!this.verticalResize) this.resizeFrom.add("R");
                 else this.resizeFrom.add("B");
             }
         }
-        // - this.dragTarget = this.calendarView.dragTarget;
 
         if (this.shouldShowGripper()) this.createGripper();
         else if (this.gripper) this.gripper.hide();
         if (this.shouldShowLabel()) this.createLabel();
         else if (this.label) this.label.hide();
 
-        this.setEventStyle(cache.eventStyleName, headerStyle, bodyStyle);
+        // only call setEventStyle() if it's changed
+        this.checkStyle();
+        //this.setEventStyle(cache.eventStyleName, headerStyle, bodyStyle);
+
+        // these two attributes are used by willShowHover(), to only show event-hovers
+        // when calendar.alwaysShowEventHovers is true, or the event's content is clipped
+        this._willShowHover = null;
+        this._contentHeight = 0;
+
+        // set content in the header and body widgets
+        if (this.getShowHeader()) {
+            this.headerLabel.setContents(this.getHeaderHTML() || "");
+        }
+        if (this.getShowBody()) {
+            // by default, getBodyHTML() will return null if the descriptionField is unset for
+            // the event, and that causes setContents() to no-op and not clear the previous
+            // event's description - if null, default to empty string
+            this.bodyLabel.setContents(this.getBodyHTML() || "");
+        }
+
+        // get the child component that fills this canvas
+        if (this.calendar.showEventCanvasComponent(this)) {
+            var component = this.getComponent(event);
+            if (component) {
+                this.calendar.updateEventCanvasComponent(this, component);
+            }
+        }
+    },
+
+    setCursor : function (cursor) {
+        this.Super("setCursor", arguments);
+        // potentially also setCursor() on the header/body widgets, and the custom component
+        if (this.getShowHeader()) this.headerLabel.setCursor(this.cursor)
+        if (this.getShowBody()) this.bodyLabel.setCursor(this.cursor)
+        if (this.component && this.component.setCursor) this.component.setCursor(this.cursor);
     },
 
     _getCacheValue : function (valueName) {
@@ -16879,12 +19048,22 @@ isc.EventCanvas.addProperties({
         if (this.event) {
             var cal = this.calendar,
                 view = this.calendarView,
-                cache = this._cacheValues,
-                canEdit = cal.canEditEvent(event),
-                canDrag = cal.canDragEvent(event),
-                canResize = cal.canResizeEvent(event),
-                canRemove = cal.canRemoveEvent(event)
+                cache = this._cacheValues
             ;
+            // store various drag-related properties
+            cache.canEdit = cal.canEditEvent(event, view);
+            cache.canDrag = cache.canDragMove = cal.canDragEvent(event, view);
+            cache.canDragResize = cal.canResizeEvent(event, view);
+            cache.canRemove = cal.canRemoveEvent(event, view);
+
+            if (this._inPrintFlow) {
+                // if called when printing, disable cursor-changes
+                cache.canDrag = false;
+                cache.canDragMove = false;
+                cache.canDragResize = false;
+                cache.canRemove = false;
+            }
+
             // pre-calculate some event-related values
             cache.eventStartDate = cal.getEventStartDate(event).getTime();
             cache.eventEndDate = cal.getEventEndDate(event).getTime();
@@ -16896,17 +19075,11 @@ isc.EventCanvas.addProperties({
             cache.viewStartDate = cal.getPeriodStartDate(view).getTime();
             cache.viewEndDate = cal.getPeriodEndDate(view).getTime();
 
-            // store various drag-related properties
-            cache.canEdit = canEdit;
-            cache.canDrag = canDrag;
-            cache.canDragMove = canDrag;
-            cache.canDragResize = canResize;
+            // drag properties
             cache.canDragStartDate = cache.canDragResize && cache.eventStartDate >= cache.viewStartDate;
             if (view.verticalEvents) cache.canDragStartDate = false;
             cache.canDragEndDate = cache.canDragResize && cache.eventEndDate && cache.eventEndDate <= cache.viewEndDate;
-
-            // drag properties
-            cache.showCloseButton = canRemove;
+            cache.showCloseButton = cache.canRemove;
 
         }
 
@@ -16939,9 +19112,9 @@ isc.EventCanvas.addProperties({
         if (this.closeButton) this.closeButton.canFocus = false;
         if (this.buttonLayout) {
             this.buttonLayout.canFocus = false;
-            this.addChild(this.buttonLayout);
+            this.addChild(this.buttonLayout, null, false);
         }
-        if (this.vertical) {
+        if (this.verticalResize) {
             this.startResizer = null;
             this.endResizer = this.endResizerB;
         } else {
@@ -16950,52 +19123,72 @@ isc.EventCanvas.addProperties({
         }
         if (this.startResizer) {
             this.startResizer.dragTarget = this.dragTarget;
-            this.addChild(this.startResizer);
+            this.addChild(this.startResizer, null, false);
         }
         if (this.endResizer) {
-        this.endResizer.dragTarget = this.dragTarget;
-            this.addChild(this.endResizer);
+            this.endResizer.dragTarget = this.dragTarget;
+            this.addChild(this.endResizer, null, false);
         }
 
         var cache = this._cacheValues || {};
 
+        if (!this.buttonLayout.isDrawn() && this.isDrawn()) this.buttonLayout.draw();
         this.buttonLayout.show();
+        this.buttonLayout.bringToFront();
         if (this.closeButton) {
             if (!cache.showCloseButton) this.closeButton.hide();
-            else this.closeButton.show();
+            else {
+                if (!this.closeButton.isDrawn() && this.isDrawn()) this.closeButton.draw();
+                this.closeButton.show();
+            }
         }
         if (this.contextButton) {
             if (!this.shouldShowContextButton()) this.contextButton.hide()
             else {
                 // only shown if not switched off and getEventCanvasMenuItems() returns something
                 var menuItems = this.calendar.getEventCanvasMenuItems(this, this.calendarView);
-                if (menuItems) this.contextButton.show();
-                else this.contextButton.hide();
+                if (menuItems) {
+                    if (!this.contextButton.isDrawn() && this.isDrawn()) this.contextButton.draw();
+                    this.contextButton.show();
+                } else this.contextButton.hide();
             }
         }
 
         if (this.startResizer) {
             if (!cache.canDragStartDate) this.startResizer.hide();
-            else this.startResizer.show();
+            else {
+                if (!this.startResizer.isDrawn() && this.isDrawn()) this.startResizer.draw();
+                this.startResizer.show();
+                this.startResizer.bringToFront();
+            }
         }
         if (this.endResizer) {
             if (!cache.canDragEndDate) this.endResizer.hide();
-            else this.endResizer.show();
+            else {
+                if (!this.endResizer.isDrawn() && this.isDrawn()) this.endResizer.draw();
+                this.endResizer.show();
+                this.endResizer.bringToFront();
+            }
         }
     },
 
-
-    setDragProperties : function (canDragReposition, canDragResize, dragTarget) {
-        this.canDragReposition = canDragReposition == null ? true : canDragReposition;
-        this.canDragResize = canDragResize == null ? true : canDragResize;
-        this.dragTarget = dragTarget;
+    markForColorUpdate : function (data) {
+        // flags that colors were changed on style-handles - causes checkStyle()
+        // to always run setStyleName(), even if the styleName is the same -
+        // needed to clear the style handles
+        this.needsColorUpdateOnSetEvent = true;
     },
 
     setEventStyle : function (styleName, headerStyle, bodyStyle) {
         headerStyle = headerStyle || this.headerStyle || (styleName + "Header");
         bodyStyle = bodyStyle || this.bodyStyle || (styleName + "Body");
         this.baseStyle = styleName;
-        this.styleName = styleName;
+        if (this.event.isSelected) {
+            this.baseStyle += "Selected";
+            headerStyle += "Selected";
+            bodyStyle += "Selected";
+            styleName += "Selected";
+        }
         this._bodyStyle = bodyStyle;
         this._headerStyle = headerStyle;
         if (this.gripper) {
@@ -17006,8 +19199,60 @@ isc.EventCanvas.addProperties({
         // if the innerHTML has been cached, delete to rebuild with the new styles
         if (this._cacheValues) delete this._cacheValues._innerHTML;
 
-        this.setStyleName(null);
-        this.setStyleName(styleName);
+        if (this.needsColorUpdateOnSetEvent || this.styleName != styleName) {
+            delete this.needsColorUpdateOnSetEvent;
+            this.setStyleName(styleName);
+            if (this.getShowHeader()) this.headerLabel.setStyleName(this._headerStyle);
+            if (this.getShowBody()) this.bodyLabel.setStyleName(this._bodyStyle);
+            this.markForRedraw();
+        }
+
+        this.updateCanvasColors();
+    },
+
+    updateCanvasColors : function () {
+        // called from draw(), may not have an event yet in SGWT
+        if (!this.event) return;
+
+        var e = this.event;
+        var domAccessed = false;
+        if (e.textColor || e.backgroundColor || e.borderColor) {
+            // if the event has a specified backgroundColor, set it directly on the styleHandle
+            // so that an eventCanvas as a whole gets the same backgroudColor as the body
+            var handle = this.getStyleHandle();
+            if (handle) {
+                handle["background-color"] = e.backgroundColor;
+                if (e.borderColor) {
+                    handle["border-style"] = "solid";
+                    handle["border-color"] = e.borderColor;
+                } else {
+                    handle["border-color"] = null;
+                }
+            }
+            if (e.textColor || e.backgroundColor) {
+                // apply text and background, but not border, to the body widget
+                var bodyHandle = this.bodyLabel ? this.bodyLabel.getStyleHandle() : null;
+                if (bodyHandle) {
+                    bodyHandle["background-color"] = e.backgroundColor;
+                    if (e.textColor) bodyHandle["color"] = e.textColor;
+                }
+            }
+            domAccessed = true;
+        }
+        if (e.headerTextColor || e.headerBackgroundColor || e.headerBorderColor) {
+            var headerHandle = this.headerLabel ? this.headerLabel.getStyleHandle() : null;
+            if (headerHandle) {
+                // apply/clear text, background and border colors to the header widget
+                if (e.headerBackgroundColor) headerHandle["background-color"] = e.headerBackgroundColor;
+                if (e.headerTextColor) headerHandle["color"] = e.headerTextColor;
+                if (e.headerBorderColor) headerHandle["border-color"] = e.headerBorderColor;
+            }
+            domAccessed = true;
+        }
+        // this flags that the colors are customized - if this canvas is reused while
+        // this flag is set, setStyleName() needs to be called, even if the styleName
+        // hasn't changed, in order to overwrite those customized settings on the handles
+        if (domAccessed) this.markForColorUpdate();
     },
 
 
@@ -17060,8 +19305,7 @@ isc.EventCanvas.addProperties({
     //<
     //headerHeight: 12,
     getHeaderHeight : function (textHeight) {
-        var result = this._getCacheValue("_headerHeight");
-        if (!result) {
+        var result;
         if (textHeight || this.getShowBody()) {
             var definedHeight = this._getDefinedHeaderHeight(),
                 thisWidth = this.isDrawn() || !this.calendarView.isTimelineView() ?
@@ -17071,11 +19315,9 @@ isc.EventCanvas.addProperties({
             var height = isc.EventCanvas.getHeaderHeight(this.getHeaderHTML(), width,
                     definedHeight, this.getHeaderWrap(), this
             );
-                result = height;
+            result = height;
         } else {
-                result = this.getInnerHeight();
-            }
-            if (this._cacheValues) this._cacheValues._headerHeight = result;
+            result = this.getInnerHeight();
         }
         return result;
     },
@@ -17110,43 +19352,7 @@ isc.EventCanvas.addProperties({
         return this.calendar.getEventHeaderHTML(this.event, this.calendarView);
     },
     padding: null,
-    getHeaderCSSText : function (headerHeight) {
-        var event = this.event,
-            sb = isc.StringBuffer.create()
-        ;
 
-
-
-        var headerHeight = headerHeight || this.getHeaderHeight(),
-            headerWrap = this.getHeaderWrap(),
-            padding = this.padding != null ? this.padding : 0,
-            paddingTop=0, paddingLeft=0, paddingBottom=0, paddingRight=0
-        ;
-
-        sb.append("vertical-align:", (this.getShowBody() ? "top" : "middle"), "; ");
-        if (!this.vertical) sb.append("text-align:", (this.getShowBody() ? "left; " : "center; "));
-        if (!headerWrap) sb.append("text-wrap:none; ");
-
-        if (this.getShowBody() == false) {
-            sb.append("bottom:0px; top:0px;");
-        } else {
-            if (this.titleOrientation == "bottom") sb.append("bottom:0px; ");
-            else sb.append("top:0px;");
-            sb.append("height:", (headerHeight), "px; ");
-        }
-        // text, background and border colors
-        if (event.headerTextColor) sb.append("color:", event.headerTextColor, ";");
-        if (event.headerBackgroundColor) {
-            sb.append("background-color:", event.headerBackgroundColor, ";");
-        }
-        if (event.headerBorderColor) {
-            sb.append("border-style:solid;");
-            sb.append("border-color:", event.headerBorderColor, ";");
-        }
-        return sb.release(false);
-    },
-
-    bodyHeight: "auto",
     //> @attr eventCanvas.bodyStyle (CSSStyleName : null : IRW)
     // CSS class for the +link{eventCanvas.showBody, body area} of the EventCanvas.
     // If unset, defaults to the +link{eventCanvas.styleName, base styleName} with the suffix
@@ -17176,118 +19382,58 @@ isc.EventCanvas.addProperties({
         }
         return this.calendar.getEventBodyHTML(this.event, this.calendarView);
     },
-    getBodyCSSText : function (headerHeight) {
-        var event = this.event,
-            sb = isc.StringBuffer.create(),
-            padding = this.padding != null ? this.padding : 0,
-            paddingTop=0, paddingLeft=0, paddingBottom=0, paddingRight=0
-        ;
-
-        // if the header isn't showing, ignore it's height when calculating the bodyHeight
-        if (!this.getShowHeader()) headerHeight = 0;
-
-        sb.append("bottom:0px; top: ", headerHeight + 2, "px; ");
-        sb.append("vertical-align:top; ");
-        if (event.textColor) sb.append("color:", event.textColor, ";");
-        if (event.backgroundColor) {
-            sb.append("background-color:", event.backgroundColor, ";");
-        }
-        return sb.release(false);
-    },
-
 
 // generating HTML
 
-    divTemplate: [
-        "<div class='",
-        , // this.header/bodyStyle
-        "' style='",
-        , // header/body CSS - width/height/text/background color/margins, etc
-        "'>",
-        ,// getHeader/BodyHTML();
-        "</div>"
-    ],
+    // returns true if this particular event should show its content in a hover
+    willShowHover : function ( ) {
+        // if this flag is set to true, always show hovers
+        if (this.calendar.alwaysShowEventHovers == true) return true;
 
-    //> @method eventCanvas.getInnerHTML()
-    // Returns the HTML to show in the EventCanvas as a whole.  By default, this method
-    // generates one or two styled DIVs, depending on the values of
-    // +link{eventCanvas.showHeader, showHeader} and +link{eventCanvas.showBody, showBody}.
-    //
-    // @return (HTMLString) the innerHTML for this canvas
-    // @visibility external
-    //<
-    getInnerHTML : function () {
-        var html = "";
+        // if autoFit is true, overflow is "visible", so nothing is clipped - no hover
+        if (this.autoFit) return false;
 
-        if (this.event) {
-            // if the event has a specified backgroundColor, set it directly on the styleHandle
-            // so that an eventCanvas as a whole gets the same backgroudColor as the body
-            var handle = this.getStyleHandle();
-            if (handle) {
-                var color = this.event.backgroundColor;
-                if (color) {
-                    handle.backgroundColor = color;
-                }
-                if (this.event.borderColor) {
-                    handle.borderStyle = "solid";
-                    handle.borderColor = this.event.borderColor;
-                }
+        // otherwise, we only want to show the content in a hover if the content is clipped
+        if (this._willShowHover == null) {
+            var width = this.getInnerWidth();
+            if (this.getShowHeader()) {
+                // measure the height of the headerHTML, wrapping it at the full innerWidth of
+                // this canvas
+                var headerHTML = this.getHeaderHTML() || "";
+                this._contentHeight += isc.Canvas.measureContent(headerHTML, this.headerLabel.styleName,
+                    true, true, { width: width, maxWidth: width }
+                );
+                // measure the contentWidth - we want hovers for h-clipping as well
+                this._contentWidth = isc.Canvas.measureContent(headerHTML, this.headerLabel.styleName,
+                    false, true, { width: width }
+                );
+            }
+            if (this.getShowBody()) {
+                var bodyHTML = this.getBodyHTML() || "";
+                // measure the height of the bodyHTML, wrapping it at the full innerWidth of
+                // this canvas
+                this._contentHeight += isc.Canvas.measureContent(bodyHTML, this.bodyLabel.styleName,
+                    true, true, { width: width, maxWidth: width }
+                );
+                // measure the contentWidth - we want hovers for h-clipping as well
+                var bodyContentWidth = isc.Canvas.measureContent(bodyHTML, this.bodyLabel.styleName,
+                    false, true, { width: width }
+                );
+                this._contentWidth = Math.max((this._contentWidth || 0), bodyContentWidth);
             }
 
-            var cachedHTML = this._getCacheValue("_innerHTML");
-            if (cachedHTML) return cachedHTML;
-
-            var headerHTML = "",
-                bodyHTML = "",
-                showHeader = this.getShowHeader(),
-                showBody = this.getShowBody(),
-                showLabel = this.shouldShowLabel()
-            ;
-            var headerHeight = this.getHeaderHeight();
-
-            if (showHeader || showLabel) {
-                var hT = this.divTemplate.duplicate();
-                hT[1] = this.getHeaderStyle();
-                hT[3] = this.getHeaderCSSText(headerHeight);
-                hT[4] = "' eventPart='headerLabel'>"
-                hT[5] = this.getHeaderHTML();
-                headerHTML = hT.join("");
-            }
-            if (showBody) {
-                var bT = this.divTemplate.duplicate();
-                bT[1] = this.getBodyStyle();
-                bT[3] = this.getBodyCSSText(headerHeight);
-                bT[4] = "' eventPart='body'>";
-                bT[5] = this.getBodyHTML();
-                bodyHTML += bT.join("");
-            }
-
-            if (showLabel) {
-                // show the title text in the separate label
-                if (this.label) {
-                    this.label.setContents(headerHTML);
-                }
-            }
-
-            if (showHeader || showBody) {
-                if (showHeader && this.titleOrientation == "top") html += headerHTML;
-                if (showBody) html += bodyHTML;
-                if (showHeader && this.titleOrientation == "bottom") html += headerHTML;
-            } else if (!showLabel) {
-                // just write out the result of getHeaderHTML() into the main div of the Canvas
-                html = this.getHeaderHTML();
-            }
-
+            // if the combined content-height is greater than the canvas-height, or there's
+            // unhandled h-clipping, show a hover
+            this._willShowHover = this.getVisibleHeight() < this._contentHeight
+                || this.getVisibleWidth() < this._contentWidth;
         }
-
-        // cache the innerHTML - it only needs to change when the event or the styleName change
-        if (this._cacheValues) this._cacheValues._innerHTML = html;
-        return html;
+        return this._willShowHover;
     },
-
     getHoverHTML : function () {
         if (this.calendarView.shouldShowEventHovers()) {
+            if (this.willShowHover()) {
             return this.calendar._getEventHoverHTML(this.event, this, this.calendarView);
+        }
         }
     },
 
@@ -17326,6 +19472,7 @@ isc.EventCanvas.addProperties({
     // @visibility internal
     //<
     renderEvent : function (eTop, eLeft, eWidth, eHeight, sendToBack) {
+        //this.logWarn("renderEvent: " + this.event.eventId + " - " + this.event.name);
         this.setRect(eLeft, eTop, eWidth, eHeight);
 
         // get the styleName at render time - may have been dropped into a lane or sublane that
@@ -17334,19 +19481,13 @@ isc.EventCanvas.addProperties({
 
         if (!this.parentElement || !this.parentElement.isDrawn()) return;
 
-        if (this.event.__tabIndex) {
-
-            this.tabIndex = this.event.__tabIndex;
-            delete this.event.__tabIndex;
-        }
-
         if (!this.isDrawn()) this.draw();
         this.show();
         if (sendToBack) this.sendToBack();
         else this.bringToFront();
 
         if (this.shouldShowGripper() || this.shouldShowLabel()) {
-            this.repositionPeers(); //true);
+            this.repositionPeers();
         }
 
         if (this.useStaticControls && !this.isZoneCanvas && !this.isIndicatorCanvas) {
@@ -17355,25 +19496,22 @@ isc.EventCanvas.addProperties({
     },
     checkStyle : function () {
         var styleName = this.calendar.getEventCanvasStyle(this.event, this.calendarView);
-        if (styleName != this.styleName) this.setEventStyle(styleName);
+        if (this.needsColorUpdateOnSetEvent || this.calendar.canSelectEvents || styleName != this.styleName) {
+            // if needsColorUpdateOnSetEvent is set, or canSelectEvents is true, always update
+            // the style, even if it's the same
+            this.setEventStyle(styleName);
+        }
+        this.updateCanvasColors();
     },
 
 // internal stuff - mouse handler
     click : function () {
-        if (this.calendar.canSelectEvents) {
-            // no op
-        } else {
         // call the calendar-level handler, which will call the public eventClick()
         // notification as required
         this.calendar._eventCanvasClick(this)
-        }
     },
     doubleClick : function () {
-        if (this.calendar.canSelectEvents) {
-            // call the calendar-level handler, which will call the public eventClick()
-            // notification as required
-            this.calendar._eventCanvasClick(this)
-        }
+        this.calendar._eventCanvasDoubleClick(this)
     },
 
     handleShowContextMenu : function () {
@@ -17386,9 +19524,24 @@ isc.EventCanvas.addProperties({
         return isc.EH.STOP_BUBBLING;
     },
 
+    rightMouseDown : function () {
+        if (this.dragTarget && this.dragTarget != this) {
+            this.dragTarget.eventCanvas = null;
+
+            this.dragTarget._suppressShow = true;
+            this.dragTarget.hide();
+            return false;
+        }
+    },
+
     mouseDown : function () {
-        if (this.dragTarget) this.dragTarget.eventCanvas = this;
-        this.calendar.eventDialog.hide();
+        if (!isc.EH.rightButtonDown()) {
+            if (this.dragTarget) {
+                this.dragTarget.eventCanvas = this;
+                delete this.dragTarget._suppressShow;
+            }
+        }
+        this.calendar.hideEventDialog();
         return isc.EH.STOP_BUBBLING;
     },
 
@@ -17407,22 +19560,27 @@ isc.EventCanvas.addProperties({
 
     keyPress : function () {
         var cal = this.calendar,
-            view = this.calendarView,
-            cache = this._cacheValues,
             key = isc.EventHandler.getKey()
         ;
-        if (key) {
-            if (key == "Enter") {
-                // Enter opens the eventDialog (or eventEditor) for this event
-                if (cache.canEdit) cal._eventCanvasClick(this);
-            } else if (key == "Delete") {
-                // Delete removes this event from the calendar (close button)
-                if (cache.showCloseButton) cal._eventCanvasCloseClick(this);
-            }
-        }
+
+        var result = cal._eventCanvasKeyPress(this, key);
+        if (result == false) return;
+        return this.Super("keyPress", arguments);
     },
 
-    mouseOver : function () {
+    dragRepositionStart : function () {
+        if (this.calendarView.shouldShowColumnLayouts()) {
+            this.deparent();
+            this.bringToFront();
+        }
+    },
+    handleMouseMove : function () {
+        //var view = this.calendarView;
+        //if (view.showRollOver) view.refreshRow(view.getEventRow());
+        // return false so this canvas's hover isn't clobbered by the background cell-hover
+        return false;
+    },
+    handleMouseOver : function () {
         // if the canvas has _staticControls, or is currently focused (has _focusControls),
         // don't show _rolloverControls - ignore mouseOver
         if (this._staticControls || this._focusControls) return;
@@ -17495,9 +19653,27 @@ isc.EventCanvas.addProperties({
             this.label = null;
         }
         if (this.dragTarget) this.dragTarget = null;
+        if (this.component) {
+            this.removeMember(this.component);
+            this.component.destroy();
+            this.component = null;
+        }
+
+        // leading/trailing UI
+        this.leadingIcon && this.leadingIcon.destroy();
+        this.leadingLine && this.leadingLine.destroy();
+        this.trailingIcon && this.trailingIcon.destroy();
+        this.trailingLine && this.trailingLine.destroy();
+        this.leadingIcon = this.leadingLine = this.trailingIcon = this.trailingLine = null;
+
+        this.calendarView = null;
+        this.calendar = null;
+        this.event = null;
+        this._cacheValues = null;
         this.Super("destroy", arguments);
     },
 
+    // eventCanvas
     getPrintHTML : function (printProperties, callback) {
         if (callback) {
             this.delayCall("asyncGetPrintHTML", [printProperties, callback]);
@@ -17508,43 +19684,52 @@ isc.EventCanvas.addProperties({
     },
 
     asyncGetPrintHTML : function (printProperties, callback) {
-        var output = isc.StringBuffer.create(),
+        var thisHandle = this.getHandle(),
+            output = isc.StringBuffer.create(),
             cal = this.calendar,
             view = this.calendarView,
             isTimeline = view.isTimelineView(),
-            viewBody = view.body,
-            bodyVOffset = 0,
-            winTop = this.getTop(),
-            bodyTop =  viewBody.getTop(),
-            top = (winTop) + bodyVOffset + 1,
-            widths = viewBody._fieldWidths,
-            event = this.event,
-            left = view.getLeft() + viewBody.getLeft() +
-                        (view.getEventLeft ? view.getEventLeft(event) :
-                            cal.getEventLeft(event, view)),
-            width = this.getInnerWidth(),
-            height = this.getInnerHeight() - 1,
+            // round the frozenWidth
+            frozenWidth = Math.round(view.frozenBody ? view.frozenBody.getVisibleWidth() : 0),
+            // event and render rect
+            evt = this.event,
+            top = 0,
+            left = 0,
+            // get sizes from the handle - printFrame.html now supports density, so matches view
+            width = parseInt(thisHandle.style.width),
+            height = parseInt(thisHandle.style.height),
             i = (printProperties && printProperties.i ? printProperties.i : 1)
         ;
 
-        var startCol = cal.getEventStartCol(event, this, this.calendarView),
-            endCol = cal.getEventEndCol(event, this, this.calendarView)
-        ;
+        var bodyTop = view.body.getTop() + (view.header ? view.header.getVisibleHeight() : 0);
 
-        var cal = this.calendar,
-            calTop = cal.getTop(),
-            calPageTop = cal.getPageTop(),
-            viewTop = view.getTop(),
-            viewPageTop = view.getPageTop(),
-            bodyTop = view.body.getTop() + view.header ? view.header.getHeight() : 0
-        ;
+        var headerRows = cal.headerLevels ? cal.headerLevels.length : 1;
+        var headerHeight = view.headerRowPrintHeight * headerRows;
         if (isTimeline) {
-            top = this.getTop() + bodyTop + 2;
+            top = bodyTop + this.getTop();
+            //this.logWarn("canvas rect: " + this.getRect() + "\nhandle: " +
+            //    [thisHandle.style.top, thisHandle.style.left, thisHandle.style.width, thisHandle.style.height])
 
-            left = this.getLeft() + (view.frozenBody ? view.frozenBody.getVisibleWidth() : 0);
+            top = headerHeight + this.getTop();
+            top = top + 1;
+
+            left = frozenWidth + this.getLeft();
         } else {
-            left = this.getLeft() + (view.frozenBody ? view.frozenBody.getVisibleWidth() : 0) ;
-            top = bodyTop + this.getTop() + 1;
+            left = frozenWidth + this.getLeft();
+
+            top = headerHeight + this.getTop();
+            top += 1;
+
+            width = parseInt(thisHandle.style.width);
+            height = parseInt(thisHandle.style.height);
+        }
+
+        if (isc.Browser.isFirefox) {
+            // not clear why FF mis-sizes here - might be something to do with box-sizing..
+            width -= 4;
+            height -= 4;
+            // seems to sit events exactly right
+            if (isTimeline) left += 1;
         }
 
         var baseStyle = this.styleName;
@@ -17552,16 +19737,31 @@ isc.EventCanvas.addProperties({
         output.append("<div class='", baseStyle, "' ",
             "style='vertical-align: ",
             (cal.showEventDescriptions ? "top" : "middle"), "; ",
-            (event.backgroundColor ? "background-color: " + event.backgroundColor + ";" : ""),
-            (event.textColor ? "color: " + event.textColor + ";" : ""),
-            "overflow:hidden; ",
+            // colors from settings in the canvas style, rather than its CSS class
+            (evt.backgroundColor ? "background-color: " + evt.backgroundColor + ";" : ""),
+            (evt.textColor ? "color: " + evt.textColor + ";" : ""),
+            (evt.borderColor ? "border-color: " + evt.borderColor + ";" : ""),
+            // positioning
+            "overflow: hidden; ",
             "position: absolute; ",
-            "left:", left, "px; top:", top, "px; width: ", width, "px; height: ", height, "px; ",
+            "left: ", left, "px; top: ", top, "px; width: ", width, "px; height: ", height, "px; ",
             "z-index:", i+2, ";",
             "'>"
         );
-        output.append(this.getInnerHTML());
+
+        // reset the event with no cursor changes
+        this._inPrintFlow = true;
+        this.setEvent(this.event);
+        this.redraw();
+
+        var canvasHTML = this.getHandle().innerHTML;
+        output.append(canvasHTML);
         output.append("</div>");
+
+        // and reset the event back to whatever cursor changes it had before
+        delete this._inPrintFlow;
+        this.setEvent(this.event);
+        this.redraw();
 
         if (this.label) {
             top = top + height - 5;
@@ -17612,6 +19812,9 @@ isc.ZoneCanvas.addProperties({
     canDragResize: false,
     canRemove: false,
     showRolloverControls: false,
+
+    isEventCanvas: false,
+    isZoneCanvas: true,
 
     maxLabelWidth: null,
 
@@ -17680,8 +19883,12 @@ isc.IndicatorCanvas.addProperties({
     showGripper: true,
     showLabel: true,
 
+    isEventCanvas: false,
+    isIndicatorCanvas: true,
+
     canDrag: true,
     canDragReposition: true,
+    dragRepositionCursor: isc.Canvas.MOVE,
     canDragResize: false,
     canRemove: false,
     showRolloverControls: false,
@@ -17700,12 +19907,12 @@ isc.IndicatorCanvas.addProperties({
 
         // apply some drag-related properties
         this.canEdit = cache.canEdit;
-        this.canDrag = cache.canDrag
+        this.canDrag = cache.canDrag;
         this.canDragResize = false;
         this.canDragReposition = cache.canDragMove;
         if (this.canDragReposition == false) {
             this.setCursor(isc.Canvas.DEFAULT);
-        }else {
+        } else {
             this.setCursor(isc.Canvas.MOVE);
         }
         this.showCloseButton = false;
@@ -17760,15 +19967,17 @@ showControlBar: false,
 labelColumnWidth: 75,
 
 sizeEventsToGrid: false,
-eventDragGap: 0
+eventDragGap: 0,
+
+// by default, don't overlap events in Timelines by a percentage
+eventOverlap: false
 
 });
 isc._debugModules = (isc._debugModules != null ? isc._debugModules : []);isc._debugModules.push('Calendar');isc.checkForDebugAndNonDebugModules();isc._moduleEnd=isc._Calendar_end=(isc.timestamp?isc.timestamp():new Date().getTime());if(isc.Log&&isc.Log.logIsInfoEnabled('loadTime'))isc.Log.logInfo('Calendar module init time: ' + (isc._moduleEnd-isc._moduleStart) + 'ms','loadTime');delete isc.definingFramework;if (isc.Page) isc.Page.handleEvent(null, "moduleLoaded", { moduleName: 'Calendar', loadTime: (isc._moduleEnd-isc._moduleStart)});}else{if(window.isc && isc.Log && isc.Log.logWarn)isc.Log.logWarn("Duplicate load of module 'Calendar'.");}
-
 /*
 
   SmartClient Ajax RIA system
-  Version v11.1p_2017-06-29/LGPL Deployment (2017-06-29)
+  Version v12.1p_2022-02-22/LGPL Development Only (2022-02-22)
 
   Copyright 2000 and beyond Isomorphic Software, Inc. All rights reserved.
   "SmartClient" is a trademark of Isomorphic Software, Inc.

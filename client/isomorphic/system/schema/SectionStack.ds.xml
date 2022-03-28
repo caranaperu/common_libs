@@ -4,6 +4,7 @@
 		<field name="headerHeight"    type="positiveInteger"/>
 		<field name="canTabToHeaders"    type="boolean"/>
 		<field name="canResizeSections"  type="boolean"/>
+		<field name="canCollapseAll"  type="boolean"/>
 		<field name="scrollSectionIntoView"  type="boolean"/>
 		<field name="sections"         type="SectionStackSection" multiple="true" propertiesOnly="true"/>
 		<field name="visibilityMode" type="enum">
@@ -12,6 +13,10 @@
 				<value>multiple</value> 
 			</valueMap>
 		</field>	
+		<field name="itemEndIndent"  type="number"/>
+		<field name="itemIndent"  type="number"/>
+		<field name="itemStartIndent"  type="number"/>
+		<field name="showExpandControls"  type="boolean"/>
         <!-- mark superclass fields as not relevant -->
         <field name="children" inapplicable="true"/>
         <field name="peers" inapplicable="true"/>

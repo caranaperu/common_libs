@@ -22,11 +22,11 @@
         <field name="canReorderTabs"  type="boolean"/>
         <field name="canCloseTabs"  type="boolean" basic="true"/>
         <field name="closeTabIcon"  type="string" />
-        <field name="destroyPanes" type="boolean" />
+        <field name="destroyPanes" type="boolean" advanced="true"/>
 
         <!-- not currently for on the fly setting in vBuilder -->
 		<field name="tabBarPosition"		type="sideEnum" /> 
-		<field name="tabBarAlign"			type="sideEnum" />
+		<field name="tabBarAlign"			type="anyAlignEnum" />
 
 		<field name="tabBarThickness"		type="positiveInteger"/>
 		<field name="selectedTab"			type="positiveInteger"/>
@@ -41,7 +41,7 @@
         
         <field name="showPaneContainerEdges" type="boolean"/>
         <field name="showPartialEdges" type="boolean"/>
-        <field name="symmetricEdges" type="boolean"/>
+        <field name="symmetricEdges" type="boolean" advanced="true"/>
         <field name="topEdgeSizes" type="EdgeSizes"/>
         <field name="bottomEdgeSizes" type="EdgeSizes"/>
         <field name="leftEdgeSizes" type="EdgeSizes"/>

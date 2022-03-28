@@ -1,5 +1,7 @@
 <DataSource ID="ListGrid"	inheritsFrom="Canvas"	Constructor="ListGrid">
 	<fields>
+        <!-- if properties are added, they may need to be marked as inapplicable in Menu.ds.xml -->
+        
         <field name="initialCriteria" type="AdvancedCriteria" basic="true"/>
 		<field name="data" multiple="true" type="ListGridRecord"/>
         <field name="dataProperties" type="ResultSet"/>
@@ -61,12 +63,6 @@
         -->
 		<field name="cellPadding" type="positiveInteger"/>
 		<field name="canEdit" type="boolean" basic="true"/>
-		<field name="listEndEditAction" type="enum">
-            <valueMap same="same" next="next" done="done" stop="stop"/>
-        </field>
-		<field name="rowEndEditAction" type="enum">
-            <valueMap same="same" next="next" done="done" stop="stop"/>
-        </field>
 		<field name="enterKeyEditAction" type="enum">
             <valueMap done="done" nextCell="nextCell" nextRow="nextRow" 
                       nextRowStart="nextRowStart"/>
@@ -246,6 +242,7 @@
        
         <!-- hilites -->
         <field name="hilites" type="Hilite" multiple="true" />
+		<field name="canEditHilites" type="boolean"/>
 
         <!-- hiliteIcons properties -->
         <field name="hiliteIcons" type="string" multiple="true"/>
@@ -285,7 +282,7 @@
         <field name="showHeaderMenuButton" type="boolean"/>
         <field name="canExpandRecords" type="boolean"/>
         
-        <field name="animateRemoveTile" type="number"/>
+        <field name="animateRemoveTime" type="number"/>
         <field name="animateRemoveSpeed" type="number"/>
         <!-- skinning properties that shouldn't be set in the Visual Builder property sheet-->
         <field name="headerMenuButtonIconWidth" type="number" advanced="true"/>
@@ -302,6 +299,7 @@
                 <value>next</value>
                 <value>same</value>
                 <value>done</value>
+                <value>stop</value>
             </valueMap>
         </type>
     </types>
@@ -331,7 +329,9 @@
         <method title="Start Editing New" name="startEditingNew" action="true"
                 icon="[SKINIMG]/actions/add.png"/>
         <method name="recordClick" basic="true" />
-        <method title="Export Data (Client)" name="exportClientData" action="true"/>
-        <method title="Export Data (Server)" name="exportData" action="true"/>
+        <method title="Export Data (Client)" name="exportClientData" action="true"
+                icon="[SKINIMG]/actions/export.png"/>
+        <method title="Export Data (Server)" name="exportData" action="true"
+                icon="[SKINIMG]/actions/export.png"/>
     </methods>
 </DataSource>

@@ -34,4 +34,5 @@ if (!window.isc && document.domain && document.domain.indexOf(".") != -1
 var isc = window.parent ? window.parent.isc : null;
 if (!isc) isc = top.isc ? top.isc : window.opener ? window.opener.isc : null;
 if (isc && isc.RPCManager) isc.RPCManager.delayCall("handleLoginRequired", [window]);
+//<<isc_loginRequired
 </SCRIPT>

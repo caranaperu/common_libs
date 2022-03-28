@@ -9,10 +9,12 @@ if (theWindow == null) theWindow = window;
 with (theWindow) {
 
 //----------------------------------------
-// Specify skin directory
+// Register skin
 //----------------------------------------
-    // must be relative to your application file or isomorphicDir
-    isc.Page.setSkinDir("[ISOMORPHIC]/skins/BlackOps/")
+    var currentSkin = isc.setCurrentSkin({
+        // name is autoderived to be the containing folder
+        name: "autoDetect"
+    });
 
 
 //----------------------------------------
@@ -21,6 +23,22 @@ with (theWindow) {
     isc.Page.loadStyleSheet("[SKIN]/skin_styles.css", theWindow)
 
     isc.Class.modifyFrameworkStart();
+
+    // Standard Framework icons - changes specific to this skin 
+    var aIcons = isc.Canvas.standardActionIcons;
+    aIcons.find('name', 'Add').states = null;    // default [Disabled]
+    aIcons.find('name', 'Back').states = null;    // default [Disabled]
+    aIcons.find('name', 'Edit').states = null;    // default [Disabled]
+    aIcons.find('name', 'Forward').states = null;    // default [Disabled]
+    aIcons.remove(aIcons.find('name', 'Accept'));
+    aIcons.remove(aIcons.find('name', 'Color_swatch'));
+    aIcons.remove(aIcons.find('name', 'Exclamation'));
+    aIcons.remove(aIcons.find('name', 'Plus'));
+    aIcons.remove(aIcons.find('name', 'Print'));
+    aIcons.remove(aIcons.find('name', 'Text_linespacing'));
+
+    // This skin doesn't have a headerIcons directory
+    isc.Window.standardHeaderIcons = [];
 
 //============================================================
 //  Component Skinning
@@ -81,7 +99,7 @@ with (theWindow) {
         backgroundColor:"transparent"
     })
     isc.Scrollbar.addProperties({
-        btnSize:22,
+        btnSize:16,
         showRollOver:true,
         thumbMinSize:30,
         thumbInset:2,
@@ -173,7 +191,8 @@ with (theWindow) {
         // shows interactive (closed/open) grip images
         // Other options include the Splitbar, StretchImgSplitbar or ImgSplitbar
         resizeBarClass:"Snapbar"
-    })
+    });
+    isc.overwriteClass("LayoutResizeBar", "LayoutResizeSnapbar");
 
 
 //----------------------------------------
@@ -831,10 +850,142 @@ if (isc.DetailViewer) {
 
 if (isc.ToolStripButton) {
     isc.ToolStripButton.addProperties({
+        title:null,
         titleStyle:"buttonTitle"
     });
 }
 
+    // -------------------------------------------
+    // 22) FacetChart
+    // -------------------------------------------
+    if (isc.FacetChart) {
+        isc.FacetChart.changeDefaults("zoomSelectionChartDefaults", {
+            backgroundColor: "#1c1c1c",
+            lineColor: "#7e7e7e"
+        });
+        isc.FacetChart.changeDefaults("chartRectProperties", {
+            fillGradient: {
+                x1: '0%',
+                y1: '100%',
+                x2: '100%',
+                y2: '0%',
+                colorStops: [{
+                    color: "#1c1c1c",
+                    offset: 0.0
+                },{
+                    color: "#1c1c1c",
+                    offset: 0.5
+                },{
+                    color: "#CCCCCC",
+                    offset: 0.9
+                },{
+                    color: "#C2c2c2",
+                    offset: 1.0
+                }]
+            }
+        });
+        isc.FacetChart.addProperties({
+            // General Chart changes
+            padding: 0, 
+            titleProperties: {
+                fontFamily: "Arial",
+                fontSize: 12,
+                fontWeight: "bold",
+                lineColor: "#FFFFFF"
+            },
+            titleBackgroundProperties: {
+                lineWidth: 0,
+                lineOpacity: 0,
+                fillColor: currentSkin.backgroundColor
+            },
+            dataAxisLabelProperties: {
+                fontSize: 11,
+                fontFamily: "Arial",
+                lineColor: "#bebebe"
+            },
+            dataLabelProperties: {
+                fontFamily:"Arial",
+                fontSize:10,
+                fontWeight:"normal",
+                fontStyle:"normal",
+                lineColor: "#bebebe"
+            },
+            gradationLabelProperties: {
+                fontFamily: "Tahoma",
+                fontSize: 10,
+                fontWeight: "normal",
+                fontStyle: "normal",
+                lineColor: "#bebebe"
+            },
+            doughnutHoleProperties : { 
+                lineWidth:0, 
+                fillColor: currentSkin.backgroundColor 
+            },
+            titleAlign: "left",
+            titlePadding: 10,
+            drawTitleBackground: true,
+            drawTitleBoundary: true,
+            titleBoundaryProperties: {
+                lineColor: "#7e7e7e",
+                lineWidth: 1
+            },
+            titleRectHeight: 32, 
+            legendAlign: "right",
+            drawLegendBoundary: true,
+            legendBoundaryProperties: {
+                lineColor: "#7e7e7e",
+                lineWidth: 1
+            }, 
+            legendRectProperties : {
+                lineWidth:1,
+                lineOpacity:0,
+                lineColor: "#7e7e7e"
+            },
+            legendLabelProperties: {
+                fontFamily:"Arial", 
+                fontSize:10,
+                fontWeight:"normal",
+                fontStyle:"normal",
+                lineColor: "#bebebe"
+            },
+            legendPadding:12,
+            // Just replace the border with a white border to give the impression there isn't one
+            legendSwatchProperties : {
+                lineWidth:0,
+                lineColor: currentSkin.backgroundColor
+            },
+            showLegendRect:true,
+            // embed the gradation labels spacing properly
+            gradationLabelPadding:10,
+            chartRectMargin: 15,
+            // Change the Background Banding Color
+            backgroundBandProperties : {
+                excludeFromQuadTree:true,
+                lineOpacity: 0,
+                fillColor:"#1c1c1c"
+            },
+            gradationLineProperties: {
+                lineWidth: 0,
+                lineColor: "#393939"
+            },
+            gradationZeroLineProperties: {
+                lineWidth: 1,
+                lineColor: "#7e7e7e"
+            },
+            // Don't use color gradients, shadows or borders around the chart elements
+            showShadows: false,
+            useAutoGradients:false,
+            barProperties: {
+                lineColor: null, 
+                lineWidth:1
+            }, 
+            // Pad the Y Axis Data Label 3px from the outer container border
+            yAxisLabelPadding : 3,
+            matchBarChartDataLineColor: true,
+            brightenPercent: 50,
+            brightenAllOnHover: true
+        });
+    }
 
 if (isc.DynamicForm) {
     isc.FormItem.addProperties({
@@ -864,9 +1015,6 @@ if (isc.PrintWindow) {
         height: 20
     });
 }
-
-// remember the current skin so we can detect multiple skins being loaded
-if (isc.setCurrentSkin) isc.setCurrentSkin("BlackOps");
 
 // specify where the browser should redirect if not supported
 isc.Page.checkBrowserAndRedirect("[SKIN]/unsupported_browser.html");

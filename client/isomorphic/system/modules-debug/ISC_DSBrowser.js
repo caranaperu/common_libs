@@ -1,8 +1,7 @@
-
 /*
 
   SmartClient Ajax RIA system
-  Version v11.1p_2017-06-29/LGPL Deployment (2017-06-29)
+  Version v12.1p_2022-02-22/LGPL Development Only (2022-02-22)
 
   Copyright 2000 and beyond Isomorphic Software, Inc. All rights reserved.
   "SmartClient" is a trademark of Isomorphic Software, Inc.
@@ -513,11 +512,10 @@ isc.B.push(isc.A.initWidget=function isc_DSEditor_initWidget(){
 );
 isc.B._maxIndex=isc.C+11;
 isc._debugModules = (isc._debugModules != null ? isc._debugModules : []);isc._debugModules.push('DSBrowser');isc.checkForDebugAndNonDebugModules();isc._moduleEnd=isc._DSBrowser_end=(isc.timestamp?isc.timestamp():new Date().getTime());if(isc.Log&&isc.Log.logIsInfoEnabled('loadTime'))isc.Log.logInfo('DSBrowser module init time: ' + (isc._moduleEnd-isc._moduleStart) + 'ms','loadTime');delete isc.definingFramework;if (isc.Page) isc.Page.handleEvent(null, "moduleLoaded", { moduleName: 'DSBrowser', loadTime: (isc._moduleEnd-isc._moduleStart)});}else{if(window.isc && isc.Log && isc.Log.logWarn)isc.Log.logWarn("Duplicate load of module 'DSBrowser'.");}
-
 /*
 
   SmartClient Ajax RIA system
-  Version v11.1p_2017-06-29/LGPL Deployment (2017-06-29)
+  Version v12.1p_2022-02-22/LGPL Development Only (2022-02-22)
 
   Copyright 2000 and beyond Isomorphic Software, Inc. All rights reserved.
   "SmartClient" is a trademark of Isomorphic Software, Inc.

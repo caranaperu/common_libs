@@ -23,6 +23,14 @@
         
         <field name="paddingAsLayoutMargin" type="boolean"/>
         <field name="animateTileChange" type="boolean"/>
+
+        <field name="dragDataAction" type="enum" basic="true">
+            <valueMap>
+                <value>none</value>
+                <value>copy</value>
+                <value>move</value>
+            </valueMap>
+        </field>
 	</fields>
     <groups>
         <group>layoutPolicy</group>

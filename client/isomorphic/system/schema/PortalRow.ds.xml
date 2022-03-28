@@ -1,4 +1,4 @@
-<DataSource ID="PortalRow" Constructor="PortalRow">
+<DataSource ID="PortalRow" inheritsFrom="Layout" Constructor="PortalRow">
     <fields>
        	<field name="height"    type="measure"         title="Height"     xmlAttribute="true" basic="true" /> 
         <field name="minHeight" type="positiveInteger" title="Min Height" xmlAttribute="true"/>	

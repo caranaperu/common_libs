@@ -11,4 +11,7 @@
 	
     <substituteClasses>TextItem, TextAreaItem, StaticTextItem</substituteClasses>
 	
+    <methods>
+        <method action="event" name="click" basic="true" />
+    </methods>
 </DataSource>

@@ -8,5 +8,9 @@
  		<field name="title" 			type="string"  title="Title"  inapplicable="true"/>    
 		<field name="showTitle"	type="boolean" title="Show Title" inapplicable="true" defaultValue="false"/>
     </fields>
+
+    <methods>
+        <method action="event" name="click" basic="true" />
+    </methods>
 </DataSource>
 

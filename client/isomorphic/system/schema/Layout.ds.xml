@@ -25,6 +25,7 @@
 		<field name="layoutTopMargin"	type="positiveInteger"/>
 		<field name="layoutBottomMargin"	type="positiveInteger"/>
 		<field name="membersMargin"	type="positiveInteger" basic="true"/>
+        <field name="minMemberLength" type="positiveInteger"/>
 
 		<field name="reverseOrder"  type="boolean"/>
 

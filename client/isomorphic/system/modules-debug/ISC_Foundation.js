@@ -1,8 +1,7 @@
-
 /*
 
   SmartClient Ajax RIA system
-  Version v11.1p_2017-06-29/LGPL Deployment (2017-06-29)
+  Version v12.1p_2022-02-22/LGPL Development Only (2022-02-22)
 
   Copyright 2000 and beyond Isomorphic Software, Inc. All rights reserved.
   "SmartClient" is a trademark of Isomorphic Software, Inc.
@@ -39,9 +38,9 @@ else if(isc._preLog)isc._preLog[isc._preLog.length]=isc._pTM;
 else isc._preLog=[isc._pTM]}isc.definingFramework=true;
 
 
-if (window.isc && isc.version != "v11.1p_2017-06-29/LGPL Deployment" && !isc.DevUtil) {
+if (window.isc && isc.version != "v12.1p_2022-02-22/LGPL Development Only" && !isc.DevUtil) {
     isc.logWarn("SmartClient module version mismatch detected: This application is loading the core module from "
-        + "SmartClient version '" + isc.version + "' and additional modules from 'v11.1p_2017-06-29/LGPL Deployment'. Mixing resources from different "
+        + "SmartClient version '" + isc.version + "' and additional modules from 'v12.1p_2022-02-22/LGPL Development Only'. Mixing resources from different "
         + "SmartClient packages is not supported and may lead to unpredictable behavior. If you are deploying resources "
         + "from a single package you may need to clear your browser cache, or restart your browser."
         + (isc.Browser.isSGWT ? " SmartGWT developers may also need to clear the gwt-unitCache and run a GWT Compile." : ""));
@@ -164,7 +163,7 @@ isc.Animation.addClassMethods({
     //> @classMethod Animation.registerAnimation()
     // Register an action to fire repeatedly for some duration of time.
     //
-    // @param callback (callback) Action to fire repeatedly until the duration expires.
+    // @param callback (Callback) Action to fire repeatedly until the duration expires.
     //                            Passed 3 parameters for each step:<br>
     //                              - "ratio" (number between 0 and 1) indicating what fraction
     //                                of the specified duration has elapsed<br>
@@ -180,9 +179,9 @@ isc.Animation.addClassMethods({
     //                          interval time.  The animation will be cut short if it exceeds
     //                          3 times the target duration
     // @param [acceleration] (AnimationAcceleration) Acceleration bias effect for the animation.
-    // @param [target] (object) If specified the callback will be fired in the scope of the
+    // @param [target] (Object) If specified the callback will be fired in the scope of the
     //                          target passed in.
-    // @return (string) Unique ID for the registered animation action.
+    // @return (String) Unique ID for the registered animation action.
     // @visibility animation_advanced
     //<
     registerAnimation : function (callback, duration, acceleration, target) {
@@ -234,7 +233,7 @@ isc.Animation.addClassMethods({
     // Clear a registered animation action. Only meaningful if the registered animation has
     // not completed (i.e. the specified duration for the action has not elapsed since the
     // action was registered). Will un-register the action and prevent it from firing again.
-    // @param ID (string) ID for the action to be unregistered. This is the ID returned from
+    // @param ID (String) ID for the action to be unregistered. This is the ID returned from
     //                      Animation.registerAnimation().
     // @visibility animation_advanced
     //<
@@ -250,7 +249,7 @@ isc.Animation.addClassMethods({
     //> @classMethod Animation.finishAnimation()
     // "Finish" a registered animation, by clearing it, and firing it with a
     // ratio of 1 and an additional 'earlyFinish' which will be passed to the callback.
-    // @param ID (string) ID for the action to be finished. This is the ID returned from
+    // @param ID (String) ID for the action to be finished. This is the ID returned from
     //                      Animation.registerAnimation().
     // @visibility animation_advanced
     //<
@@ -431,7 +430,7 @@ isc.Canvas.addProperties({
 
     _animations:["rect","fade","scroll","show","hide", "resize", "move"],
 
-    //> @attr canvas.animateShowEffect (animateShowEffectId | animateShowEffect : "wipe" : IRWA)
+    //> @attr canvas.animateShowEffect (AnimateShowEffectId | AnimateShowEffect : "wipe" : IRWA)
     // Default animation effect to use if +link{Canvas.animateShow()} is called without an
     // explicit <code>effect</code> parameter
     // @visibility animation
@@ -439,13 +438,13 @@ isc.Canvas.addProperties({
     //<
     animateShowEffect:"wipe",
 
-    //> @attr canvas.animateHideEffect (animateShowEffectId | animateShowEffect : "wipe" : IRWA)
+    //> @attr canvas.animateHideEffect (AnimateShowEffectId | AnimateShowEffect : "wipe" : IRWA)
     // Default animation effect to use if +link{Canvas.animateHide()} is called without an
     // explicit <code>effect</code> parameter
     // @visibility animation
     // @group animation
     //<
-    animateHideEffect:"wipe"
+    animateHideEffect:"wipe",
 
     //> @attr canvas.animateMoveTime  (number : null : IRWA)
     // Default time for performing an animated move.  If unset, <code>this.animateTime</code>
@@ -538,18 +537,44 @@ isc.Canvas.addProperties({
     // @group animation
     //<
 
+    //> @type AnimationLayoutMode
+    // During a +link{canvas.animateResize(),size animation}. when should the layout of the
+    // children be updated?
+    //
+    // @value "always" - for every change to the target's width or height
+    // @value "overflow" - for every size change which leaves the target overflowed
+    // @value "atEnd" - only layout the children at the end of the animation
+    // @visibility animation
+    //<
 
+    //> @attr canvas.animateResizeLayoutMode  (AnimationLayoutMode : "atEnd" : IRWA)
+    // When to update the +link{layoutChildren(),child layout} for a +link{animateResize(),
+    // size animation}.  Updating the child layout more often may improve appearance, but risks
+    // prohibitive overhead with more complicated widget hierarchies.
+    // @visibility animation
+    // @group animation
+    //<
+    _shouldRelayoutForAnimateResize : function () {
+        switch (this.animateResizeLayoutMode) {
+        case "always":
+            return true;
+        case "overflow":
+            return this._isOverflowed;
+        default:
+            return false;
+        }
+    }
 
-})
+});
 
 isc.Canvas.addMethods({
 
     //> @method canvas.registerAnimation  (A)
     // Register some action to fire repeatedly for a specified duration
-    // @param callback (callback) Action to fire repeatedly until the duration expires
+    // @param callback (Callback) Action to fire repeatedly until the duration expires
     // @param [duration] (Integer) time in ms for which the action should be fired
     // @param [acceleration] (AnimationAcceleration) Acceleration effect to apply to the animation
-    // @return (string) Unique identifier for the registered animation action
+    // @return (String) Unique identifier for the registered animation action
     // @visibility animation_advanced
     // @group animation
     //<
@@ -561,7 +586,7 @@ isc.Canvas.addMethods({
 
     //> @method canvas.cancelAnimation  (A)
     // Clear some registered animation action
-    // @param ID (string) ID of the animation as returned by canvas.registerAnimation()
+    // @param ID (String) ID of the animation as returned by canvas.registerAnimation()
     // @visibility animation_advanced
     // @group animation
     //<
@@ -716,9 +741,9 @@ isc.Canvas.addMethods({
     // Forces a running animation (animated move / resize, etc.) to instantly complete - jumping
     // to its finished state, and firing its callback, and passing the 'earlyFinish' parameter
     // to the callback.
-    // @param [type] (string) animation type name ("move", "resize", etc). If not passed just
+    // @param [type] (String) animation type name ("move", "resize", etc). If not passed just
     //                        finish all animations
-    // @visibility internal
+    // @visibility animation_advanced
     // @group animation
     //<
 
@@ -754,9 +779,11 @@ isc.Canvas.addMethods({
     //> @method Callbacks.AnimationCallback
     // A +link{type:Callback} called when the move completes.
     //
-    // @param earlyFinish (boolean)  parameter will be passed if the animation was
-    //                               cut short by a call to finishAnimation
-    //
+    // @param earlyFinish (boolean)  true if the animation was cut short.  To quit an animation
+    //                               early, simply call the non-animated version of the same
+    //                               API, so for example call +link{canvas.hide()} to cut short
+    //                               an animation from +link{canvas.animateHide()} already in
+    //                               progress.
     // @visibility external
     //<
 
@@ -764,9 +791,10 @@ isc.Canvas.addMethods({
     // Animate a reposition of this canvas from its current position to the specified position
     // @param left (Integer) new left position (or null for unchanged)
     // @param top (Integer) new top position (or null for unchanged)
-    // @param [callback] (AnimationCallback) When the move completes this callback will be fired. Single
-    //                            'earlyFinish' parameter will be passed if the animation was
-    //                            cut short by a call to finishAnimation
+    // @param [callback] (AnimationCallback) When the move completes this callback will be
+    //                       fired. Single 'earlyFinish' parameter will be passed if the
+    //                       animation was cut short, for example by a call to the non-animated
+    //                       APIs +link{moveTo()} or +link{moveBy()}.
     // @param [duration] (Integer) Duration in ms of the animated move
     // @param [acceleration] (AnimationAcceleration) Optional acceleration effect to bias the ratios
     // @visibility animation
@@ -786,11 +814,17 @@ isc.Canvas.addMethods({
 
     //> @method canvas.animateResize()
     // Animate a resize of this canvas from its current size to the specified size
+    // <p>
+    // Note that +link{animateResizeLayoutMode} allows you to control whether child layout is
+    // rerun during every step of the animation, or just at the end, since the former may incur
+    // significant overhead depending on the widget hierarchy.
+    //
     // @param width (Integer) new width (or null for unchanged)
     // @param height (Integer) new height (or null for unchanged)
-    // @param [callback] (AnimationCallback) When the resize completes this callback will be fired. Single
-    //                              'earlyFinish' parameter will be passed if the animation was
-    //                              cut short by a call to finishAnimation
+    // @param [callback] (AnimationCallback) When the resize completes this callback will be
+    //                       fired. Single 'earlyFinish' parameter will be passed if the
+    //                       animation was cut short, for example by a call to the non-animated
+    //                       APIs +link{resizeTo()} or +link{resizeBy()}.
     // @param [duration] (Integer) Duration in ms of the animated resize
     // @param [acceleration] (AnimationAcceleration) Optional acceleration effect to apply to the resize
     // @visibility animation
@@ -813,9 +847,10 @@ isc.Canvas.addMethods({
     // @param top (Integer) new top position (or null for unchanged)
     // @param width (Integer) new width (or null for unchanged)
     // @param height (Integer) new height (or null for unchanged)
-    // @param [callback] (AnimationCallback) When the setRect completes this callback will be fired. Single
-    //                              'earlyFinish' parameter will be passed if the animation was
-    //                              cut short by a call to finishAnimation
+    // @param [callback] (AnimationCallback) When the setRect completes this callback will be
+    //                       fired. Single 'earlyFinish' parameter will be passed if the
+    //                       animation was cut short, for example by a call to the non-animated
+    //                       API +link{setRect()}.
     // @param [duration] (Integer) Duration in ms of the animated setRect
     // @param [acceleration] (AnimationAcceleration) Optional acceleration effect to apply to the animation
     // @visibility animation
@@ -855,7 +890,7 @@ isc.Canvas.addMethods({
         var info = (type == this._$resize ? this.$resizeAnimationInfo :
                     (type == this._$move ? this.$moveAnimationInfo : this.$rectAnimationInfo)),
             fromRect = info._fromRect,
-            toLeft = info._left, toTop = info._top,
+            toLeft  = info._left,  toTop    = info._top,
             toWidth = info._width, toHeight = info._height,
 
             left =
@@ -879,13 +914,13 @@ isc.Canvas.addMethods({
                 //             ", fromRect: " + fromRect +
                 //             ", toLeft,toWidth: " + [toLeft,toWidth] +
                 //             ", on delta: " + (left - fromRect[0]));
-                width = fromRect[2] + (sideRatio * (left - fromRect[0]))
+                width = fromRect[2] + (sideRatio * (left - fromRect[0]));
             }
         }
         if (toHeight != null && top != null && (toTop - fromRect[1] != 0)) {
             var sideRatio = (toHeight - fromRect[3]) / (toTop - fromRect[1]);
             if (Math.floor(sideRatio) == sideRatio) {
-                height = fromRect[3] + (sideRatio * (top - fromRect[1]))
+                height = fromRect[3] + (sideRatio * (top - fromRect[1]));
             }
         }
         if (width == null && toWidth != null) {
@@ -893,6 +928,13 @@ isc.Canvas.addMethods({
         }
         if (height == null && toHeight != null) {
             height = this._getRatioTargetValue(fromRect[3], toHeight, ratio);
+        }
+
+
+        if (ratio < 1 && (toWidth  == null || toWidth  == width) &&
+                         (toHeight == null || toHeight == height))
+        {
+            width = height = null;
         }
 
         if (ratio == 1) {
@@ -906,7 +948,7 @@ isc.Canvas.addMethods({
 
         //this.logWarn("ratio: " + ratio + ", animateRect: " + [left,top,width,height]);
 
-        this.setRect(left, top, width, height, (ratio < 1));
+        this.setRect(left, top, width, height, ratio < 1);
 
         if (this.isDirty()) this.redraw("animated resize");
 
@@ -927,9 +969,10 @@ isc.Canvas.addMethods({
     //> @method canvas.animateFade()
     // Animate a change in opacity from the widget's current opacity to the specified opacity.
     // @param opacity (Integer) desired final opacity
-    // @param [callback] (AnimationCallback) When the fade completes this callback will be fired. Single
-    //                              'earlyFinish' parameter will be passed if the animation was
-    //                              cut short by a call to finishAnimation
+    // @param [callback] (AnimationCallback) When the fade completes this callback will be
+    //                       fired.  Single 'earlyFinish' parameter will be passed if the
+    //                       animation was cut short, for example by a call to the non-animated
+    //                       API +link{setOpacity()}.
     // @param [duration] (Integer) Duration in ms of the animated fade
     // @param [acceleration] (AnimationAcceleration) Optional animation acceleration to bias the ratios
     // @visibility animation
@@ -1000,9 +1043,10 @@ isc.Canvas.addMethods({
     // Animate a scroll from the current scroll position to the specified position.
     // @param scrollLeft (Integer) desired final left scroll position
     // @param scrollTop (Integer) desired final top scroll position
-    // @param [callback] (AnimationCallback) When the scroll completes this callback will be fired. Single
-    //                              'earlyFinish' parameter will be passed if the animation was
-    //                              cut short by a call to finishAnimation
+    // @param [callback] (AnimationCallback) When the scroll completes this callback will be
+    //                       fired. Single 'earlyFinish' parameter will be passed if the
+    //                       animation was cut short, for example by a call to the non-animated
+    //                       APIs +link{scrollTo()} or +link{scrollBy()}.
     // @param [duration] (Integer) Duration in ms of the animated scroll
     // @param [acceleration] (AnimationAcceleration) Optional acceleration to bias the animation ratios
     // @visibility animation
@@ -1051,12 +1095,12 @@ isc.Canvas.addMethods({
     // @treeLocation Client Reference/System
     // @visibility animation
     //<
-    //> @attr AnimateShowEffect.effect (animateShowEffectId : null : IR)
+    //> @attr AnimateShowEffect.effect (AnimateShowEffectId : null : IR)
     // Effect to apply
     // @visibility animation
     //<
 
-    //> @attr AnimateShowEffect.startFrom (string : null : IR)
+    //> @attr AnimateShowEffect.startFrom (String : null : IR)
     //   For show animations of type <code>"wipe"</code> and
     //   <code>"slide"</code> this attribute specifies where the wipe / slide should originate.
     //   Valid values are <code>"T"</code> (vertical animation from the top down, the
@@ -1064,7 +1108,7 @@ isc.Canvas.addMethods({
     // @visibility animation
     //<
 
-    //> @attr AnimateShowEffect.endsAt (string : null : IR)
+    //> @attr AnimateShowEffect.endAt (String : null : IR)
     //   For hide animations of type <code>"wipe</code> and
     //   <code>"slide"</code> this attribute specifies where the wipe / slide should finish.
     //   Valid options are <code>"T"</code> (vertical animation upwards to the top of the canvas,
@@ -1073,16 +1117,23 @@ isc.Canvas.addMethods({
     // @visibility animation
     //<
 
+    //> @attr AnimateShowEffect.endsAt (String : null : IR)
+    // Use +link{endAt} instead.
+    // @deprecated This property was misnamed.
+    // @visibility animation
+    //<
+
     //> @method canvas.animateShow()
     // Show a canvas by growing it vertically to its fully drawn height over a period of time.
     // This method will not fire if the widget is already drawn and visible, or has overflow
     // other than <code>"visible"</code> or <code>"hidden"</code>.
-    // @param [effect] (animateShowEffectId | AnimateShowEffect) Animation effect to use
+    // @param [effect] (AnimateShowEffectId | AnimateShowEffect) Animation effect to use
     //      when revealing the widget. If ommitted, default behavior can be configured via
     //      +link{Canvas.animateShowEffect}
-    // @param [callback] (AnimationCallback) When the show completes this callback will be fired. Single
-    //                              'earlyFinish' parameter will be passed if the animation was
-    //                              cut short by a call to finishAnimation.
+    // @param [callback] (AnimationCallback) When the show completes this callback will be
+    //                       fired. Single 'earlyFinish' parameter will be passed if the
+    //                       animation was cut short, for example by a call to the non-animated
+    //                       API +link{show()}.
     // @param [duration] (Integer) Duration in ms of the animated show. If unset, duration will be
     //   picked up from +link{canvas.animateShowTime}
     // @param [acceleration] (AnimationAcceleration) Optional acceleration effect function to
@@ -1724,12 +1775,13 @@ isc.Canvas.addMethods({
     // Hide a canvas by shrinking it vertically to zero height over a period of time.
     // This method will not fire if the widget is already drawn and visible, or has overflow
     // other than <code>"visible"</code> or <code>"hidden"</code>.
-    // @param [effect] (animateShowEffectId | animateShowEffect) How should the content of the
+    // @param [effect] (AnimateShowEffectId | AnimateShowEffect) How should the content of the
     //  window be hidden during the hide? If ommitted, default behavior can be configured via
     //  +link{Canvas.animateHideEffect}
-    // @param [callback] (AnimationCallback) When the hide completes this callback will be fired. Single
-    //                              'earlyFinish' parameter will be passed if the animation was
-    //                              cut short by a call to finishAnimation.
+    // @param [callback] (AnimationCallback) When the hide completes this callback will be
+    //                       fired.  Single 'earlyFinish' parameter will be passed if the
+    //                       animation was cut short, for example by a call to the non-animated
+    //                       API +link{hide()}.
     // @param [duration] (Integer) Duration in ms of the animated hide.  If unset, duration will be
     //   picked up from +link{canvas.animateHideTime}
     // @param [acceleration] (AnimationAcceleration) Optional acceleration effect function to bias
@@ -1830,7 +1882,9 @@ isc.Canvas.addMethods({
 
         var drawnHeight = this.getVisibleHeight(),
             drawnWidth = this.getVisibleWidth(),
-            vertical = (effectConfig ? effectConfig.endAt == this._$T : true),
+
+            vertical = effectConfig ? effectConfig.endsAt == this._$T ||
+                                      effectConfig.endAt == this._$T : true,
 
             info = {_userHeight:this._userHeight, _specifiedHeight:this.getHeight(),
                     _drawnHeight:drawnHeight,
@@ -2280,7 +2334,7 @@ isc.Canvas.addMethods({
 
     //> @method canvas.isAnimating()
     // Is this widget currently performing an animation?
-    // @param [types] (array) Animation types to check for - if unspecified all animation types
+    // @param [types] (Array) Animation types to check for - if unspecified all animation types
     //   will be checked.
     // @visibility internal
     //<
@@ -2330,37 +2384,114 @@ isc.ClassFactory.defineClass("StatefulCanvas", "Canvas");
     //<
 isc.StatefulCanvas.addClassProperties({
 
-    //>    @type    State
+    //> @type   State
     // Constants for the standard states for a StatefulCanvas.
-    //            @group    state
-    STATE_UP:"",                //    @value    StatefulCanvas.STATE_UP         state when mouse is not acting on this StatefulCanvas
-    STATE_DOWN:"Down",            //    @value    StatefulCanvas.STATE_DOWN       state when mouse is down
-    STATE_OVER:"Over",            //    @value    StatefulCanvas.STATE_OVER        state when mouse is over
-    STATE_DISABLED:"Disabled",    //    @value    StatefulCanvas.STATE_DISABLED    disabled
+    // @value  isc.StatefulCanvas.STATE_UP         state when mouse is not acting on this StatefulCanvas
+    // @value  isc.StatefulCanvas.STATE_DOWN       state when mouse is down
+    // @value  isc.StatefulCanvas.STATE_OVER       state when mouse is over
+    // @value  isc.StatefulCanvas.STATE_DISABLED   disabled
+    // @group  state
     // @visibility external
     //<
 
-    //>    @type    SelectionType
+    //> @classAttr StatefulCanvas.STATE_UP (Constant : "" : [R])
+    // A declared value of the enum type
+    // +link{type:State,State}.
+    // @visibility external
+    // @constant
+    //<
+    STATE_UP:"",
+
+    //> @classAttr StatefulCanvas.STATE_DOWN (Constant : "Down" : [R])
+    // A declared value of the enum type
+    // +link{type:State,State}.
+    // @visibility external
+    // @constant
+    //<
+    STATE_DOWN:"Down",
+
+    //> @classAttr StatefulCanvas.STATE_OVER (Constant : "Over" : [R])
+    // A declared value of the enum type
+    // +link{type:State,State}.
+    // @visibility external
+    // @constant
+    //<
+    STATE_OVER:"Over",
+
+    //> @classAttr StatefulCanvas.STATE_DISABLED (Constant : "Disabled" : [R])
+    // A declared value of the enum type
+    // +link{type:State,State}.
+    // @visibility external
+    // @constant
+    //<
+    STATE_DISABLED:"Disabled",
+
+    //> @type  SelectionType
     // Controls how an object changes state when clicked
-    // @group    state
-    // @group    event handling
-    //    @value    StatefulCanvas.BUTTON    object moves to "down" state temporarily (normal button)
-    //    @value    StatefulCanvas.CHECKBOX object remains in "down" state until clicked again (checkbox)
-    //    @value    StatefulCanvas.RADIO    object moves to "down" state, causing another object to go up (radio)
-    BUTTON:"button",
-    CHECKBOX:"checkbox",
-    RADIO:"radio",
+    // @group  state
+    // @group  event handling
+    // @value  isc.StatefulCanvas.BUTTON   object moves to "down" state temporarily (normal button)
+    // @value  isc.StatefulCanvas.CHECKBOX object remains in "down" state until clicked again (checkbox)
+    // @value  isc.StatefulCanvas.RADIO    object moves to "down" state, causing another object to go up (radio)
     // @visibility external
     //<
 
-    //>    @type    Selected
-    //            @group    state
-    FOCUSED:"Focused",          //  @value  StatefulCanvas.FOCUSED  StatefulCanvas should show
-                                // focused state
-    SELECTED:"Selected",        //    @value    StatefulCanvas.SELECTED        StatefulCanvas is selected
-    UNSELECTED:"",                //    @value    StatefulCanvas.UNSELECTED   StatefulCanvas is not selected
+    //> @classAttr StatefulCanvas.BUTTON (Constant : "button" : [R])
+    // A declared value of the enum type
+    // +link{type:SelectionType,SelectionType}.
     // @visibility external
+    // @constant
     //<
+    BUTTON:"button",
+
+    //> @classAttr StatefulCanvas.CHECKBOX (Constant : "checkbox" : [R])
+    // A declared value of the enum type
+    // +link{type:SelectionType,SelectionType}.
+    // @visibility external
+    // @constant
+    //<
+    CHECKBOX:"checkbox",
+
+    //> @classAttr StatefulCanvas.RADIO (Constant : "radio" : [R])
+    // A declared value of the enum type
+    // +link{type:SelectionType,SelectionType}.
+    // @visibility external
+    // @constant
+    //<
+    RADIO:"radio",
+
+    //> @type   Selected
+    // @value  isc.StatefulCanvas.FOCUSED  StatefulCanvas should show
+    //                                     focused state
+    // @value  isc.StatefulCanvas.SELECTED     StatefulCanvas is selected
+    // @value  isc.StatefulCanvas.UNSELECTED   StatefulCanvas is not selected
+    // @visibility external
+    // @group  state
+    //<
+
+    //> @classAttr StatefulCanvas.FOCUSED (Constant : "Focused" : [R])
+    // A declared value of the enum type
+    // +link{type:Selected,Selected}.
+    // @visibility external
+    // @constant
+    //<
+    FOCUSED:"Focused",
+
+    //> @classAttr StatefulCanvas.SELECTED (Constant : "Selected" : [R])
+    // A declared value of the enum type
+    // +link{type:Selected,Selected}.
+    // @visibility external
+    // @constant
+    //<
+    SELECTED:"Selected",
+
+    //> @classAttr StatefulCanvas.UNSELECTED (Constant : "" : [R])
+    // A declared value of the enum type
+    // +link{type:Selected,Selected}.
+    // @visibility external
+    // @constant
+    //<
+    UNSELECTED:"",
 
     // Internal map of radioGroup ID's to arrays of widgets
     _radioGroups:{},
@@ -2403,12 +2534,13 @@ isc.StatefulCanvas.addClassProperties({
     // Causes border properties to be written onto containing DIV rather than
     // be applied to the internal Table TDs for Button widgets
     //<
+
     pushTableBorderStyleToDiv: false,
 
     _shadowStyleCache: {},
     _shadowStyleCSSHTMLCache: {},
 
-    pushTableShadowStyleToDiv: true
+    pushTableShadowStyleToDiv: null
 
 });
 
@@ -2486,6 +2618,7 @@ isc.StatefulCanvas.addProperties({
     // @visibility external
     //<
 
+
     //>    @attr    statefulCanvas.showFocus        (Boolean : false : IRW)
     // Should we visibly change state when the canvas receives focus?  Note that by default the
     // <code>over</code> state is used to indicate focus.
@@ -2529,20 +2662,31 @@ isc.StatefulCanvas.addProperties({
 
     //>    @attr    statefulCanvas.actionType        (SelectionType : "button": IRW)
     // Behavior on state changes -- BUTTON, RADIO or CHECKBOX
-    //        @group    state
-    //        @group    event handling
-    //      @setter setActionType()
-    //      @getter getActionType()
+    // @group state
+    // @group event handling
+    // @setter setActionType()
+    // @getter getActionType()
     // @visibility external
     //<
     actionType:"button",
 
-    //>    @attr    statefulCanvas.radioGroup   (string : null : IRWA)
+    //> @attr statefulCanvas.radioGroup (String : null : IRWA)
     // String identifier for this canvas's mutually exclusive selection group.
-    //        @group    state
-    //        @group    event handling
+    // @group state
+    // @group event handling
     // @visibility external
     //<
+    //> @method setRadioGroup()
+    // Sets the +link{statefulCanvas.radioGroup, radioGroup} identifier for this canvas's
+    // mutually exclusive selection group.
+    // @group state
+    // @group event handling
+    // @visibility external
+    //<
+    setRadioGroup : function (radioGroup) {
+        this.removeFromRadioGroup();
+        this.addToRadioGroup(radioGroup);
+    },
 
     //>    @attr    statefulCanvas.baseStyle        (CSSStyleName : null : IRW)
     // Base CSS style className applied to the component.
@@ -2553,10 +2697,48 @@ isc.StatefulCanvas.addProperties({
     // <P>
     // See +link{statefulCanvas.getStateSuffix()} for a description of the default set
     // of suffixes which may be applied to the baseStyle
+    // <P>
+    // <h4>Rotated Titles</h4>
+    // <p>
+    // The Framework doesn't have built-in support for rotating button titles in a fashion
+    // similar to +link{FacetChart.rotateLabels}.  However, you can manually configure
+    // a button to render with a rotated title by applying custom CSS via this property.
+    // <P>
+    // For example, given a button with a height of 120 and a width of 48, if you
+    // copied the existing buttonXXX style declarations from skin_styles.css as new,
+    // rotatedTitleButtonXXX declarations, and then added the lines:
+    // <pre>
+    //     -ms-transform:     translate(-38px,0px) rotate(270deg);
+    //     -webkit-transform: translate(-38px,0px) rotate(270deg);
+    //     transform:         translate(-38px,0px) rotate(270deg);
+    //     overflow: hidden;
+    //     text-overflow: ellipsis;
+    //     width:116px;</pre>
+    // in the declaration section beginning:
+    // <pre>
+    // .rotatedTitleButton,
+    // .rotatedTitleButtonSelected,
+    // .rotatedTitleButtonSelectedOver,
+    // .rotatedTitleButtonSelectedDown,
+    // .rotatedTitleButtonSelectedDisabled,
+    // .rotatedTitleButtonOver,
+    // .rotatedTitleButtonDown,
+    // .rotatedTitleButtonDisabled {</pre>
+    // then applying that style to the button with +link{canvas.overflow,overflow}: "clip_h"
+    // would yield a vertically-rendered title with overflow via ellipsis as expected, and also
+    // wrap with +link{button.wrap}.
     //
+    // Note that:<ul>
+    // <li> The explicit width applied via CSS is needed because rotated
+    // elements don't inherit dimensions in their new orientation from the DOM -
+    // the transform/rotation occurs independently of layout.
+    // <li> The translation transform required along the x-axis is roughly
+    // (width - height) / 2, but may need slight offsetting for optimal centering.
+    // <li>We've explicitly avoided describing an approach based on CSS "writing-mode", since
+    // support is incomplete and bugs are present in popular browsers such as Firefox and
+    // Safari that would prevent it from being used without Framework assistance.</ul>
     // @visibility external
     //<
-
 
     //>    @attr    statefulCanvas.cursor        (Cursor : Canvas.ARROW : IRW)
     //            Specifies the cursor to show when over this canvas.
@@ -2630,6 +2812,29 @@ isc.StatefulCanvas.addProperties({
     //<
     //autoFit:null
 
+    //> @attr StatefulCanvas.width (Number | String : null : [IRW])
+    // Size for this component's horizontal dimension.  See +link{Canvas.width} for more
+    // details.
+    // <P>
+    // Note that if +link{StatefulCanvas.autoFit} is set, this property will be ignored so that the widget
+    // is always sized just large enough to accommodate the title.
+    // @see StatefulCanvas.autoFit
+    // @group sizing
+    // @visibility external
+    //<
+
+    //> @attr StatefulCanvas.height (Number | String : null : [IRW])
+    // Size for this component's vertical dimension.  See +link{Canvas.height} for more
+    // details.
+    // <P>
+    // Note that if +link{StatefulCanvas.autoFit} is set on non-+link{StretchImgButton} instances, this
+    // property will be ignored so that the widget is always sized just large enough to
+    // accommodate the title.
+    // @see StatefulCanvas.autoFit
+    // @group sizing
+    // @visibility external
+    //<
+
     // autoFitDirection: Undocumented property determining whether we should auto-fit
     // horizontally, vertically or in both directions
     // Options are "both", "horizontal", "vertical"
@@ -2675,7 +2880,7 @@ isc.StatefulCanvas.addProperties({
     //<
     iconSize:16,
 
-    //> @attr statefulCanvas.iconWidth (integer : null : IR)
+    //> @attr statefulCanvas.iconWidth (Integer : null : IR)
     // Width in pixels of the icon image.
     // <P>
     // If unset, defaults to +link{StatefulCanvas.iconSize,iconSize}.
@@ -2684,7 +2889,7 @@ isc.StatefulCanvas.addProperties({
     // @visibility external
     //<
 
-    //> @attr statefulCanvas.iconHeight (integer : null : IR)
+    //> @attr statefulCanvas.iconHeight (Integer : null : IR)
     // Height in pixels of the icon image.
     // <P>
     // If unset, defaults to +link{StatefulCanvas.iconSize,iconSize}.
@@ -2746,7 +2951,7 @@ isc.StatefulCanvas.addProperties({
     // @visibility external
     //<
 
-    //> @attr statefulCanvas.iconOrientation     (string : "left" : [IR])
+    //> @attr statefulCanvas.iconOrientation     (String : "left" : [IR])
     // If this button is showing an icon should it appear to the left or right of the title?
     // valid options are <code>"left"</code> and <code>"right"</code>.
     //
@@ -2755,7 +2960,7 @@ isc.StatefulCanvas.addProperties({
     //<
     iconOrientation:"left",
 
-    //> @attr statefulCanvas.iconAlign     (string : null : [IR])
+    //> @attr statefulCanvas.iconAlign     (String : null : [IR])
     // If this button is showing an icon should it be right or left aligned?
     //
     // @group buttonIcon
@@ -2878,7 +3083,7 @@ isc.StatefulCanvas.addMethods({
 //>    @method    statefulCanvas.init()    (A)
 // Initialize this StatefulCanvas. Pass in objects with properties to add or override defaults.
 //
-//        @param    [all arguments]    (object)    objects with properties to override from default
+//        @param    [all arguments]    (Object)    objects with properties to override from default
 //<
 initWidget : function () {
 
@@ -2914,8 +3119,12 @@ initWidget : function () {
     // current state, unless the widget suppresses className, which it may do if it has another
     // element the receives the baseStyle, and it leaves the handle unstyled.
     this.baseStyle = this.baseStyle || this.className;
-    this.styleName = (this.suppressClassName ? null : this.getStateName());
+    var stateName = this.getStateName()
+    this.styleName = (this.suppressClassName ? null : stateName);
     this.className = this.styleName;
+
+    // Remember the current stateName so stateChanged doesn't do unnecessary work
+    this._currentStateName = stateName;
 
     // If this button has a radioGroup ID specified, update the array of widgets in the
     // radiogroup to include this one.
@@ -2939,15 +3148,8 @@ initWidget : function () {
         this.labelHPad = 0;
         this.iconSpacing = 0;
         this.align = isc.Canvas.CENTER;
-        // get the URL for a piece named "grip".  NOTE: resolve to a fully qualified URL now,
-        // in the same imgDir context as the rest of the pieces, as opposed to the labels
-        this.icon = this.getImgURL(this.getURL(this.gripImgSuffix));
 
-        // NOTE: grip* sizing is intentionally null by default, so we get the image's natural
-        // size, overriding the icon defaults.
-        this.iconSize = this.gripSize;
-        this.iconWidth = this.vertical ? this.gripBreadth : this.gripLength;
-        this.iconHeight = this.vertical ? this.gripLength : this.gripBreadth;
+        this._setGripIconDirection();
 
         this.showRollOverIcon = this.showRollOverGrip;
         this.showDownIcon  = this.showDownGrip;
@@ -2970,7 +3172,47 @@ initWidget : function () {
     }
 },
 
+// configure/refresh the grip icon based on the current value of "vertical"
+_setGripIconDirection : function () {
+
+
+    // get the URL for a piece named "grip".
+
+    this.icon = isc.isAn.Object(this.src) ? this.src :
+                    this.getImgURL(this.getURL(this.gripImgSuffix));
+
+
+    this.iconSize = this.gripSize;
+    this.iconWidth = this.vertical ? this.gripBreadth : this.gripLength;
+    this.iconHeight = this.vertical ? this.gripLength : this.gripBreadth;
+
+
+    if (this.label) {
+        this.label.setProperties({
+            icon:       this.icon,
+            iconSize:   this.iconSize,
+            iconWidth:  this.iconWidth,
+            iconHeight: this.iconHeight
+        });
+    }
+},
+
+//> @attr statefulCanvas.ariaLabel (String : null : IRWA)
+// If specified this property returns the <code>aria-label</code>
+// attribute to write out as part of +link{getAriaState()} in
+//  +link{isc.setScreenReaderMode(),screenReaderMode}.
+// <P>
+// If unset, aria-label will default to +link{statefulCanvas.prompt,this.prompt} if specified,
+// otherwise +link{statefulCanvas.title,this.title}.
+// <P>
+// @visibility external
+//<
+
 getAriaLabel : function () {
+    var undef;
+    // Allow explicit null
+
+    if (this.ariaLabel !== undef) return this.ariaLabel;
     var label = this.prompt || this.title;
 
     // avoid writing out the default "Untitled Button" (or its i18n replacement)
@@ -2978,6 +3220,37 @@ getAriaLabel : function () {
         return String.htmlStringToString(label);
     }
     return null;
+},
+
+// stateful image URL
+
+_showImgStateProps:{
+    Over:"showImageRollOver",
+    Focused:"showImageFocused",
+    Down:"showImageDown",
+    Disabled:"showImageDisabled",
+    Selected:"showImageSelected"
+},
+_shouldShowStatefulImage : function (state) {
+    if (this.statelessImage) return false;
+
+    var showImgStateProp = this._showImgStateProps[state],
+        // showStateProps inherited from StatefulCanvas
+        showStateProp = this._showStateProps[state];
+
+    if (this[showImgStateProp] != null) return this[showImgStateProp];
+
+    // src is a 'base' string - assume we should attach a suffix to the URL if
+    // the state-level prop (showRollOver, etc) isn't explicitly false
+    if (!isc.isAn.Object(this.src)) {
+        return showStateProp ? this[showStateProp] : true;
+
+    // If we're using a statefulImgConfig object we can always just return true.
+    // If the config obj has an entry for the state we'll use it. If not we'll
+    // back off to the appropriate stateless entry and potentially leave the image unchanged
+     } else {
+        return true;
+    }
 },
 
 //>    @method    statefulCanvas.getURL()
@@ -2989,8 +3262,8 @@ getAriaLabel : function () {
 //
 //            url =         foo_down_start.gif
 //
-// @param    [pieceName]    (string : "")                 name for part of the image
-// @param    [state]        (string : this.state)        state of the image ("up", "off", etc.)
+// @param    [pieceName]    (String : "")                 name for part of the image
+// @param    [state]        (String : this.state)        state of the image ("up", "off", etc.)
 // @param    [selected]    (boolean : this.selected)    whether or not image is also in the
 //                                                      "selected" state
 // @param  [focused]   (boolean)
@@ -3001,10 +3274,42 @@ getAriaLabel : function () {
 // @return (SCImgURL) URL for the image
 //<
 getURL : function (pieceName, state, selected, focused) {
+
+    // Stateless image: We still want to run through urlForState in case this.src is
+    // a SCStatefulImgConfig object (required to extract the 'base' state)
+    if (this.statelessImage) return isc.Img.urlForState(this.src);
+
+
+    if (state == null) state = this.state;
+    if (selected == null) selected = this.selected;
+    if (focused == null) focused = this.getFocusedState();
+    if (state && !this._shouldShowStatefulImage(state)) state = null;
+    if (selected && !this._shouldShowStatefulImage(isc.StatefulCanvas.STATE_SELECTED)) selected = false;
+    if (focused) {
+
+        if (!this._shouldShowStatefulImage(isc.StatefulCanvas.FOCUSED)) {
+            focused = false;
+        } else {
+            // respect 'showFocusedAsOver' for src defined as a string
+
+            var showFocusedAsOver = this.showImageFocusedAsOver;
+            if (showFocusedAsOver == null) showFocusedAsOver = this.showFocusedAsOver;
+            if (showFocusedAsOver && !isc.isAn.Object(this.src)) {
+                // Don't clobber any other state [Selected or Down, say]
+                if (this._shouldShowStatefulImage(isc.StatefulCanvas.STATE_OVER) &&
+                    (!state || state == isc.StatefulCanvas.STATE_UP))
+                {
+                    state = isc.StatefulCanvas.STATE_OVER;
+                }
+                focused = false;
+            }
+        }
+    }
+
     return isc.Img.urlForState(this.src,
-                           selected != null ? selected : this.selected,
-                           focused != null ? focused : this.getFocusedState(),
-                           state != null ? state : this.state,
+                           selected,
+                           focused,
+                           state,
                            pieceName,
                            this.getCustomState());
 },
@@ -3035,19 +3340,25 @@ setIgnoreRTL : function (ignoreRTL) {
 // set the state for this object, and whether or not it is selected
 
 _$visualState:"visualState",
-stateChanged : function () {
+stateChanged : function (forceRedraw) {
 
     if (this.destroyed) return;
 
+    var newState = this.getStateName();
+
+
+    var stateNameChanged = (this._currentStateName != newState);
+    this._currentStateName = newState;
+
     if (this.logIsDebugEnabled(this._$visualState)) {
-        this.logDebug("state changed to: " + this.getStateName(), "visualState");
+        this.logDebug("state changed to: " + newState, "visualState");
     }
-    if (this._shouldRedrawOnStateChange()) {
+    if (forceRedraw || this._shouldRedrawOnStateChange()) {
         this.markForRedraw("state change");
     }
     // NOTE: a redraw doesn't update className
-    if (!this.suppressClassName) {
-        this.setClassName(this.getStateName());
+    if (!this.suppressClassName && stateNameChanged) {
+        this.setClassName(newState);
     }
     // set our label to the same state (note it potentially has independent styling)
     var label = this.label;
@@ -3056,6 +3367,12 @@ stateChanged : function () {
         label.setSelected(this.isSelected());
         label.setCustomState(this.getCustomState());
     }
+},
+
+
+observeCSSVariableChanges : true,
+cssVariablesChanged : function (varNames) {
+    this.stateChanged();
 },
 
 // should we redraw on state change?
@@ -3241,7 +3558,7 @@ setActionType : function (actionType) {
 // any other radiogroup of which this button is already a member.
 //      @group  state
 //      @group event handling
-//      @param  groupID (string)    - ID of the radiogroup to which this widget should be added
+//      @param  groupID (String)    - ID of the radiogroup to which this widget should be added
 //      @visibility external
 //<
 addToRadioGroup : function (groupID) {
@@ -3253,6 +3570,11 @@ addToRadioGroup : function (groupID) {
 
     this.radioGroup = groupID;
 
+    // if this widget is selected, deselect it and mark it for redraw
+    if (this.selected) {
+        this.selected = false;
+        this.markForRedraw();
+    }
     // update the widget array for the specified group (stored on the Class object)
     if (isc.StatefulCanvas._radioGroups[this.radioGroup] == null) {
         isc.StatefulCanvas._radioGroups[this.radioGroup] = [this];
@@ -3271,7 +3593,7 @@ addToRadioGroup : function (groupID) {
 //      @group  state
 //      @group event handling
 //      @visibility external
-//      @param  [groupID]   (string)    - optional radio group ID (to ensure the widget is removed
+//      @param  [groupID]   (String)    - optional radio group ID (to ensure the widget is removed
 //                                        from the appropriate group.
 //<
 removeFromRadioGroup : function (groupID) {
@@ -3284,6 +3606,11 @@ removeFromRadioGroup : function (groupID) {
 
     delete this.radioGroup;
 
+    // if this widget is selected, deselect it and mark it for redraw
+    if (this.selected) {
+        this.selected = false;
+        this.markForRedraw();
+    }
 },
 
 // Enable/Disable
@@ -3315,7 +3642,7 @@ setHandleDisabled : function (disabled,b,c,d) {
                 enabledState = isc.StatefulCanvas.STATE_UP;
                 this.setState(enabledState);
             } else {
-                this.setState(isc.StatefulCanvas.STATE_UP);
+                // This will state set to over (or "Down" if the mouse is down)
                 this._doMouseOverStateChange();
             }
         } else this.setState(enabledState);
@@ -3323,7 +3650,9 @@ setHandleDisabled : function (disabled,b,c,d) {
         // hang onto the enable state so that when we're next enabled we can reset to it.
         this._enabledState = this.state;
         this._doMouseOutStateChange(true);
-        if (this.showDisabled) this.setState(isc.StatefulCanvas.STATE_DISABLED);
+        if (this.showDisabled) {
+            this.setState(isc.StatefulCanvas.STATE_DISABLED);
+        }
     }
 
     if (this.showDisabled && this.iconCursor != null) {
@@ -3334,8 +3663,18 @@ setHandleDisabled : function (disabled,b,c,d) {
     }
 },
 
+_getIconURL : function () {
+    var icon = this.icon;
+    if (isc.isAn.Object(icon) && icon.src != null) {
+        icon = icon.src;
+    }
+    return icon;
+},
+
+
 _iconIsSprite : function () {
-    return this.icon && this.icon.startsWith("sprite:");
+    var icon = this._getIconURL();
+    return icon && icon.startsWith("sprite:");
 },
 
 
@@ -3369,13 +3708,16 @@ getTitleStateName : function () {
 // Returns the suffix that will be appended to the +link{StateFulCanvas.baseStyle}
 // as the component changes +link{statefulCanvas.state} and/or is selected / focused.
 // <P>
+// Note that suffixes will only be included if the relevant <code>show<i>[StateName]</i></code>
+// attributes (EG +link{showRollOver}, +link{showFocused}, etc) are set to true.
+// <P>
 // The following table lists out the standard set of suffixes which may be applied
 // to the base style:
 // <table border=1>
 // <tr><td><b>CSS Class Applied</b></td><td><b>Description</b></td></tr>
 // <tr><td><code><i>baseStyle</i></code></td><td>Default css style</td></tr>
 // <tr><td><code><i>baseStyle</i>+Selected</code></td>
-//      <td>Applied when +link{statefulCanvas.selected} is set to true</td></tr>
+//      <td>Applied when +link{statefulCanvas.selected} is set to true.</td></tr>
 // <tr><td><code><i>baseStyle</i>+Focused</code></td>
 //      <td>Applied when the component has keyboard focus, if
 //      +link{statefulCanvas.showFocused} is true, and
@@ -3412,29 +3754,51 @@ getTitleStateName : function () {
 // @return (String) suffix to be appended to the baseStyle
 // @visibility external
 //<
+
+_showStateProps:{
+    Over:"showRollOver",
+    Focused:"showFocused",
+    Down:"showDown",
+    Disabled:"showDisabled"
+    // note: no "showSelected"
+},
 getStateSuffix : function () {
+
+    // Note we set the state (STATE_OVER, etc) even if showRollOver is false,
+    // so this method needs to check those "showXXX" properties
+
     var state = this.getState(),
-        selected = this.isSelected() ? isc.StatefulCanvas.SELECTED : null,
-        focused = this.getFocusedState() ? isc.StatefulCanvas.FOCUSED : null,
+        showStateProp = this._showStateProps[state];
+
+    // If we're in state "Over" [say], and showRollOver is false, ignore this state
+    if (state && showStateProp && this[showStateProp] === false) {
+        state = null;
+    }
+
+    // If we're focused, either update 'state' to be "Over", or include the "Focused"
+    // state modifier in the suffix
+    var isFocused = this.getFocusedState() && this.showFocused,
+        focusedState;
+    if (isFocused) {
+        if (this.showFocusedAsOver) {
+            // Don't clobber any other state [Selected or Down, say]
+            if (this.showRollOver && (!state || state == isc.StatefulCanvas.STATE_UP)) {
+                state = isc.StatefulCanvas.STATE_OVER;
+            }
+        } else {
+            focusedState = isc.StatefulCanvas.FOCUSED;
+        }
+    }
+
+
+    var selected = this.isSelected() ? isc.StatefulCanvas.SELECTED : null,
         customState = this.getCustomState();
-    return this._getStateSuffix(state,selected,focused,customState);
+
+    return this._getStateSuffix(state,selected,focusedState,customState);
 },
 
-_$SelectedFocused:"SelectedFocused",
 _getStateSuffix : function (state, selected, focused, customState) {
-    var modifier;
-    if (selected || focused) {
-        modifier = (selected && focused) ? this._$SelectedFocused :
-                                                selected ? selected : focused;
-    }
-    if (!customState) {
-        if (modifier) return state ? modifier + state : modifier;
-        else return state;
-    } else if (modifier) {
-        return state ? modifier + state + customState : modifier + customState;
-    } else {
-        return state ? state + customState : customState;
-    }
+    return isc.StatefulCanvas._getStateSuffix(state, selected, focused, customState);
 },
 
 setCustomState : function (customState) {
@@ -3509,6 +3873,9 @@ makeLabel : function () {
     label.showDownIcon = this.showDownIcon;
     label.showSelectedIcon = this.showSelectedIcon;
     label.showRollOverIcon = this.showRollOverIcon;
+    // set label's showRollOver if we've set showRollOverIcon on the label
+    if (label.showRollOverIcon) label.showRollOver = true;
+
     label.showFocusedIcon = this.showFocusedIcon;
     label.showDisabledIcon = this.showDisabledIcon;
     label.showRTLIcon = this.showRTLIcon;
@@ -3594,7 +3961,7 @@ setSkinImgDir : function (dir) {
 //> @method statefulCanvas.setIconOrientation
 // Changes the orientation of the icon relative to the text of the button.
 //
-// @param orientation (string) The new orientation of the icon relative to the text
+// @param orientation (String) The new orientation of the icon relative to the text
 // of the button.
 //
 // @group buttonIcon
@@ -3646,10 +4013,10 @@ setAutoFit : function (autoFit, initializing) {
         vertical = (this.autoFitDirection == isc.Canvas.BOTH) ||
                     (this.autoFitDirection == isc.Canvas.VERTICAL);
 
-    // advertise that we have inherent width/height in whatever directions we are autofitting,
-    // iow, a Layout should not expand us along that axis.
-    this.inherentWidth = autoFit && horizontal;
-    this.inherentHeight = autoFit && vertical;
+    // advertise that we should never expand width/height in whatever directions we are
+    // autofitting (used by Layout code to suppress expansion on length or breadth axis)
+    this.neverExpandWidth = autoFit && horizontal;
+    this.neverExpandHeight = autoFit && vertical;
 
     if (autoFit) {
         // record original overflow, width and height settings so we can restore them if
@@ -3732,6 +4099,12 @@ resizeBy : function (dX, dY, a, b, c, d) {
     return this.invokeSuper(isc.StatefulCanvas, "resizeBy", dX, dY, a, b, c, d);
 },
 
+//> @attr statefulCanvas.labelHPad (number : null : IRW)
+// If non-null, specifies the horizontal padding applied to the label, if any.
+// @see stretchImgButton.labelHPad
+// @visibility sgwt
+//<
+
 getLabelHPad : function () {
     if (this.labelHPad != null) return this.labelHPad;
     if (this.vertical) {
@@ -3741,6 +4114,11 @@ getLabelHPad : function () {
     }
 },
 
+//> @attr statefulCanvas.labelVPad (number : null : IRW)
+// If non-null, specifies the vertical padding applied to the label, if any.
+// @see stretchImgButton.labelVPad
+// @visibility sgwt
+//<
 getLabelVPad : function () {
     if (this.labelVPad != null) return this.labelVPad;
     if (!this.vertical) {
@@ -4021,14 +4399,15 @@ shouldHiliteAccessKey : function () {
 // in the title (preferring Uppercase to Lowercase)
 getTitleHTML : function () {
 
-    var title = this.getTitle();
+    var title = this.getTitle(true);
 
     // Title formatter
     // Implemented as a separate method for ease of SGWT wrapping
     title = this.formatTitle(this, title);
 
-    if (!this.shouldHiliteAccessKey() || !isc.isA.String(title) || this.accessKey == null)
+    if (!this.shouldHiliteAccessKey() || !isc.isA.String(title) || this.accessKey == null) {
         return title;
+    }
 
     return isc.Canvas.hiliteCharacter(title, this.accessKey);
 },
@@ -4162,14 +4541,20 @@ handleMouseOver : function (event,eventInfo) {
     return rv;
 },
 
+// Should we apply "Over" / "Down" state in response to mouseOver / mouseDown
+// (This may be disabled while leaving 'showRollOver:true' for cases where we
+// want "down" styling etc but need a different model of when it gets applied.
+// See Menubar for an example).
+autoApplyOverState:true,
+autoApplyDownState:true,
 _doMouseOverStateChange : function () {
-    if (this.showDown && this.ns.EH.mouseIsDown()) {
+
+    if (this.ns.EH.mouseIsDown() && this.autoApplyDownState) {
+
 
         this.setState(isc.StatefulCanvas.STATE_DOWN);
     } else {
-        if (this.showRollOver) {
-            this.setState(isc.StatefulCanvas.STATE_OVER);
-        }
+        if (this.autoApplyOverState) this.setState(isc.StatefulCanvas.STATE_OVER);
         if (this.showOverCanvas) {
             if (this.overCanvas == null) {
                 this.addAutoChild("overCanvas", {
@@ -4194,13 +4579,7 @@ handleMouseOut : function (event,eventInfo) {
 },
 
 _doMouseOutStateChange : function (disabling) {
-    if (this.showRollOver) {
-        this.setState(this.getFocusedAsOverState()
-                      ? isc.StatefulCanvas.STATE_OVER : isc.StatefulCanvas.STATE_UP);
-    } else if (this.showDown && this.ns.EH.mouseIsDown()) {
-
-        this.setState(isc.StatefulCanvas.STATE_UP);
-    }
+    if (this.autoApplyOverState) this.setState(isc.StatefulCanvas.STATE_UP);
 
     if (this.showOverCanvas && this.overCanvas != null && this.overCanvas.isVisible() &&
         (disabling || !this.overCanvas.contains(this.ns.EH.getTarget(), true)))
@@ -4215,47 +4594,21 @@ _doMouseOutStateChange : function (disabling) {
 _focusChanged : function (hasFocus,b,c,d) {
 
     var returnVal = this.invokeSuper(isc.StatefulCanvas, "_focusChanged", hasFocus,b,c,d);
-    // don't show the over state if we don't actually have focus anymore (because onFocus
-    // is delayed in IE and focus may be elsewhere by the time it fires)
-    if (!(hasFocus && isc.Browser.isIE &&
-         (this.getFocusHandle() != this.getDocument().activeElement)) )
-    {
-        this.updateStateForFocus(hasFocus);
-    }
+    this.updateStateForFocus(hasFocus);
 
     return returnVal;
 },
 
+// Refresh our stateful appearance for a focus change
+
 updateStateForFocus : function (hasFocus) {
-    if (!this.showFocused) return;
 
-    if (this.showFocusedAsOver) {
-        // NOTE: don't show the over state if showRollOver is false, because this is typically set
-        // because there is no over state media (eg for an ImgButton)
-        if (!this.showRollOver) return;
+    this.stateChanged();
+    // Note: normally label styling etc will be updated by stateChanged() - but in this case
+    // the other states are all unchanged so the label would not necessarily refresh to reflect
+    // the focused state.
+    if (this.label) this.label.stateChanged();
 
-        var state = this.getState();
-        if (hasFocus && !this.isDisabled()) {
-            // on focus, if our state is currently 'up' set state to 'over' to indicate
-            // we have focus
-            if (state == isc.StatefulCanvas.STATE_UP) this.setState(isc.StatefulCanvas.STATE_OVER);
-        } else {
-            // on blur - clear out the 'over' state (if appropriate)
-            var EH = this.ns.EH;
-            if (state == isc.StatefulCanvas.STATE_OVER &&
-                !this.visibleAtPoint(EH.getX(), EH.getY()))
-            {
-                this.setState(isc.StatefulCanvas.STATE_UP);
-            }
-        }
-    } else {
-        // just call stateChanged - it will check this.hasFocus
-        this.stateChanged();
-        // Note: normally label styling etc will be updated by stateChanged() - but in this case
-        // the other states are all unchanged so the label would not necessarily refresh to reflect
-        // the focused state.
-        if (this.label) this.label.stateChanged();
-    }
 },
 
 getFocusedAsOverState : function () {
@@ -4265,7 +4618,7 @@ getFocusedAsOverState : function () {
 
 // getFocusedState() - returns a boolean value for whether we should show the "Focused" state
 getFocusedState : function () {
-    if (!this.showFocused || this.showFocusedAsOver || this.isDisabled()) return false;
+    if (this.isDisabled()) return false;
     return this.hasFocus;
 },
 
@@ -4284,7 +4637,9 @@ handleMouseDown : function (event, eventInfo) {
         rv = this.mouseDown(event, eventInfo);
         if (rv == false) return false;
     }
-    if (this.showDown) this.setState(isc.StatefulCanvas.STATE_DOWN);
+    if (this.autoApplyDownState && !this.isDisabled()) {
+        this.setState(isc.StatefulCanvas.STATE_DOWN);
+    }
     return rv;
 },
 
@@ -4305,9 +4660,9 @@ handleMouseUp : function (event, eventInfo) {
         if (rv == false) return false;
     }
 
-    // set the state of the button to change its appearance
-    if (this.showDown) {
-        var EH = this.ns.EH;
+    var EH = this.ns.EH;
+
+    if (this.autoApplyDownState) {
         // In desktop browsers, when the 'mouseup' event occurs on this StatefulCanvas, the mouse
         // cursor is still over the StatefulCanvas, so if showRollOver is true, go back to the
         // "Over" state. When the mouse cursor leaves this StatefulCanvas, then the 'mouseout'
@@ -4317,9 +4672,8 @@ handleMouseUp : function (event, eventInfo) {
         // something interactable on screen, possibly not for a very long time. So that we don't
         // leave the StatefulCanvas in the "Over" state, make sure the 'mouseup' event was not
         // fired in response to ending a touch event.
-        this.setState(this.showRollOver &&
-                      EH._handledTouch != EH._touchEventStatus.TOUCH_ENDING
-                      ? isc.StatefulCanvas.STATE_OVER : isc.StatefulCanvas.STATE_UP);
+        this.setState(EH._handledTouch != EH._touchEventStatus.TOUCH_ENDING
+                        ? isc.StatefulCanvas.STATE_OVER : isc.StatefulCanvas.STATE_UP);
     }
     return rv;
 },
@@ -4346,12 +4700,26 @@ handleActivate : function (event, eventInfo) {
         this.setSelected(!this.isSelected());
     }
 
+    // showMenuOnClick => show contextMenu and cancel propagation
+    if (this.showMenuOnClick && this.showContextMenu) {
+        if (this.showContextMenu(event) == false) return false;
+    }
+
     if (this.activate) return this.activate(event, eventInfo);
 
     if (this.action) return this.action();
     if (this.click) return this.click(event, eventInfo);
 },
 
+//> @attr statefulcanvas.showMenuOnClick (Boolean : null : IRW)
+// If true, this widget will fire +link{canvas.showContextMenu(),showContextMenu()} to
+// show the +link{contextMenu,context menu} if one is defined, rather than
+// +link{Canvas.click(),click()}, when the left mouse is clicked.
+// <P>
+// Note that this property has a different interpretation in +link{IconButton} as
+// +link{iconButton.showMenuOnClick}.
+// @visibility external
+//<
 
 //>    @method    statefulCanvas.handleClick()    (A)
 //            click event handler -- falls through to handleActivate.
@@ -4387,6 +4755,18 @@ handleKeyPress : function (event, eventInfo) {
 
 },
 
+// -----------------------
+// Helpers used by the Button class. Should we apply css border and shadow styling
+// to the widget handle rather than applying it to the table cell?
+shouldPushTableBorderStyleToDiv : function () {
+    return isc.StatefulCanvas.shouldPushTableBorderStyleToDiv(this);
+},
+
+shouldPushTableShadowStyleToDiv : function () {
+    return isc.StatefulCanvas.shouldPushTableShadowStyleToDiv(this);
+},
+
+
 // ---------------------------------------------------------------------------------------
 
 // override destroy to removeFromRadioGroup - cleans up a class level pointer to this widget.
@@ -4413,8 +4793,25 @@ isc.StatefulCanvas.registerStringMethods({
 
 isc.StatefulCanvas.addClassMethods({
 
+_$SelectedFocused:"SelectedFocused",
+_getStateSuffix : function (state, selected, focused, customState) {
+    var modifier;
+    if (selected || focused) {
+        modifier = (selected && focused) ? this._$SelectedFocused :
+                                                selected ? selected : focused;
+    }
+    if (!customState) {
+        if (modifier) return state ? modifier + state : modifier;
+        else return state;
+    } else if (modifier) {
+        return state ? modifier + state + customState : modifier + customState;
+    } else {
+        return state ? state + customState : customState;
+    }
+},
+
 // build a properties object representing the border for supplied CSS class name
-_buildBorderStyle : function (borderRadiusOnly, className, referenceElement) {
+_buildBorderStyle : function (borderRadiusOnly, className) {
 
     // for performance, use cached border style results if present
     var classNameKey = borderRadiusOnly ? "$" + className : className;
@@ -4433,18 +4830,16 @@ _buildBorderStyle : function (borderRadiusOnly, className, referenceElement) {
     maxProperties = borderRadiusOnly ? isc.StatefulCanvas._nRadiusBorderProperties :
                                        isc.StatefulCanvas._borderProperties.length;
 
-    var styleInfo = isc.Element.getStyleDeclaration(className, true, referenceElement);
-    if (styleInfo) {
-        for (var i = 0; i < styleInfo.length; i++) {
-            for(var j = 0; j < maxProperties; j++) {
-                var prop = isc.StatefulCanvas._borderProperties[j];
 
-                if (borderStyle[prop] == null && styleInfo[i][prop] != isc.emptyString) {
-                    borderStyle[prop] = styleInfo[i][prop];
-                    setProperties++;
-                }
+    var styleInfo = isc.Element.getStyleEdges(className);
+
+    if (styleInfo) {
+        for(var j = 0; j < maxProperties; j++) {
+            var prop = isc.StatefulCanvas._borderProperties[j];
+
+            if (borderStyle[prop] == null && styleInfo[prop] != isc.emptyString) {
+                borderStyle[prop] = styleInfo[prop];
             }
-            if (setProperties == maxProperties) break;
         }
     }
     this._borderStyleCache[classNameKey] = borderStyle;
@@ -4458,17 +4853,15 @@ _getBorderCSSHTML : function (borderRadiusOnly, className) {
     var classNameKey = borderRadiusOnly ? "$" + className : className;
 
     if (this._borderCSSHTMLCache[classNameKey]) {
-        return this._borderCSSHTMLCache[classNameKey];
+       return this._borderCSSHTMLCache[classNameKey];
     }
 
     // if no cached results are present, we must recompute
     var borderStyle = this._buildBorderStyle(borderRadiusOnly, className);
-
     var cssText = isc.emptyString,
         separator = isc.StatefulCanvas._$separator;
 
     // build border style for each possibly different edge
-
     var bottom = isc.SB.concat(
         borderStyle.borderBottomWidth, separator,
         borderStyle.borderBottomStyle, separator,
@@ -4520,10 +4913,8 @@ _getBorderCSSHTML : function (borderRadiusOnly, className) {
 
 // clear the cache of per-class name CSS border objects and HTML strings
 clearBorderCSSCache : function () {
-    if (isc.StatefulCanvas.pushTableBorderStyleToDiv) {
-        this._borderStyleCache   = {};
-        this._borderCSSHTMLCache = {};
-    }
+    this._borderStyleCache   = {};
+    this._borderCSSHTMLCache = {};
 },
 
 // Similar logic for drop-shadows.
@@ -4531,9 +4922,12 @@ clearBorderCSSCache : function () {
 // are applying styling to a table rendered within our handle, and our handle's overflow
 // is hidden, we need to explicitly apply the shadow to the outer element.
 _$boxShadowRegExp: new RegExp("(?:\\([^)]*\\)|[^,])+", "g"),
-_buildShadowStyle : function (className, referenceElement) {
+_buildShadowStyle : function (className, referenceElement, insetOnly) {
 
     var classNameKey = className;
+
+    // store separate cache entries for inset only values
+    if (insetOnly) classNameKey += "_inset";
 
     if (this._shadowStyleCache[classNameKey]) {
         return this._shadowStyleCache[classNameKey];
@@ -4546,31 +4940,31 @@ _buildShadowStyle : function (className, referenceElement) {
     var shadowStyle = {},
         property = "boxShadow";
 
-    var styleInfo = isc.Element.getStyleDeclaration(className, true, referenceElement);
-    if (styleInfo) {
-        for (var i = 0; i < styleInfo.length; i++) {
-            if (shadowStyle[property] == null && styleInfo[i][property] != isc.emptyString) {
-                shadowStyle[property] = styleInfo[i][property];
-            }
-        }
-    }
+    var styleInfo = isc.Element.getStyleEdges(className);
+    // if there's no style object, just bail
+    if (!styleInfo) return "";
+
+    shadowStyle.boxShadow = styleInfo.boxShadow;
+
     // Filter out inner box shadows (those specified with the 'inset' keyword).
     if (shadowStyle.boxShadow != null && shadowStyle.boxShadow.indexOf("inset") >= 0) {
 
         var shadowDefs = shadowStyle.boxShadow.match(this._$boxShadowRegExp).callMethod("trim"),
-            numShadowDefs = shadowDefs.length;
-        var k = 0;
+            numShadowDefs = shadowDefs.length,
+            insetShadowDefs = [],
+            outsetShadowDefs = [],
+            k = 0
+        ;
         for (var i = 0; i < numShadowDefs; ++i) {
             var shadowDef = shadowDefs[i];
 
             if (shadowDef.startsWith("inset") || shadowDef.endsWith("inset")) {
-                ++k;
-            } else if (k > 0) {
-                shadowDefs[i - k] = shadowDef;
+                insetShadowDefs.add(shadowDef);
+            } else {
+                outsetShadowDefs.add(shadowDef);
             }
         }
-
-        shadowDefs.setLength(numShadowDefs - k);
+        shadowDefs = insetOnly ? insetShadowDefs : outsetShadowDefs;
         shadowStyle.boxShadow = shadowDefs.join(", ");
 
     }
@@ -4603,10 +4997,56 @@ _getShadowCSSHTML : function (className) {
 
 // clear the cache of per-class name CSS shadow objects and HTML strings
 clearShadowCSSCache : function () {
-    if (isc.StatefulCanvas.pushTableShadowStyleToDiv) {
-        this._shadowStyleCache   = {};
-        this._shadowStyleCSSHTMLCache = {};
+    this._shadowStyleCache   = {};
+    this._shadowStyleCSSHTMLCache = {};
+},
+
+// shouldPushTableBorderStyleToDiv()
+
+
+shouldPushTableShadowStyleToDiv : function (widget) {
+    if (isc.StatefulCanvas.pushTableShadowStyleToDiv != null) {
+        return isc.StatefulCanvas.pushTableShadowStyleToDiv;
     }
+
+    if (widget && widget._getHandleOverflow() != isc.Canvas.VISIBLE) {
+        return true;
+    }
+
+    if (this._boxShadowImpactsButtonScrollSize == null) {
+        var _boxShadowScrollSizeTester = isc.Canvas.create({
+            _generated:true,
+            autoDraw:false,
+
+            _fontLoaderIgnore:true,
+            // Position it offscreen
+            left:-500,
+            top:-500,
+            contents:'<table style="width:100px;height:100px;"><tr><td style="box-shadow:0 0 0 5px red;">x</td></tr></table>'
+        });
+
+        _boxShadowScrollSizeTester.draw();
+
+        var reportedHeight = _boxShadowScrollSizeTester.getScrollHeight(),
+            reportedWidth = _boxShadowScrollSizeTester.getScrollHeight();
+
+        if (reportedHeight > 100 || reportedWidth > 100) {
+
+            this._boxShadowImpactsButtonScrollSize = true;
+        } else {
+            this._boxShadowImpactsButtonScrollSize = false;
+        }
+        _boxShadowScrollSizeTester.markForDestroy();
+    }
+    return this._boxShadowImpactsButtonScrollSize;
+},
+
+// shouldPushTableBorderStyleToDiv()
+
+
+shouldPushTableBorderStyleToDiv : function (widget) {
+    return isc.StatefulCanvas.pushTableBorderStyleToDiv
+            || isc.StatefulCanvas.shouldPushTableShadowStyleToDiv(widget);
 }
 
 });
@@ -4659,13 +5099,27 @@ isc.ClassFactory.defineClass("Layout","Canvas");
 
 
 isc.Layout.addClassProperties({
-    //>    @type    Orientation
-    //            @group    orientation
+    //> @type   Orientation
+    //          @group  orientation
     // @visibility external
-    //    @value    isc.Layout.VERTICAL members laid out vertically
-    //    @value    isc.Layout.HORIZONTAL members laid out horizontally
+    // @value  isc.Layout.VERTICAL members laid out vertically
+    // @value  isc.Layout.HORIZONTAL members laid out horizontally
+    //<
+
+    //> @classAttr Layout.VERTICAL (Constant : "vertical" : [R])
+    // A declared value of the enum type
+    // +link{type:Orientation,Orientation}.
+    // @visibility external
+    // @constant
     //<
     //VERTICAL:"vertical", // NOTE: constant declared by Canvas
+
+    //> @classAttr Layout.HORIZONTAL (Constant : "horizontal" : [R])
+    // A declared value of the enum type
+    // +link{type:Orientation,Orientation}.
+    // @visibility external
+    // @constant
+    //<
     //HORIZONTAL:"horizontal", // NOTE: constant declared by Canvas
 
 
@@ -4729,11 +5183,11 @@ isc.Layout.addClassProperties({
     // <P>
     // See also +link{layout.overflow}.
     //
-    //  @value  Layout.NONE
+    //  @value  isc.Layout.NONE
     //  Layout does not try to size members on the axis at all, merely stacking them (length
     //  axis) and leaving them at default breadth.
     //
-    //  @value  Layout.FILL
+    //  @value  isc.Layout.FILL
     //  Layout sizes members so that they fill the specified size of the layout.  The rules
     //  are:
     //  <ul>
@@ -4754,10 +5208,28 @@ isc.Layout.addClassProperties({
     //
     // @see Layout.minBreadthMember
     // @visibility external
-    FILL:"fill",
+    //<
+
+    //> @classAttr Layout.NONE (Constant : "none" : [R])
+    // A declared value of the enum type
+    // +link{type:LayoutPolicy,LayoutPolicy}.
+    // @visibility external
+    // @constant
     //<
     //NONE:"none", // NOTE: constant declared by Canvas
 
+    //> @classAttr Layout.FILL (Constant : "fill" : [R])
+    // A declared value of the enum type
+    // +link{type:LayoutPolicy,LayoutPolicy}.
+    // @visibility external
+    // @constant
+    //<
+    FILL:"fill",
+
+
+    _animateHSlideEffect: {
+        effect:"slide", startFrom:"L", endAt:"L"
+    },
 
     reflowOnTEA : function (layout, reason) {
 
@@ -5044,22 +5516,27 @@ isc.Layout.addProperties({
 
     //> @attr layout.layoutMargin (Integer : null : [IRW])
     // Space outside of all members. This attribute, along with +link{layout.layoutLeftMargin}
-    // and related properties does not have a true setter method.<br>
-    // It may be assigned directly at runtime. After setting the property,
+    // and related properties do not have a true setter method.
+    // <smartclient>
+    // It may be assigned directly at runtime.  After setting the property,
     // +link{layout.setLayoutMargin()} may be called with no arguments to reflow the layout.
+    // </smartclient><smartgwt>
+    // If this method is called after the layout instance has been created, it will force a
+    // reflow of the layout and pick up changes to all of the layout*Margin properties.
+    // </smartgwt>
     // @see layoutLeftMargin
     // @see layoutRightMargin
     // @see layoutBottomMargin
     // @see layoutTopMargin
     // @see paddingAsLayoutMargin
-    // @setter none (see +link{layout.setLayoutMargin()})
+    // @setter noauto
     // @group layoutMargin
     // @visibility external
     // @example userSizing
     //<
 //    layoutMargin:null,
 
-    //> @attr layout.layoutLeftMargin (integer : null : [IRW])
+    //> @attr layout.layoutLeftMargin (Integer : null : [IRW])
     // Space outside of all members, on the left-hand side.  Defaults to +link{layoutMargin}.
     // <P>
     // Requires a manual call to <code>setLayoutMargin()</code> if changed on the fly.
@@ -5067,7 +5544,7 @@ isc.Layout.addProperties({
     // @visibility external
     //<
 
-    //> @attr layout.layoutRightMargin (integer : null : [IRW])
+    //> @attr layout.layoutRightMargin (Integer : null : [IRW])
     // Space outside of all members, on the right-hand side.  Defaults to +link{layoutMargin}.
     // <P>
     // Requires a manual call to <code>setLayoutMargin()</code> if changed on the fly.
@@ -5075,7 +5552,7 @@ isc.Layout.addProperties({
     // @visibility external
     //<
 
-    //> @attr layout.layoutTopMargin (integer : null : [IRW])
+    //> @attr layout.layoutTopMargin (Integer : null : [IRW])
     // Space outside of all members, on the top side.  Defaults to +link{layoutMargin}.
     // <P>
     // Requires a manual call to <code>setLayoutMargin()</code> if changed on the fly.
@@ -5083,7 +5560,7 @@ isc.Layout.addProperties({
     // @visibility external
     //<
 
-    //> @attr layout.layoutBottomMargin (integer : null : [IRW])
+    //> @attr layout.layoutBottomMargin (Integer : null : [IRW])
     // Space outside of all members, on the bottom side.  Defaults to +link{layoutMargin}.
     // <P>
     // Requires a manual call to <code>setLayoutMargin()</code> if changed on the fly.
@@ -5111,7 +5588,7 @@ isc.Layout.addProperties({
     // @visibility external
     //<
 
-    //> @attr layout.memberOverlap (positiveInteger : 0 : IR)
+    //> @attr layout.memberOverlap (PositiveInteger : 0 : IR)
     // Number of pixels by which each member should overlap the preceding member, used for
     // creating an "stack of cards" appearance for the members of a Layout.
     // <P>
@@ -5122,6 +5599,24 @@ isc.Layout.addProperties({
     // +link{canvas.extraSpace}.
     //
     // @group layoutMember
+    // @visibility external
+    //<
+
+    //> @attr layout.layoutStartMargin (Integer : null : [IRW])
+    // Equivalent to +link{layoutLeftMargin} for a horizontal layout, or +link{layoutTopMargin}
+    // for a vertical layout.
+    // <p>
+    // If both <code>layoutStartMargin</code> and the more specific properties (top/left margin)
+    // are both set, the more specific properties win.
+    // @visibility external
+    //<
+
+    //> @attr layout.layoutEndMargin (Integer : null : [IRW])
+    // Equivalent to +link{layoutRightMargin} for a horizontal layout, or +link{layoutBottomMargin}
+    // for a vertical  layout.
+    // <p>
+    // If both <code>layoutEndMargin</code> and the more specific properties (right/bottom margin)
+    // are both set, the more specific properties win.
     // @visibility external
     //<
 
@@ -5236,13 +5731,21 @@ isc.Layout.addProperties({
     // @example animateLayout
     //<
 
-    //> @attr layout.animateMemberEffect (string : "slide" : IRW)
+    //> @attr layout.animateMemberEffect (String : "slide" : IRW)
     // Animation effect for hiding and showing members when animateMembers is true.
     // @group animation
     // @visibility internal
     //<
-
     animateMemberEffect:"slide",
+
+    //> @method canvas.setAnimateMemberEffect()
+    // Setter for +link{animateMemberEffect}.
+    //<
+    setAnimateMemberEffect : function (effect) {
+        // override "slide" for HLayouts to perform horizontal rather than vertical animation
+        this.animateMemberEffect = !this.vertical && effect == "slide" ?
+                                   isc.Layout._animateHSlideEffect : effect;
+    },
 
     //> @attr layout.animateMemberTime (number : null : IRWA)
     // If specified this is the duration of show/hide animations when members are being shown
@@ -5281,6 +5784,7 @@ isc.Layout.addProperties({
     // <P>
     // If you want to dynamically create a component to be added to the Layout in response to a
     // drop event you can do so as follows:
+    // <smartclient>
     // <pre>
     // isc.VLayout.create({
     //   ...various layout properties...
@@ -5297,6 +5801,27 @@ isc.Layout.addProperties({
     //   }
     // });
     // </pre>
+    // </smartclient>
+    // <smartgwt>
+    // <pre>
+    //  final VLayout vLayout = new VLayout();
+    //  //...various layout properties...
+    //  vLayout.setCanDropComponents(true);
+    //  vLayout.addDropHandler(new DropHandler() {
+    //      &#64;Override
+    //      public void onDrop(DropEvent event) {
+    //          // create the new component
+    //          Canvas newMember = new Canvas();
+    //          // add to the layout at the current drop position
+    //          // (the dropLine will be showing here)
+    //          vLayout.addMember(newMember, vLayout.getDropPosition());
+    //          // hide the dropLine that was automatically shown
+    //          // by builtin SmartGWT methods
+    //          vLayout.hideDropLine();
+    //      }
+    //  });
+    // </pre>
+    // </smartgwt>
     // If you want to completely suppress the builtin drag and drop logic, but still receive drag
     // and drop events for your own custom implementation, set +link{Canvas.canAcceptDrop} to
     // <code>true</code> and <code>canDropComponents</code> to <code>false</code> on your Layout.
@@ -5337,7 +5862,7 @@ isc.Layout.addProperties({
     // @example dragMove
     //<
 
-    //> @attr layout.placeHolderProperties (Canvas properties: null : IR)
+    //> @attr layout.placeHolderProperties (Canvas Properties: null : IR)
     // If +link{layout.showDragPlaceHolder, this.showDragPlaceHolder} is true, this
     // properties object can be used to customize the appearance of the placeholder displayed
     // when the user drags a widget out of this layout.
@@ -5348,7 +5873,7 @@ isc.Layout.addProperties({
 
     membersAreChildren:true
 
-    //> @attr layout.stackZIndex (string: null : IR)
+    //> @attr layout.stackZIndex (String: null : IR)
     // For use in conjunction with +link{memberOverlap}, controls the z-stacking order of
     // members.
     // <P>
@@ -5413,7 +5938,7 @@ isc.Layout.addProperties({
 // @visibility external
 //<
 
-//> @attr canvas.extraSpace (positiveInteger : 0 : IR)
+//> @attr canvas.extraSpace (PositiveInteger : 0 : IR)
 // When this Canvas is included as a member in a Layout, extra blank space that should be left
 // after this member in a Layout.
 // @see class:LayoutSpacer for more control
@@ -5539,6 +6064,7 @@ getBreadthPolicy : function () {
 
 
 memberHasInherentLength : function (member) {
+
     if (!(this.vertical ? member.hasInherentHeight() : member.hasInherentWidth())) {
         return false;
     }
@@ -5611,6 +6137,11 @@ initWidget : function () {
         this.vertical = (this.orientation == Layout.VERTICAL);
     } else {
         this.orientation = (this.vertical ? Layout.VERTICAL : Layout.HORIZONTAL);
+    }
+
+    // For horizontal Layouts perform a horizontal animation effect when showing / hiding
+    if (!this.vertical && this.animateMemberEffect == "slide") {
+        this.animateMemberEffect = isc.Layout._animateHSlideEffect;
     }
 
     // for horizontal layouts in RTL, set (or flip) the reverseOrder flag
@@ -5706,11 +6237,11 @@ setAlign : function (align) {
 checkAlign : function (align) {
     if (this.vertical) {
         if (align == isc.Canvas.LEFT || align == isc.Canvas.RIGHT) {
-            isc.logWarn("Layout.align set to " + align + ", which is invalid for vertical layouts");
+            this.logWarn("Layout.align set to " + align + ", which is invalid for vertical layouts");
         }
     } else {
         if (align == isc.Canvas.TOP || align == isc.Canvas.BOTTOM) {
-            isc.logWarn("Layout.align set to " + align + ", which is invalid for horizontal layouts");
+            this.logWarn("Layout.align set to " + align + ", which is invalid for horizontal layouts");
         }
     }
 
@@ -5719,6 +6250,12 @@ checkAlign : function (align) {
 // createMemberCanvii - resolves specified members / children to actual canvas instances, and
 // unlike createCanvii, clears out anything that didn't resolve to a Canvas with a warning
 createMemberCanvii : function (members) {
+    // initialize any (manually-created) LayoutResizeBars
+    for (var i = members.length-1; i >= 0; i--) {
+        if (isc.isA.LayoutResizeBar(members[i])) {
+            this.initResizeBarMember(members[i]);
+        }
+    }
     members = this.createCanvii(members);
     for (var i = members.length-1; i >= 0; i--) {
         // Skip null entries - we handle these separately
@@ -5729,7 +6266,41 @@ createMemberCanvii : function (members) {
             members.removeAt(i);
         }
     }
+    var dups = this._checkMembersForDuplicates(members);
+    if (dups.length != 0) {
+        this.logWarn("Specified members array contains the following component(s) multiple times:" +
+            dups + ". This is unsupported. Duplicate Canvas entries will be removed. " +
+            "Duplicate LayoutSpacer entries will be replaced with new LayoutSpacers with the same dimensions.");
+    }
+
     return members;
+},
+
+_checkMembersForDuplicates : function (members) {
+    // Loop through the members checking for duplicates
+
+    var duplicates = [];
+    for (var i = 0; i < members.length; i++) {
+        var member = members[i],
+        nextIndex = members.indexOf(member, i+1);
+        if (nextIndex != -1) duplicates.add(member);
+        while (nextIndex != -1) {
+            if (isc.isA.LayoutSpacer(member)) {
+                members[nextIndex] = isc.LayoutSpacer.create({
+                    height:member.height,
+                    width:member.width,
+                    minHeight:member.minHeight,
+                    minWidth:member.minWidth
+                });
+                nextIndex = members.indexOf(member, nextIndex+1);
+            } else {
+                members.removeAt(nextIndex);
+                nextIndex = members.indexOf(member, nextIndex);
+            }
+        }
+    }
+    // return whatever we removed/modified
+    return duplicates;
 },
 
 _allGeneratedChildren : function () {
@@ -5742,6 +6313,13 @@ _allGeneratedChildren : function () {
 
 // Margins handling
 // ---------------------------------------------------------------------------------------
+
+setPadding : function () {
+    this.Super("setPadding", arguments);
+    if (this.paddingAsLayoutMargin) {
+        this.setLayoutMargin();
+    }
+},
 
 //> @method layout.setLayoutMargin()
 // Method to force a reflow of the layout after directly assigning a value to any of the
@@ -5934,7 +6512,7 @@ _drawNonMemberChildren : function () {
 //> @method layout.revealChild()
 // Reveals the child or member Canvas passed in by showing it if it is currently hidden
 //
-// @param child (ID | Canvas)   the child Canvas to reveal, or its global ID
+// @param child (GlobalId | Canvas) the child Canvas to reveal, or its global ID
 // @visibility external
 //<
 revealChild : function (child) {
@@ -5976,13 +6554,16 @@ managePercentBreadth:true,
 // @group layoutMember
 // @visibility external
 //<
-
+getMemberDefaultBreadth : function (member, defaultBreadth) {
+    return defaultBreadth;
+},
 
 _getMemberDefaultBreadth : function (member) {
     var explicitBreadth = this._explicitBreadth(member),
         percentBreadth = isc.isA.String(explicitBreadth) && isc.endsWith(explicitBreadth,this._$percent)
                     ? explicitBreadth : null,
         availableBreadth = Math.max(this.getBreadth() - this._getBreadthMargin(), 1);
+
 
 
     var minBreadthMember = this._minBreadthMember;
@@ -5992,10 +6573,13 @@ _getMemberDefaultBreadth : function (member) {
     }
 
 
-    if (this._willScrollLength && !this.leaveScrollbarGap) {
-        //this.logWarn("resizeMembers using smaller breath for scrolling, overflowersOnly: " +
-        //             overflowersOnly);
-        availableBreadth -= this.getScrollbarSize();
+
+
+    if (!this.leaveScrollbarGap) {
+        if (this._willScrollLength != null) {
+            // this.logWarn("resizeMembers adjusting breath for scrolling (" + this._willScrollLength + ")");
+            availableBreadth += ((this._willScrollLength ? -1 : 1) * this.getScrollbarSize());
+        }
     }
 
     var breadth = (percentBreadth == null ? availableBreadth :
@@ -6055,7 +6639,9 @@ shouldAlterBreadth : function (member) {
     // the layout's breadth, similar to a member with an explicit size.
 
 
-    if (this.vertical && member.inherentWidth) return false;
+    if ((this.vertical && member.neverExpandWidth) ||
+        (!this.vertical && member.neverExpandHeight)) return false;
+
 
     // members will be set to the breadth of the layout if they have no explicit size of their own
     if (this.getBreadthPolicy() == isc.Layout.FILL) return true;
@@ -6070,31 +6656,52 @@ _moveOffscreen : function (member) {
 },
 
 // return the total space dedicated to margins or resizeBars
-getMarginSpace : function () {
-    var marginSpace = this._getLengthMargin();
-    for (var i = 0; i < this.members.length; i++) {
-        var member = this.members[i];
 
-        if (member._computedShowResizeBar) {
+getMarginSpace : function () {
+    var lastMemberWasHidden,
+        lastMemberWasResizeBar,
+        lastMemberHadResizeBar,
+        membersMarginPending,
+        marginSpace = this._getLengthMargin()
+    ;
+    for (var i = 0; i < this.members.length; i++) {
+        var member = this.members[i],
+            isResizeBar = isc.isA.LayoutResizeBar(member),
+            showResizeBar = member._computedShowResizeBar,
+            shouldIgnore = this._shouldIgnoreMember(member)
+        ;
+
+        if (showResizeBar) {
             // leave room for resizeBar
             marginSpace += this.resizeBarSize;
-        } else if (i < this.members.length - 1 && !this._shouldIgnoreMember(this.members[i+1])) {
-            // leave room for margins if not the last visible member
-            marginSpace += this.membersMargin;
         }
 
-        // leave extra space on a member-by-member basis
-        marginSpace += this.getMemberGap(member);
+
+        if (i > 0 && !lastMemberHadResizeBar) {
+            if (!lastMemberWasHidden && !lastMemberWasResizeBar && !isResizeBar) {
+                if (shouldIgnore) membersMarginPending = true;
+                else marginSpace += this.membersMargin;
+            } else if (lastMemberWasHidden && !isResizeBar && membersMarginPending) {
+                marginSpace += this.membersMargin;
+                membersMarginPending = false;
+            }
+        }
+
+        lastMemberWasResizeBar = isResizeBar;
+        lastMemberHadResizeBar = showResizeBar;
+        lastMemberWasHidden = shouldIgnore;
+
+        if (shouldIgnore) {
+            // hidden member with a resizeBar; clear any pending margin
+            if (showResizeBar) membersMarginPending = false;
+        } else {
+            // leave extra space on a member-by-member basis
+            marginSpace += this.getMemberGap(member);
+        }
     }
 
-    // in the previous condition chain we're skipping membmers[0] so:
-    if (this.members.length != 0 && this._shouldIgnoreMember(this.members[0]) ) {
-        // if the first member is hidden => ignored we're removing its margin size.
-        marginSpace -= this.membersMargin;
-    }
-
-    // re add 1 * this.memberOverlap so we don't clip the member closest to our ege
-    if (this.memberOverlap != null) marginSpace += this.memberOverlap
+    // re add 1 * this.memberOverlap so we don't clip the member closest to our edge
+    if (this.memberOverlap != null) marginSpace += this.memberOverlap;
     return marginSpace;
 },
 
@@ -6270,7 +6877,6 @@ gatherSizes : function (overflowAsFixed, layoutInfo, sizes) {
             if (report) memberInfo._lengthReason = "explicit size";
             continue;
         }
-
         // no size specified; ask for as much space as is available
         if (memberInfo._policyLength == null) {
             memberInfo._policyLength = this._$star;
@@ -6433,9 +7039,10 @@ resizeMember : function (member, size, memberInfo, overflowers, overflowAsFixed,
     if (overflowAsFixed && this._overflowsLength(member) && !canAdaptLength) {
         var drawnLength = this.getMemberLength(member);
 
-        // if the member's drawn size doesn't match the size we assigned it in the first
-        // pass, it has overflowed.
-        if (drawnLength != size) {
+        // if the member's drawn size exceeds the size we assigned it in the first pass, it has
+        // overflowed
+
+        if (drawnLength > size) {
             if (report) {
                 this.logInfo("resizeMembers(): member: " + member + " overflowed.  Set " +
                              "length: " + size + ", got length: " +
@@ -6449,12 +7056,25 @@ resizeMember : function (member, size, memberInfo, overflowers, overflowAsFixed,
 resizeMembers : function (sizes, layoutInfo, overflowers, overflowAsFixed) {
 
 
-    if (!this._willScrollLength && !this.scrollingOnLength() &&
-        this.overflow == isc.Canvas.AUTO && sizes.sum() > this.getLength())
-    {
-        this.logInfo("scrolling will be required on length axis, after overflow",
-                     this._$layout);
-        this._willScrollLength = true;
+    if (this.overflow == isc.Canvas.AUTO) {
+        var lengthOverflows = sizes.sum() > this.getTotalMemberSpace(),
+            scrollingOnLength = this.scrollingOnLength();
+
+        this._willScrollLength = null;
+        if (lengthOverflows) {
+            if (!scrollingOnLength) {
+                this.logInfo("scrolling will be required on length axis, after overflow",
+                    this._$layout);
+
+                this._willScrollLength = true;
+            }
+        } else {
+            if (scrollingOnLength) {
+                this.logInfo("scrolling will no longer be required on length axis, after overflow",
+                    this._$layout);
+                this._willScrollLength = false;
+            }
+        }
     }
 
 
@@ -6488,6 +7108,7 @@ resizeMembers : function (sizes, layoutInfo, overflowers, overflowAsFixed) {
 // consistently increasing or decreasing Z-order, except members which should be ignored
 // (such as selected tabs in a TabBar which must be at the top).
 _enforceStackZIndex : function () {
+
     if (!this.stackZIndex || this.members.length < 2) return;
 
     // advance to the first non-ignored member
@@ -6538,8 +7159,8 @@ stackMembers : function (members, layoutInfo, updateSizes) {
     // for the clipping/scrolling case, and acts as a minimum for the overflow case.
     // Note getInner* takes into account native margin/border
     var vertical = this.vertical,
-        specifiedBreadth = (vertical ? this.getInnerWidth() : this.getInnerHeight()) -
-                            this._getBreadthMargin()
+        specifiedBreadth = (vertical ? this.getInnerWidth() :
+                                       this.getInnerHeight()) - this._getBreadthMargin()
     ;
 
     var Canvas = isc.Canvas, centerBreadth = specifiedBreadth,
@@ -6606,11 +7227,15 @@ stackMembers : function (members, layoutInfo, updateSizes) {
     var defaultOffset = vertical ? layoutLeft + this._leftMargin :
                                    layoutTop  + this._topMargin,
         lastMemberHadResizeBar = false,
+        lastMemberWasResizeBar = false,
         lastMemberWasHidden = false,
+        membersMarginPending = false,
         numHiddenMembers = 0;
 
     for (var i = 0; i < members.length; i++) {
         var member = members[i],
+            isResizeBar = isc.isA.LayoutResizeBar(member),
+            shouldIgnore = this._shouldIgnoreMember(member),
             // NOTE: layoutInfo is optional, only used for reporting purposes when stackMembers is
             // called as part of a full layoutChildren run
             memberInfo = layoutInfo ? layoutInfo[i] : null;
@@ -6624,13 +7249,20 @@ stackMembers : function (members, layoutInfo, updateSizes) {
             else          startMargin = (reverse ? this._rightMargin  : this._leftMargin);
             nextMemberPosition += (direction * startMargin);
         } else {
+            // if the last member showed a resizeBar, leave room for it
             if (lastMemberHadResizeBar) {
-                // if the last member showed a resizeBar, leave room for it
                 nextMemberPosition += (direction * this.resizeBarSize);
-            } else if (!lastMemberWasHidden) {
-                // otherwise leave the members margin (note: avoid stacking margins if a member
-                // is hidden)
+
+            // otherwise leave membersMargin (avoid stacking margins if a member is hidden)
+
+            } else if (!lastMemberWasHidden && !lastMemberWasResizeBar && !isResizeBar) {
+                if (shouldIgnore) membersMarginPending = true;
+                else nextMemberPosition += (direction * this.membersMargin);
+
+            // convert membersMarginPending, if still set, into a membersMargin
+            } else if (lastMemberWasHidden && !isResizeBar && membersMarginPending) {
                 nextMemberPosition += (direction * this.membersMargin);
+                membersMarginPending = false;
             }
         }
 
@@ -6639,7 +7271,7 @@ stackMembers : function (members, layoutInfo, updateSizes) {
         var animating = member.isAnimating(this._moveAnimations); //<Animation
 
         // skip hidden members
-        if (this._shouldIgnoreMember(member)) {
+        if (shouldIgnore) {
 
             if (!this.isIgnoringMember(member)
                 //>Animation
@@ -6653,10 +7285,12 @@ stackMembers : function (members, layoutInfo, updateSizes) {
                 var breadth = this.getBreadth() - this._getBreadthMargin();
                 this.makeResizeBar(member, defaultOffset, nextMemberPosition, breadth);
                 lastMemberHadResizeBar = true;
+                membersMarginPending = false;
             } else {
                 if (member._resizeBar != null) member._resizeBar.hide();
                 lastMemberHadResizeBar = false;
             }
+            lastMemberWasResizeBar = isResizeBar;
             lastMemberWasHidden = true;
             numHiddenMembers++;
             continue;
@@ -6714,6 +7348,7 @@ stackMembers : function (members, layoutInfo, updateSizes) {
             if (member._resizeBar != null) member._resizeBar.hide();
         }
         lastMemberHadResizeBar = member._computedShowResizeBar;
+        lastMemberWasResizeBar = isResizeBar;
 
         // update memberSizes.  NOTE: this is only necessary when we have turned off the sizing
         // policy are doing stackMembers() only
@@ -6997,15 +7632,19 @@ layoutChildren : function (reason, deltaX, deltaY) {
         delete this._minBreadthMember;
     }
 
-
     for (var i = 0; i < this.members.length; i++) {
         var member = this.members[i];
+
         if (this._canAdaptLength(member) && !member.allowAdaptSizeBeforeDraw &&
             !member.isDrawn())
         {
             this._moveOffscreen(member);
             member.draw();
             drawnInline[drawnInline.length] = member;
+        }
+        // default member minHeight that hasn't been set explicitly
+        if (member.minHeight == null && member._getDefaultMinHeight) {
+            member.minHeight = member._getDefaultMinHeight();
         }
     }
 
@@ -7213,7 +7852,6 @@ applyStretchResizePolicy : function (sizes, totalSize, minSize, modifyInPlace) {
         return policy.call(thisClass, sizes, totalSize, minSize, modifyInPlace, this);
 },
 
-_$adaptMembers: "adaptMembers",
 adaptMembersToSpace : function (sizes, totalSpace, overflowAsFixed, layoutInfo) {
 
     var adapted = false,
@@ -7380,7 +8018,7 @@ _getMemberSizes : function (totalSpace, overflowAsFixed, sizes, layoutInfo) {
 //StackDepth this strange factoring is to avoid a stack frame
 _layoutChildrenDone : function (reason, layoutAlreadyInProgress) {
 
-    this._willScrollLength = false;
+    this._willScrollLength = null;
 
     // the layout is now up to date and any changes we see from here on, we need to respond to
     this._layoutIsDirty = false;
@@ -7530,7 +8168,7 @@ layoutIsDirty : function () {
 // <code>reflow()</code> after changing settings on the layout, for example,
 // <code>layout.reverseOrder</code>.
 //
-// @param [reason] (string) reason reflow() had to be called (appear in logs if enabled)
+// @param [reason] (String) reason reflow() had to be called (appear in logs if enabled)
 //
 // @visibility external
 //<
@@ -7567,6 +8205,62 @@ reflowNow : function (reason, reflowCount) {
     if (reflowCount != null && reflowCount < this._reflowCount) return;
     this.layoutChildren(reason);
 },
+
+// If a user is resizing a widget via a drag (or a drag on resizeBar, etc), we want to
+// allow the dragged edge to resize to the expected mouse position and keep the other
+// edge still. This means fixing (freezing) the sizes of any prior members that previously had
+// percent/"*" sizes.
+fixLayoutOnMemberResize:true,
+// This notification is fired from a canDragResize:true member, or from a target
+// resize (drag from resizeBar / sectionStack section header)
+_childResizingOnDragStart : function (child, resizeEdge) {
+    if (!this.fixLayoutOnMemberResize) return this.Super("_childResizingOnDragStart", arguments);
+    if (this.members.contains(child)) {
+        var forward = this.vertical ? resizeEdge.contains("B") : resizeEdge.contains("R");
+
+        // If we're dragging from the leading edge (bottom or right), we want to fix sizes
+        // of prior members so the top edge stays still and the bottom edge ends up whereever
+        // the user releases the mouse
+
+        if (forward) {
+            for (var i = 0; i < this.members.indexOf(child); i++) {
+                var priorMember = this.members[i];
+
+                if (this._memberWillResizeOnReflow(priorMember)) {
+                    priorMember.updateUserSize(
+                        this.vertical ? priorMember.getHeight() : priorMember.getWidth(),
+                        this.vertical ? "height" : "width",
+                        "Fixing other member sizes for drag resize"
+                    );
+
+                }
+            }
+
+        }
+    }
+
+},
+
+
+// Helper to determine whether a member will resize to fill the available space on
+// reflow when gatherSizes runs
+// Returns true if size was set to an explicitly variable value ("*" / percentage), or
+// if our layout-policy should impact the member in question.
+
+_memberWillResizeOnReflow : function (member) {
+
+    if (this._memberPercentLength(member) != null) return true;
+    var length = this._explicitLength(member);
+    if (length != null) {
+        return length == "*";
+    } else {
+        var policy = this.getLengthPolicy();
+        return (policy == "fill" ? !this.memberHasInherentLength(member) : false);
+    }
+
+},
+
+
 
 // when a member resizes, rerun layout.
 childResized : function (child, deltaX, deltaY, reason) {
@@ -7746,11 +8440,13 @@ sectionHeaderClick : function (sectionHeader) {
 // --------------------------------------------------------------------------------------------
 
 //>    @method    layout.getMember()
-// Given a numerical index or a member name or member ID, return a pointer to the appropriate member.
+// Given a numerical index or a member +link{canvas.name,name} or member +link{canvas.ID,ID},
+// return a pointer to the appropriate member.  If passed a member Canvas, just returns it.
 // <p>
-// If passed a member Canvas, just returns it.
+// Note that if more than one member has the same <code>name</code>, passing in a
+// <code>name</code> has an undefined result.
 //
-// @param memberID (String | int | Canvas)   identifier for the required member
+// @param memberID (String | int | Canvas) identifier for the required member
 // @return (Canvas)  member widget
 // @see getMemberNumber()
 // @visibility external
@@ -7762,12 +8458,13 @@ getMember : function (member) {
 },
 
 //>    @method    layout.getMemberNumber()
-// Given a member Canvas or member ID or name, return the index of that member within this
-// layout's members array
+// Given a member Canvas or member +link{canvas.ID,ID} or +link{canvas.name,name}, return the
+// index of that member within this layout's members array.  If passed a number, just returns it.
 // <p>
-// If passed a number, just returns it.
+// Note that if more than one member has the same <code>name</code>, passing in a
+// <code>name</code> has an undefined result.
 //
-// @param memberID (String | Canvas | int)   identifier for the required member
+// @param memberID (String | Canvas | int) identifier for the required member
 // @return (int) index of the member canvas (or -1 if not found)
 // @see getMember()
 // @visibility external
@@ -7908,8 +8605,8 @@ getCompletePrintHTMLFunction : function (HTML, callback) {
 // @see addMembers()
 // @visibility external
 //<
-addMember : function (newMember, position, dontAnimate) {
-    this.addMembers(newMember, position, dontAnimate);
+addMember : function (newMember, position, dontAnimate, callback) {
+    this.addMembers(newMember, position, dontAnimate, callback);
     return this;
 },
 
@@ -7924,7 +8621,7 @@ addMember : function (newMember, position, dontAnimate) {
 //<
 _singleArray : [],
 _$membersAdded : "membersAdded",
-addMembers : function (newMembers, position, dontAnimate) {
+addMembers : function (newMembers, position, dontAnimate, callback) {
     if (!newMembers) return;
 
     if (isc._traceMarkers) arguments.__this = this;
@@ -7953,6 +8650,14 @@ addMembers : function (newMembers, position, dontAnimate) {
 
     var layoutDrawn = this.isDrawn(),
         numSkipped = 0;
+    var dups = this._checkMembersForDuplicates(newMembers);
+    if (dups.length != 0) {
+        this.logWarn("addMembers(): new members array contained the following component(s) multiple times:" +
+            dups + ". This is unsupported. Duplicate Canvas entries will be removed. " +
+            "Duplicate LayoutSpacer entries will be replaced with new LayoutSpacers with the same dimensions.");
+
+    }
+
     for (var i = 0; i < newMembers.length; i++) {
 
         var newMember = newMembers[i];
@@ -7962,6 +8667,9 @@ addMembers : function (newMembers, position, dontAnimate) {
             ++numSkipped;
             continue;
         }
+
+        // if the member is a (manually-created) LayoutResizeBar, initialize it now
+        if (isc.isA.LayoutResizeBar(newMember)) this.initResizeBarMember(newMember);
 
         if (!isc.isAn.Instance(newMember)) {
             newMember = this.createCanvas(newMember);
@@ -8069,7 +8777,7 @@ addMembers : function (newMembers, position, dontAnimate) {
     // We're relying on the fact that we have a single member in the array - newMember will
     // always be the member newMembers[0] refers to.
     if (shouldAnimateShow) {
-        this._animateMemberShow(newMember);
+        this._animateMemberShow(newMember, callback);
     } else    //<Animation
         this.reflow(this._$membersAdded);
 
@@ -8123,8 +8831,14 @@ _animateMargin : function (member, added) {
     // instead
     var addRemoveMember = member;
     var memberNum = this.getMemberNumber(member);
-    if (memberNum == this.members.length-1) member = this.getMember(memberNum-1);
+    if (memberNum == this.members.length - 1) member = this.getMember(--memberNum);
     if (!member) return;
+
+
+    var nextMember = this.getMember(memberNum + 1),
+        membersMargin = isc.isA.LayoutResizeBar(member) ||
+                        isc.isA.LayoutResizeBar(nextMember) ? 0 : this.membersMargin
+    ;
 
     // when animating simultaneous addition and removal of same-size members (eg D&D reorder),
     // it's important that the Layout not change overall size.  This is only possible if both
@@ -8132,7 +8846,7 @@ _animateMargin : function (member, added) {
     // frame, and have the same accelleration.
     // The first reflow will be triggered by addition/removal of members with the added member
     // at 1px height and the removed member still at full height.
-    var margin = this.membersMargin + this.getMemberGap(member);
+    var margin = membersMargin + this.getMemberGap(member);
     if (added) member._internalExtraSpace = -(margin+1);
     //if (added) member._internalExtraSpace = -margin; // alternative margin placement
     //else member._internalExtraSpace = -1;
@@ -8174,8 +8888,8 @@ removeChild : function (child, name) {
 // @param member (Canvas) the canvas to be removed from the layout
 // @visibility external
 //<
-removeMember : function (member, dontAnimate) {
-    this.removeMembers(member, dontAnimate);
+removeMember : function (member, dontAnimate, callback) {
+    this.removeMembers(member, dontAnimate, callback);
 },
 
 
@@ -8187,7 +8901,7 @@ removeMember : function (member, dontAnimate) {
 //     @param members (Array of Canvas | Canvas) array of members to be removed, or single member
 //    @visibility external
 //<
-removeMembers : function (members, dontAnimate) {
+removeMembers : function (members, dontAnimate, callback) {
     if (members == null || (isc.isAn.Array(members) && members.length == 0)) return;
 
     //>Animation If we're in the process of a drag/drop animation, finish it up before
@@ -8235,9 +8949,11 @@ removeMembers : function (members, dontAnimate) {
         // Note this avoids changes to the passed in Array as well as incorrect reuse of the
         // singleton this._singleArray during the animation.
         var layout = this,
-            removeMembers = members.duplicate(),
-            callback = function () { layout._completeRemoveMembers(removeMembers); };
-        this._animateMemberHide(animatingMember, callback);
+            removeMembers = members.duplicate();
+        this._animateMemberHide(animatingMember, function () {
+            layout._completeRemoveMembers(removeMembers);
+            if (callback) callback.apply(animatingMember, arguments);
+        });
     // If we're not animating fall through to _completeRemoveMembers() synchronously
     } else {
     //<Animation
@@ -8274,6 +8990,12 @@ _completeRemoveMembers : function (members) {
         }
         // the member should no longer show us when it gets shown
         if (member.showTarget == this) delete member.showTarget;
+
+        // clean up most important LayoutResizeBar state
+        if (isc.isA.LayoutResizeBar(member)) {
+            delete member.vertical;
+            delete member.layout;
+        }
 
         if (member._isPlaceHolder) member.destroy();
     }
@@ -8330,7 +9052,7 @@ showMember : function (member, callback) {
 //> @method layout.showMembers()
 // Show the specified array of members, and then fire the callback passed in.
 // @param members (Array of Canvas) Members to show
-// @param [callback] (callback) action to fire when the members are showing.
+// @param [callback] (Callback) action to fire when the members are showing.
 //<
 //>Animation  If <code>this.animateMembers</code> is true, the show will be performed as an
 // animation in the case where a single, animate clip-able member was passed.   //<Animation
@@ -8391,7 +9113,7 @@ hideMember : function (member, callback) {
 //> @method layout.hideMembers()
 // Hide the specified array of members, and then fire the callback passed in.
 // @param members (Array of Canvas) Members to hide
-// @param [callback] (callback) action to fire when the members are hidden.
+// @param [callback] (Callback) action to fire when the members are hidden.
 //<
 //>Animation  If <code>this.animateMembers</code> is true, the hide will be performed as an
 // animation in the case where a single, animate clip-able member was passed.   //<Animation
@@ -8475,12 +9197,12 @@ _membersReordered : function (reason) {
 },
 
 // replace one member with another, without an intervening relayout, and without animation
-replaceMember : function (oldMember, newMember) {
+_replaceMember : function (oldMember, newMember) {
     var oldSetting = this.instantRelayout;
     this.instantRelayout = false;
     var oldMemberPos = this.getMemberNumber(oldMember);
     if (oldMemberPos < 0) {
-        this.logWarn("replaceMember(): " + oldMember.getID() + " is not a member");
+        this.logWarn("_replaceMember(): " + oldMember.getID() + " is not a member");
         oldMemberPos = 0;
     } else {
         this.removeMember(oldMember, true);
@@ -8488,6 +9210,83 @@ replaceMember : function (oldMember, newMember) {
     this.addMember(newMember, oldMemberPos, true);
     this.instantRelayout = oldSetting;
     if (oldSetting) this.reflowNow();
+},
+
+//>    @method    layout.replaceMember()
+// Replaces an existing member of the layout with a different widget.  The new member will be
+// assigned the width and height of the existing member (including sizes configured via end
+// user resize), so no reflow will occur unless the new component has visible overflow and it
+// differs from that of the widget it replaced.
+//
+// @param oldMember (Canvas) an existing member of the layout to be replaced
+// @param newMember (Canvas) a different widget that should replace <code>oldMember</code>
+// @see RPCManager.createScreen()
+// @visibility external
+//<
+replaceMember : function (oldMember, newMember) {
+    // just bail if it would be a no-op
+    if (oldMember == newMember) return;
+
+    // non-sensical case; oldMember isn't a member
+    if (!this.hasMember(oldMember)) {
+        this.logWarn("replaceMember(): the first argument must already be a member widget");
+        return;
+    }
+
+
+    var alreadyMember = this.hasMember(newMember);
+
+
+    var dirty = this.layoutIsDirty();
+    this._layoutIsDirty = true;
+
+    // remember the overflow and user sizing of the old member
+    var userWidth  = oldMember._userWidth,
+        userHeight = oldMember._userHeight,
+        visibleWidth  = oldMember.getVisibleWidth(),
+        visibleHeight = oldMember.getVisibleHeight()
+    ;
+    // remember the placement of the old member
+    var oldLeft = oldMember.getLeft(),
+        oldTop  = oldMember.getTop()
+    ;
+
+    // apply the old member's width and height to new member
+
+    var memberPos;
+    if (isc.isA.Canvas(newMember)) {
+        newMember.resizeTo(oldMember.width, oldMember.height);
+    } else {
+        memberPos = this.getMemberNumber(oldMember);
+        newMember.width = oldMember.width;
+        newMember.height = oldMember.height;
+    }
+
+    // do actual replacement of members now
+    this._replaceMember(oldMember, newMember);
+
+    // if new member was properties object, replace it with widget
+    if (memberPos != null) newMember = this.getMember(memberPos);
+
+    // apply user sizing present before resizeTo() above
+    newMember.updateUserSize(userWidth,  this._$width);
+    newMember.updateUserSize(userHeight, this._$height);
+
+    // place the new member in same spot as the old member
+    newMember.moveTo(oldLeft, oldTop);
+
+    // if the new member is still undrawn, draw it now
+    if (!newMember.isDrawn()) newMember.draw();
+
+
+    this._layoutIsDirty = dirty;
+    if (!dirty && this.isDrawn()) {
+        if (newMember.getVisibleHeight() != visibleHeight || alreadyMember ||
+            newMember.getVisibleWidth()  != visibleWidth)
+        {
+            this.reflow();
+        }
+    }
 },
 
 //> @method layout.membersChanged()
@@ -8512,9 +9311,11 @@ _membersChanged : function () {
 // within the layout. By caching the computed value, we can keep track of changes without
 // interfering with the desired setting in showResizeBar itself.
 _computeShowResizeBarsForMembers : function () {
-    var defResize = this.defaultResizeBars;
-    for (var i = this.members.length - 1; i >= 0; i--) {
-        var member = this.members[i];
+    var member, lastMember,
+        defResize = this.defaultResizeBars;
+    for (var i = this.members.length - 1; i >= 0; i--, lastMember = member) {
+        member = this.members[i];
+
         // handle sparse array
         if (member == null) continue;
         var showResize = false; // Covers defResize == isc.Canvas.NONE
@@ -8531,17 +9332,85 @@ _computeShowResizeBarsForMembers : function () {
             showResize = false;
         }
 
+        // if a manually-created LayoutResizeBar is present, defer to it
+
+        if (showResize && isc.isA.LayoutResizeBar(lastMember)) {
+            if (!lastMember.hasOwnProperty("resizeDirection")) {
+                this._applyAutoChildSettingsToResizeBar(member, lastMember, i + 1);
+            }
+            showResize = false;
+        }
+
         var currentComputedResizeBar = member._computedShowResizeBar;
         member._computedShowResizeBar = showResize;
         if (currentComputedResizeBar != showResize) this.reflow("_computedShowResizeBar changed");
     }
+
+    // members have changed; update LayoutResizeBar's target
+    for (var i = this.members.length - 1; i >= 0; i--) {
+        var member = this.members[i];
+        if (isc.isA.LayoutResizeBar(member)) member._updateTarget(i);
+    }
 },
+
+// LayoutResizeBars
+// --------------------------------------------------------------------------------------------
+
+_applyAutoChildSettingsToResizeBar : function (prevMember, resizeBar, resizeBarPos) {
+
+
+    // set LayoutResizeBar.target based on resizeBarTarget of member before it
+    var targetAfter, target;
+    if (prevMember.resizeBarTarget == "next") {
+        target = this.getMember(resizeBarPos + 1);
+        if (target) targetAfter = true;
+    }
+    if (!target) target = prevMember;
+
+    // set LayoutResizeBar.hideTarget based on resizeBarHideTarget of member before it
+    var hideTarget = target;
+    if (prevMember.resizeBarHideTarget != null) {
+        hideTarget = prevMember.resizeBarHideTarget == "next" ?
+            this.getMember(resizeBarPos + 1) : null;
+        if (!hideTarget) hideTarget = prevMember;
+    }
+
+    resizeBar.setResizeDirection(targetAfter ? isc.Splitbar.AFTER : isc.Splitbar.BEFORE);
+
+    // provide support for the undoc'd member property resizeBarHideTarget
+    if (target != hideTarget) resizeBar.setProperty("hideTarget", hideTarget);
+},
+
+initResizeBarMember : function (resizeBar) {
+    if (resizeBar.layout == this) return;
+    else resizeBar.layout = this;
+
+    // orientation of resizeBar is opposite layout
+    var vertical = !this.vertical;
+    if (vertical != resizeBar.vertical) {
+        resizeBar.setVertical(vertical, true);
+    }
+
+
+    if (vertical) {
+        resizeBar.setProperties({
+            dragScrollDirection: isc.Canvas.HORIZONTAL,
+            width: this.resizeBarSize, inherentWidth: true
+        });
+    } else {
+        resizeBar.setProperties({
+            dragScrollDirection: isc.Canvas.VERTICAL,
+            height: this.resizeBarSize, inherentHeight: true
+        });
+    }
+},
+
 
 // Tabbing
 // --------------------------------------------------------------------------------------------
 
 //> @method layout.getChildTabPosition()
-// Layout overrides +link{canvas.getChildTabPosition()} to ensure children are ordered
+// Layouts ensure children are ordered
 // in the tab-sequence with members being reachable first (in member order), then any
 // non-member children.
 // <P>
@@ -8549,44 +9418,29 @@ _computeShowResizeBarsForMembers : function () {
 // was called explicitly called for some child, it will be respected over member order.
 //
 // @param child (Canvas) The child for which the tab position should be returned
-// @return (integer) tab position of the child within this layout.
+// @return (Integer) tab position of the child within this layout.
 // @visibility external
 //<
-// Override 'getChildTabPosition' to order children in member order first, then
-// have non-member children (in child order) after that.
 
-getChildTabPosition : function (child, returnNulls) {
 
-    if (!this.children || !child) return;
-
-    if (!child.updateTabPositionOnReparent) return -1;
-
-    // If relativeTabPosition is set, return it.
-    if (child.relativeTabPosition != null) {
-        return child.relativeTabPosition;
-    }
-
-    // return nulls - used if called from sortChildrenIntoTabOrder - basically keeps
-    // widgets in the order of the array passed to that method in this case.
-    if (returnNulls) return null;
-
-    // To figure out the order, we need to order members, then non-member children,
-    // and adjust that list using any explicit relativeTabPositions
-    // The _sortChildrenIntoTabOrder method basically handles taking the list its
-    // passed and resolving explicit 'relativeTabPosition' values, so we can just
-    // assemble a list in member, then child order and hand it to that method
-    // to get the definitive index back.
+_getChildrenInDefaultTabOrder : function () {
     var memberOrderedChildren = [];
-    memberOrderedChildren.addList(this.members);
+    if (!this.members || !this.children) return memberOrderedChildren;
+    for (var i = 0; i < this.members.length; i++) {
+        if (!this.members[i].updateTabPositionOnReparent) continue;
+        memberOrderedChildren.add(this.members[i]);
+    }
     if (this.members.length != this.children.length) {
         for (var i = 0; i < this.children.length; i++) {
-            if (!this.members.contains(this.children[i])) {
-                memberOrderedChildren.add(this.children[i]);
+            if (!this.children[i].updateTabPositionOnReparent ||
+                this.members.contains(this.children[i]))
+            {
+                continue;
             }
+            memberOrderedChildren.add(this.children[i]);
         }
     }
-    var orderedChildren = this._sortChildrenIntoTabOrder(memberOrderedChildren, child, child.relativeTabPosition);
-    return orderedChildren.indexOf(child.ID);
+    return memberOrderedChildren;
 },
 
 // Method to update the tab position of some member
@@ -8796,7 +9650,7 @@ dragRepositionStop : function () {
                         dragTarget.canDragReposition = dragTarget._canDragReposition;
                         delete dragTarget._canDragReposition;
                     }
-                    layout.replaceMember(placeHolder, dragTarget);
+                    layout._replaceMember(placeHolder, dragTarget);
                 }
             ;
 
@@ -8857,7 +9711,7 @@ removePlaceHolder : function (placeHolder) {
     // shrinking)
     if (this.animateMembers && !isc.isA.LayoutSpacer(placeHolder)) {
         var newPlaceHolder = this._createSpacer(placeHolder);
-        this.replaceMember(placeHolder, newPlaceHolder);
+        this._replaceMember(placeHolder, newPlaceHolder);
         placeHolder.destroy();
         placeHolder = newPlaceHolder;
     }
@@ -9317,11 +10171,12 @@ makeResizeBar : function (member, offset, position, length) {
 
     // create a resizerBar for this member
     var bar = member._resizeBar;
+    var nextMember = this.getMember(this.getMemberNumber(member)+1) || member;
+
     if (bar == null) {
         var target = member,
             targetAfter,
-            hideTarget,
-            nextMember = this.getMember(this.getMemberNumber(member)+1) || member;
+            hideTarget;
 
         if (member.resizeBarTarget == "next") {
             target = nextMember;
@@ -9369,9 +10224,17 @@ makeResizeBar : function (member, offset, position, length) {
     if (!bar.isDrawn()) bar.draw();
     // May have been hidden by a previous stackMembers call
     if (!bar.isVisible()) bar.show();
+
+    // Always float the resizeBar above the 2 members it is attached to
+
+    if (nextMember != member && nextMember.getZIndex() > member.getZIndex()) {
+        bar.moveAbove(nextMember);
+    } else {
+        bar.moveAbove(member);
+    }
+
     return bar;
 },
-
 
 
 
@@ -9473,9 +10336,7 @@ reportSizes : function (layoutInfo, reason) {
 // @visibility external
 //<
 isc.defineClass("HLayout","Layout").addProperties({
-    orientation:"horizontal",
-    // For H-Layouts perform a horizontal animation effect when showing / hiding
-    animateMemberEffect:{effect:"slide", startFrom:"L", endAt:"L"}
+    orientation:"horizontal"
 });
 
 //>    @class    VLayout
@@ -9508,14 +10369,11 @@ isc.defineClass("VLayout","Layout").addProperties({
 isc.defineClass("HStack","Layout").addProperties({
     orientation:"horizontal",
     hPolicy:isc.Layout.NONE,
-    // For HStacks perform a horizontal animation effect when showing / hiding
-    animateMemberEffect:{effect:"slide", startFrom:"L", endAt:"L"},
     // NOTE: set a small defaultWidth since typical use is auto-sizing to contents on the
     // length axis, in order to avoid a mysterious 100px minimum length.  Since this is just a
     // defaultWidth, this really only affects HStacks which are not nested inside other
     // Layouts/Stacks
     defaultWidth:20
-
 });
 
 //>    @class    VStack
@@ -9554,6 +10412,30 @@ isc.defineClass("LayoutSpacer", "Canvas").addMethods({
     draw : isc.Canvas.NO_OP,
     redraw : isc.Canvas.NO_OP,
     _hasUndrawnSize:true
+});
+
+//> @class FixedSpacer
+// This class is a synonym for LayoutSpacer that can be used to make intent clearer.
+// It is used by some development tools for that purpose.
+//
+// @inheritsFrom LayoutSpacer
+// @treeLocation Client Reference/Layout
+// @visibility external
+//<
+isc.defineClass("FixedSpacer", "LayoutSpacer").addMethods({
+    height: 5
+});
+
+//> @class FlexSpacer
+// This class is a synonym for LayoutSpacer that can be used to make intent clearer.
+// It is used by some development tools for that purpose.
+//
+// @inheritsFrom LayoutSpacer
+// @treeLocation Client Reference/Layout
+// @visibility external
+//<
+isc.defineClass("FlexSpacer", "LayoutSpacer").addMethods({
+    height: 5
 });
 
 // register 'members' as a dup-property. This means if a layout subclass instance prototype
@@ -9736,6 +10618,50 @@ isc.Button.addProperties({
     // @include statefulCanvas.setAutoFit
     // @visibility external
     //<
+    setAutoFit : function () {
+
+        var drawn = this.isDrawn(),
+            pushBorderToDiv = this.shouldPushTableBorderStyleToDiv();
+
+        this.Super("setAutoFit", arguments);
+        // Remember the requested autoFit (used by adaptWidthBy)
+        this._specifiedAutoFit = !!this.autoFit;
+
+
+        if (drawn) {
+            var newPushBorderToDiv = this.shouldPushTableBorderStyleToDiv();
+            if (pushBorderToDiv != newPushBorderToDiv) {
+                this._pushTableBorderToDivChanged(newPushBorderToDiv);
+            }
+        }
+    },
+
+    _pushTableBorderToDivChanged : function (pushBorderToDiv) {
+        // If we're undrawn, prepareToDraw() handles updating the various flags
+        if (!this.isDrawn()) return;
+
+        var border = pushBorderToDiv ? this._buttonBorder : this.border;
+        // this will handle updating the appropriate property (_buttonBorder or border)
+        if (border != null) this.setBorder(border);
+
+
+
+        var bgColor = pushBorderToDiv ? this._buttonBGColor : this.backgroundColor;
+        this.setBackgroundColor(bgColor);
+    },
+
+
+    //> @attr button.width
+    // @include statefulCanvas.width
+    // @group sizing
+    // @visibility external
+    //<
+
+    //> @attr button.height
+    // @include statefulCanvas.height
+    // @group sizing
+    // @visibility external
+    //<
 
     // only autoFit horizontally by default
     autoFitDirection:"horizontal",
@@ -9751,8 +10677,8 @@ isc.Button.addProperties({
 
     //> @attr button.iconOnlyBaseStyle (CSSStyleName : null : [IRW])
     // if defined, <code>iconOnlyBaseStyle</code> is used as the base CSS style className,
-    // instead of +link{baseStyle}, if +link{canAdaptWidth} is set and the title is not being
-    // shown.
+    // instead of +link{baseStyle}, if +link{canAdaptWidth} is set and the
+    // +link{button.adaptWidthShowIconOnly,title is not being shown}.
     // @see canvas.canAdaptWidth
     // @see tabSet.simpleTabIconOnlyBaseStyle
     // @visibility external
@@ -9904,8 +10830,22 @@ isc.Button.addProperties({
     width:100,
 
     //> @attr button.canAdaptWidth (Boolean : false : IR)
-    // If enabled, the button will collapse to show just its icon when showing the title would
-    // cause overflow of a containing Layout.  See +link{Canvas.canAdaptWidth}.
+    // This flag enables +link{canvas.canAdaptWidth,adaptive width} for the button.
+    // <P>
+    // If enabled the button will support rendering in a 'collapsed' view if there isn't enough
+    // space in a layout to render it at normal size. There are a couple of ways this can be achieved.
+    // <ul>
+    // <li>If +link{button.adaptWidthShowIconOnly} is true and this button shows an icon, the title
+    //     will be hidden if there isn't enough space to render it, allowing it to shrink to either
+    //     the rendered icon width, or any specified +link{canvas.minWidth,minWidth}, whichever is larger.</li>
+    // <li>Otherwise, if the button has a specified +link{canvas.minWidth,minWidth}, and
+    //     +link{button.autoFit} is true, autoFit will be temporarily disabled, if there isn't enough
+    //     room, allowing the title to be clipped</li>
+    // </ul>
+    // In either case the title will show on hover unless an explicit hover has been
+    // specified such as by overriding +link{titleHoverHTML()}.
+    //
+    // @see canvas.canAdaptWidth
     // @example buttonAdaptiveWidth
     // @visibility external
     //<
@@ -9959,34 +10899,38 @@ isc.Button.addProperties({
 // add instance methods
 isc.Button.addMethods({
 
-//>    @method    button.initWidget()    (A)
-//            Extended initWidget() to allow initialization of the enabled property
-//
-//        @param    [all arguments]    (object)    objects with properties to override from default
-//<
-initWidget : function () {
+_aboutToDraw : function () {
+
+    this.Super("_aboutToDraw", arguments);
 
 
 
-    if (this.border != null && !isc.StatefulCanvas.pushTableBorderStyleToDiv) {
+    var pushBorderToDiv = this.shouldPushTableBorderStyleToDiv();
+    if (this.border != null && !pushBorderToDiv) {
         this._buttonBorder = this.border;
-        this.border = null;
+        this._clearBorder();
     }
     if (this.padding != null) {
         this._buttonPadding = this.padding;
         this.padding = null;
     }
-    if (this.backgroundColor != null) {
-        this._buttonBGColor = this.backgroundColor;
-        this.backgroundColor = null;
+    // If the style's border will be applied to the handle (div) rather than the table,
+    // we'll also apply the bg-color to the border, and suppress any bg-color on the
+    // handle. This ensures the inner curve of any border-radius isn't clipped by the
+    // bg-color applied to the table cell [which doesn't have the same corner radii]
+    if (pushBorderToDiv) {
+        this._buttonBGColor = "transparent";
+    } else {
+        // Otherwise we apply the background color to the table cell along with other styling,
+        // not to the div
+        if (this.backgroundColor != null) {
+            this._buttonBGColor = this.backgroundColor;
+            this.backgroundColor = null;
+        }
     }
 
 
-    this.forceHandleOverflowHidden = isc.StatefulCanvas.pushTableBorderStyleToDiv;
-
-    // Call super implementation directly rather than using Super() to avoid a string
-    // allocation.
-    return isc.StatefulCanvas._instancePrototype.initWidget.call(this);
+    this.forceHandleOverflowHidden = pushBorderToDiv;
 },
 
 // setHandleRect() handles resizing the widget handle.
@@ -10048,9 +10992,14 @@ _getTitleClipperID : function () {
 // @return (boolean) whether the title is clipped.
 // @visibility external
 //<
-titleClipped : function () {
+titleClipped : function (startAfterNode) {
     var titleClipperHandle = this.getDocument().getElementById(this._getTitleClipperID());
     if (titleClipperHandle == null) return false;
+
+
+    if (this.getScrollHeight() > this.getViewportHeight()) {
+        return true;
+    }
 
 
     if (isc.Browser.isChrome ||
@@ -10058,10 +11007,16 @@ titleClipped : function () {
     {
         var range = this.getDocument().createRange();
         range.selectNodeContents(titleClipperHandle);
+
+
+        if (startAfterNode && titleClipperHandle.contains(startAfterNode)) {
+            range.setStartAfter(startAfterNode);
+        }
+
         var contentsBCR = range.getBoundingClientRect();
         var bcr = titleClipperHandle.getBoundingClientRect();
-        return (bcr.width < contentsBCR.width);
 
+        return (bcr.width < contentsBCR.width);
     } else {
         return (isc.Element.getClientWidth(titleClipperHandle) < titleClipperHandle.scrollWidth);
     }
@@ -10069,6 +11024,12 @@ titleClipped : function () {
 
 defaultTitleHoverHTML : function () {
     return this.getTitleHTML();
+},
+
+// helper used by handleHover() in canAdaptWidth: true case
+hiddenTitleHoverHTML : function () {
+    var title = this.getTitle(true);
+    return this.formatTitle(this, title);
 },
 
 //> @method button.titleHoverHTML()
@@ -10089,14 +11050,19 @@ handleHover : function (a, b, c) {
     // If there is a prompt, prefer the standard hover handling.
     if (this.canHover == null && this.prompt) return this.invokeSuper(isc.Button, "handleHover", a, b, c);
 
-    if (!this.showClippedTitleOnHover || !this.titleClipped()) {
+    if (!this._adaptedToSmallerSize && (!this.showClippedTitleOnHover || !this.titleClipped())) {
         if (this.canHover) return this.invokeSuper(isc.Button, "handleHover", a, b, c);
         else return;
     }
 
     if (this.titleHover && this.titleHover() == false) return;
 
-    var HTML = this.titleHoverHTML(this.defaultTitleHoverHTML());
+    // always return the title HTML here, even if it's hidden due to button width adaptation
+
+    var defaultHTML = this._hideTitle ? this.hiddenTitleHoverHTML() :
+                                       this.defaultTitleHoverHTML();
+
+    var HTML = this.titleHoverHTML(defaultHTML);
     if (HTML != null && !isc.isAn.emptyString(HTML)) {
         var hoverProperties = this._getHoverProperties();
         isc.Hover.show(HTML, hoverProperties, null, this);
@@ -10238,15 +11204,11 @@ getInnerHTML : function () {
         } else {
             buttonHTML[1] = button._widthEquals;
 
-            // If we're going to draw a clip div and pushTableBorderStyleToDiv is true, then
-            // the border styling is going to be pushed onto the inner content DIV, so getInnerWidth()/
-            // getInnerHeight() are off by the horizontal/vertical border size.
-            var willDrawClipDiv = this._shouldWriteClipDiv();
-            buttonHTML[2] = this.getInnerWidth() - (willDrawClipDiv && isc.StatefulCanvas.pushTableBorderStyleToDiv
-                                                    ? this.getHBorderSize() : 0);
+            var willDrawClipDiv = this._shouldWriteClipDiv()
+            buttonHTML[2] = this.getInnerWidth();
             buttonHTML[3] = button._heightEquals;
-            buttonHTML[4] = this.getInnerHeight() - (willDrawClipDiv && isc.StatefulCanvas.pushTableBorderStyleToDiv
-                                                     ? this.getVBorderSize() : 0);
+            buttonHTML[4] = this.getInnerHeight();
+
         }
 
 
@@ -10280,14 +11242,15 @@ getInnerHTML : function () {
 
         buttonHTML[7] = this.isPrinting ? this.getPrintStyleName() : this.getStateName();
 
-
         var isTitleClipper = !iconAtEdge && clipTitle;
 
 
-        var writeStyle = isTitleClipper || this.cssText || this._buttonBorder || this._buttonPadding ||
-                         this._buttonBGColor || this.margin || this._writeZeroVPadding() ||
-                         isc.StatefulCanvas.pushTableBorderStyleToDiv ||
-                         this._getAfterPadding != null;
+        var writeStyle =
+            isTitleClipper || this.cssText || this._buttonBorder || this._buttonPadding ||
+            this._buttonBGColor || this.margin || this._writeZeroVPadding() ||
+            this.shouldPushTableBorderStyleToDiv() || this.shouldPushTableShadowStyleToDiv() ||
+            (this._getAfterPadding != null) || (this._getTopPadding != null);
+
         if (writeStyle) buttonHTML[8] = this._getCellStyleHTML(null, isTitleClipper);
         else buttonHTML[8] = null;
 
@@ -10326,11 +11289,12 @@ getInnerHTML : function () {
                       : "middle");
         var textAlign = this._getTextAlign(isRTL);
         sb.append("<table role='presentation' cellspacing='0' cellpadding='0'",
-                  (this.overflow !== isc.Canvas.VISIBLE ? " width='" + this.getInnerWidth() + "' style='table-layout:fixed'" : null),
+                  (this.overflow !== isc.Canvas.VISIBLE
+                         ? " width='" + this.getInnerWidth() + "' style='table-layout:fixed'" : null),
                   " height='", this.getInnerHeight(), "'><tbody><tr><td class='",
-                  this.getStateName(), "' style='", this._getCellStyleHTML([]), "text-align:", textAlign,
+                  this.getStateName(),
+                  "' style='", this._getCellStyleHTML([]), "text-align:", textAlign,
                   ";vertical-align:", valign, (!this.wrap ? ";white-space:nowrap" : ""), "'>");
-
         var titleClipperID = this._getTitleClipperID(),
             iconSpacing = this.getIconSpacing(),
             iconWidth = (this.iconWidth || this.iconSize),
@@ -10339,7 +11303,6 @@ getInnerHTML : function () {
                         (isRTL && ((this.ignoreRTL && this.iconOrientation == isc.Canvas.LEFT) ||
                                    (!this.ignoreRTL && this.iconOrientation == isc.Canvas.RIGHT)))),
             b = (isRTL || opposite) && !(isRTL && opposite);
-
         var beforePadding = 0,
             afterPadding = 0,
             iconHTML = null;
@@ -10351,7 +11314,7 @@ getInnerHTML : function () {
                 align: "absmiddle",
                 extraCSSText: (b ? "margin-left:" : "margin-right:") +
                               iconSpacing + "px;vertical-align:middle",
-                extraStuff: this._$defaultImgExtraStuff
+                eventStuff: this._$defaultImgEventStuff
             });
         }
         sb.append((!opposite ? iconHTML : null),
@@ -10439,7 +11402,7 @@ _getSizeTestHTML : function (title, wrap) {
                 align: "absmiddle",
                 extraCSSText: (b ? "margin-left:" : "margin-right:") +
                               iconSpacing + "px;vertical-align:middle",
-                extraStuff: this._$defaultImgExtraStuff
+                eventStuff: this._$defaultImgEventStuff
             });
         if (opposite) {
             template[7] = title == null ? iconHTML : title + iconHTML;
@@ -10465,6 +11428,19 @@ _getCellElement : function () {
     return tableElem.rows[0].childNodes[0];
 },
 
+redraw : function (a,b,c,d) {
+    var borderOnDiv = this.shouldPushTableBorderStyleToDiv();
+    // If we were pushing the table border to div and no longer are
+    // (or vice versa), drop the cached border size so getHBorderSize et al don't
+    // return stale values.
+
+    if (this._currentBorderOnDiv !== borderOnDiv) {
+        this._cachedBorderSize = null;
+        this._currentBorderOnDiv  = borderOnDiv;
+    }
+    return this.invokeSuper(isc.Button, "redraw", a, b, c, d);
+},
+
 // force a redraw on setOverflow()
 // This is required since we write out clipping HTML for our title table if our overflow
 // is hidden (otherwise we don't), so we need to regenerate this.
@@ -10474,7 +11450,7 @@ setOverflow : function () {
     this.Super("setOverflow", arguments);
 
     if (!wasDirty && (oldOverflow != this.overflow ||
-                      (isc.StatefulCanvas.pushTableShadowStyleToDiv && this._getHandleOverflow() === isc.Canvas.HIDDEN)))
+                      (this.shouldPushTableShadowStyleToDiv())))
     {
         this.redraw();
     }
@@ -10484,7 +11460,8 @@ __adjustOverflow : function (reason) {
     this.Super("__adjustOverflow", arguments);
 
 
-    if (isc.Browser.isSafari && !isc.Browser.isChrome && this.icon != null &&
+    if (isc.Browser.isSafari && !isc.Browser.isChrome && !isc.Browser.isEdge &&
+        this.icon != null &&
         !(this.isPrinting || !this._explicitlySizeTable()))
     {
         var isRTL = this.isRTL(),
@@ -10494,15 +11471,16 @@ __adjustOverflow : function (reason) {
 
         if (!opposite) {
             var textAlign = this._getTextAlign(isRTL),
-                titleClipperHandle = this.getDocument().getElementById(this._getTitleClipperID()),
-                titleClipperStyle = titleClipperHandle.style,
+                titleClipperHandle = this.getDocument().getElementById(this._getTitleClipperID());
+            if (!titleClipperHandle) return;
+
+            var titleClipperStyle = titleClipperHandle.style,
                 iconSpacing = this.getIconSpacing(),
                 iconWidth = (this.iconWidth || this.iconSize),
                 extraWidth = iconSpacing + iconWidth;
 
             var beforePadding = extraWidth,
                 afterPadding = 0;
-
             // Reset the title clipper's left and right padding to "normal" before checking whether
             // the title is clipped.
             titleClipperStyle[isRTL ? "paddingRight" : "paddingLeft"] = beforePadding + "px";
@@ -10518,7 +11496,6 @@ __adjustOverflow : function (reason) {
                     beforePadding -= (beforePadding / 2) << 0;
                     afterPadding = iconWidth;
                 }
-
                 titleClipperStyle[isRTL ? "paddingRight" : "paddingLeft"] = beforePadding + "px";
                 titleClipperStyle[isRTL ? "paddingLeft" : "paddingRight"] = afterPadding + "px";
             }
@@ -10572,7 +11549,9 @@ _$cellStyleTemplate:[
 
     ,           // [14] null or "padding-right:"/"padding-left:" (after padding)
     ,           // [15] null or this._getAfterPadding() (after padding)
-    null        // [16] null or "px;" (after padding)
+    null       // [16] null or "px;" (after padding)
+               // [17] null or "box-shadow:none;"
+               // [18] null or "background-image:none;"
 
     // No need to close the quote - the button HTML template handles this.
 ],
@@ -10583,7 +11562,8 @@ _getCellStyleHTML : function (template, isTitleClipper) {
 
     template[1] = (this.cssText ? this.cssText : null);
 
-    var border = isc.StatefulCanvas.pushTableBorderStyleToDiv ? "none" : this._buttonBorder;
+    var pushBorderToDiv = this.shouldPushTableBorderStyleToDiv(),
+        border = pushBorderToDiv ? "none;border-radius:inherit" : this._buttonBorder;
     if (border != null) {
         template[2] = this._$borderColon;
         template[3] = border;
@@ -10604,8 +11584,14 @@ _getCellStyleHTML : function (template, isTitleClipper) {
         template[6] = null;
         template[7] = null;
     }
-    if (this._writeZeroVPadding()) {
-        template[7] = (template[7] || isc.emptyString) + this._$zeroVPad;
+
+
+    var vPadding = this._getTopPadding ?
+            "padding-top:" + this._getTopPadding() + "px;padding-bottom:0px;" :
+            (this._writeZeroVPadding() ? this._$zeroVPad : null);
+    if (vPadding) {
+        if (template[7]) template[7] += vPadding;
+        else             template[7]  = vPadding;
     }
 
     if (this._buttonBGColor != null) {
@@ -10639,12 +11625,30 @@ _getCellStyleHTML : function (template, isTitleClipper) {
         template[16] = template[15] = template[14] = null;
     }
 
+
+    if (isc.Browser.isChrome && isc.Browser.version == 61 &&
+        this.shouldPushTableShadowStyleToDiv())
+    {
+        // if pushing the shadow styles to the outer div, clear the table styles here
+        // - in _applyShadowStyle(), assign inset shadows to the table and others to the div
+        template[17] = "box-shadow:none;";
+    } else template[17] = null;
+
+    // If a background image was specified it'll be rendered on our clip-handle - suppress
+    // any background-image from the className applied to the table cell
+
+    if (this.backgroundImage != null) {
+        template[18] = "background-image:none;";
+    } else {
+        template[18] = null;
+    }
+
     return template.join(isc.emptyString);
 },
 
 
 _writeZeroVPadding : function () {
-    return this.overflow == isc.Canvas.HIDDEN &&
+    return this.overflow == isc.Canvas.HIDDEN && !this.rotateTitle &&
            // don't remove padding during animations or text may reflow
            !this.isAnimating() &&
             (isc.Browser.isMoz || isc.Browser.isSafari || isc.Browser.isIE);
@@ -10652,20 +11656,55 @@ _writeZeroVPadding : function () {
 
 
 setBorder : function (border) {
-    var pushStyle = isc.StatefulCanvas.pushTableBorderStyleToDiv;
-    if (pushStyle) this.border = border;
-    else    this._buttonBorder = border;
-    this.markForRedraw();
+    var pushStyle = this.shouldPushTableBorderStyleToDiv(),
+        handleBorder = this.border,
+        buttonBorder = this._buttonBorder,
+        newHandleBorder = pushStyle ? border : null,
+        newButtonBorder = pushStyle ? null : border;
+
+    if (buttonBorder != newButtonBorder) {
+        this._buttonBorder = newButtonBorder;
+        this.markForRedraw("Button border changed");
+    }
+    if (handleBorder != newHandleBorder) {
+        this.Super("setBorder", [newHandleBorder], arguments);
+    }
 },
+
 setPadding : function (padding) {
     this._buttonPadding = padding;
     this.markForRedraw();
 },
 
+
 setBackgroundColor : function (color) {
-    this._buttonBGColor = color;
-    var cellElem = this._getCellElement();
-    if (cellElem != null) cellElem.style.backgroundColor = (color == null ? "" : color);
+
+    var pushToDiv = this.shouldPushTableBorderStyleToDiv(),
+        buttonBGColor = this._buttonBGColor,
+        handleBGColor = this.backgroundColor,
+        newButtonBGColor = pushToDiv ? "transparent" : color,
+        newHandleBGColor = pushToDiv ? color : null;
+    if (buttonBGColor != newButtonBGColor) {
+        this._buttonBGColor = newButtonBGColor;
+        var cellElem = this._getCellElement();
+        if (cellElem != null) cellElem.style.backgroundColor = (newButtonBGColor == null ? "" : newButtonBGColor);
+    }
+    if (handleBGColor != newHandleBGColor) {
+        // updates both the handle and the backgroundColor property
+        return this.Super("setBackgroundColor", [newHandleBGColor], arguments);
+    }
+
+},
+
+// If we're pushing the border style to the div, also push the background color.
+// This is required for the case where we have a border-radius to ensure the color
+// correctly fills the curved inner edges of the border
+_getHandleBackgroundColor : function () {
+    if (this.backgroundColor == null && this.shouldPushTableBorderStyleToDiv()) {
+        return isc.Button._getStateBackgroundColor(this.isPrinting ? this.getPrintStyleName()
+                                                : this.getStateName());
+    }
+    return this.Super("_getHandleBackgroundColor", arguments);
 },
 
 _$endTable :"</td></tr></tbody></table>",
@@ -10691,8 +11730,6 @@ _$newInnerCell : "</td><td ",
 
 _$classEquals : "class='",
 
-//_$tableNoStyleDoubling : defined in Canvas.js
-
 _$closeInnerTag : "'>",
 _$closeInnerTagNoWrap : "' nowrap='true'>",
 
@@ -10716,7 +11753,6 @@ getIconSpacing : function (otherTitle) {
 },
 
 fillInCell : function (template, slot, cellIsTitleClipper) {
-
     var isRTL = this.isRTL();
 
     var title = this.getTitleHTML();
@@ -10740,7 +11776,6 @@ fillInCell : function (template, slot, cellIsTitleClipper) {
                     (isRTL && ((this.ignoreRTL && this.iconOrientation != isc.Canvas.LEFT) ||
                                (!this.ignoreRTL && this.iconOrientation != isc.Canvas.RIGHT))),
         iconImg = this._generateIconImgHTML();
-
 
 
 
@@ -10783,14 +11818,12 @@ fillInCell : function (template, slot, cellIsTitleClipper) {
                       ? this.getTitleStateName()
                       : this.getStateName()
                     );
-
+    // this._$tableNoStyleDoubling : defined in Canvas.js
     var tableNoStyleDoubling = this._$tableNoStyleDoubling;
     if (!isc.Browser.useCSSFilters) tableNoStyleDoubling += this._$filterNone;
-
     var align = this._getTextAlign(isRTL);
 
     if (iconLeft) {
-
         // icon cell
         template[++slot] = this._$classEquals;
         template[++slot] = styleName;
@@ -10812,6 +11845,7 @@ fillInCell : function (template, slot, cellIsTitleClipper) {
 
         template[++slot] = styleName;
         template[++slot] = tableNoStyleDoubling;
+
         if (clipTitle) template[++slot] = this._$textOverflowEllipsis;
 
         template[++slot] = "' align='";
@@ -10872,14 +11906,15 @@ _imgParams : {
 },
 _$icon:"icon",
 _$defaultImgExtraCSSText: "vertical-align:middle",
-_$defaultImgExtraStuff: " eventpart='icon'",
+_$defaultImgEventStuff: " eventpart='icon'",
 _generateIconImgHTML : function (imgParams) {
     // NOTE: we reuse a single global imgParams structure, so we must set every field we ever
     // use every time.
     if (imgParams == null) {
         imgParams = this._imgParams;
         imgParams.extraCSSText = this._$defaultImgExtraCSSText;
-        imgParams.extraStuff = this._$defaultImgExtraStuff;
+        imgParams.eventStuff = this._$defaultImgEventStuff;
+        imgParams.extraStuff = null;
     }
     if (this.iconStyle != null) {
         var classText = " class='" + this.iconStyle + this._getIconStyleSuffix() + this._$singleQuote;
@@ -10906,17 +11941,13 @@ _generateIconImgHTML : function (imgParams) {
 },
 
 _getIconURL : function () {
-    var icon = this.icon;
-    if (isc.isAn.Object(icon)) icon = icon.src;
-
+    var icon = this.Super("_getIconURL", arguments);
     return this._getStatefulIconURL(icon);
 },
 
 _getStatefulIconURL : function (icon) {
-
     // Special exception: If the icon is isc.Canvas._blankImgURL, then simply return the _blankImgURL.
     if (icon === isc.Canvas._blankImgURL || icon == isc.Canvas._$blank) return icon;
-
 
     var state = this.state,
         selected = this.selected,
@@ -10924,19 +11955,32 @@ _getStatefulIconURL : function (icon) {
         sc = isc.StatefulCanvas;
 
     // ignore states we don't care about
-    if (state == sc.STATE_DISABLED && !this.showDisabledIcon) state = null;
-    else if (state == sc.STATE_DOWN && !this.showDownIcon) state = null;
-    else if (state == sc.STATE_OVER && !this.showRollOverIcon) state = null;
 
+    if (state == sc.STATE_DISABLED && (!this.showDisabled || !this.showDisabledIcon)) state = null;
+    else if (state == sc.STATE_DOWN && (!this.showDown || !this.showDownIcon)) state = null;
+    else if (state == sc.STATE_OVER && (!this.showRollOver || !this.showRollOverIcon)) state = null;
     if (!this.showIconState) {
         state = null;
+        customState = null;
+
+
+    } else if (this.showIconCustomState == false) {
         customState = null;
     }
 
     if (selected && !this.showSelectedIcon) selected = false;
-    // Note that getFocusedState() will return false if showFocusedAsOver is true, which is
-    // appropriate
     var focused = this.showFocusedIcon ? this.getFocusedState() : null;
+
+    if (focused && this.showFocusedAsOver) {
+        // Don't clobber any other state [Selected or Down, say]
+        if (this.showRollOverIcon &&
+            (!state || state == isc.StatefulCanvas.STATE_UP))
+        {
+            state = isc.StatefulCanvas.STATE_OVER;
+        }
+        focused = false;
+    }
+
     return isc.Img.urlForState(icon, selected, focused, state, (this.showRTLIcon && this.isRTL() ? "rtl" : null), customState);
 },
 
@@ -10959,27 +12003,37 @@ _getIconStyleSuffix : function () {
     if (!this.showIconState) {
         state = isc.emptyString;
         customState = null;
+
+
+    } else if (this.showIconCustomState == false) {
+        customState = null;
     }
 
     if (selected != null && !this.showSelectedIcon) selected = null;
     // Note that getFocusedState() will return false if showFocusedAsOver is true, which is
     // appropriate.
     var focused = this.showFocusedIcon ? (this.getFocusedState() ? isc.StatefulCanvas.FOCUSED : null) : null;
-
+    if (focused && this.showFocusedAsOver) {
+        focused = false;
+        if (this.showRollOverIcon && (!state || state == sc.STATE_UP)) state = sc.STATE_OVER;
+    }
     var suffix = this._getStateSuffix(state, selected, focused, customState);
     if (this.showRTLIcon && this.isRTL()) suffix += this._$RTL;
     return suffix;
 },
 
-getTitleHTML : function (a,b,c,d) {
+getTitleHTML : function (ignoreHide, b, c, d) {
     // This will call getTitle() so return contents if appropriate, and will hilite accessKeys
-    var title = this.invokeSuper(isc.Button, "getTitleHTML", a,b,c,d);
+    var title = this.invokeSuper(isc.Button, "getTitleHTML", ignoreHide, b, c, d);
+
+    // support adaptive-width buttons hiding title HTML
+    if (!ignoreHide && this._hideTitle) return null;
 
     // FIXME: title padding should be accomplished with CSS
     if (!this.padTitle || this.align == isc.Canvas.CENTER) return title;
 
-    if (this.align == isc.Canvas.RIGHT) return title + isc.nbsp;
-    else if (this.align == isc.Canvas.LEFT) return isc.nbsp + title;
+    if      (this.align == isc.Canvas.RIGHT) return title + isc.nbsp;
+    else if (this.align == isc.Canvas.LEFT)  return isc.nbsp + title;
 },
 
 
@@ -11096,43 +12150,86 @@ _measureWidth : function (title) {
     }
 },
 
+
+
+//> @attr Button.adaptWidthShowIconOnly (boolean : true : IRW)
+// If +link{button.canAdaptWidth} is true, and this button has a specified +link{button.icon}, should
+// the title be hidden, allowing the button to shrink down to just show the icon when there isn't
+// enough horizontal space in a layout to show the default sized button?
+// @see button.canAdaptWidth
+// @see button.iconOnlyBaseStyle
+// @visibility external
+//<
+adaptWidthShowIconOnly:true,
+adaptWidthShouldHideTitle : function () {
+    return this.adaptWidthShowIconOnly && this.icon != null;
+},
+
 // implements canAdaptWidth: true behavior for button
+// We support shrinking in two ways:
+// - if adaptWidthShowIconOnly is true, (and there is an icon), hide the title and fit to the icon width
+//   [or minWidth if specified and > icon width]
+// - otherwise if minWidth is specified and we're currently autoFitWidth:true, allow the content
+//   to clip down to minWidth
+
 
 adaptWidthBy : function (pixelDifference, unadaptedWidth, firstOffer, overflowed) {
 
 
-    var canStretch = isc.Canvas._isStretchSize(this._userWidth),
-        canOverflow = this.overflow != isc.Canvas.HIDDEN && this.overflow != isc.Canvas.CLIP_H
-    ;
+    var mayHideTitle = this.adaptWidthShouldHideTitle(),
+        mayToggleAutoFit = (this.minWidth != null) && (this._specifiedAutoFit || this.autoFit);
+    // We can't meaningfully "adapt width" unless
+    // - we are toggling title visibility
+    // - we are toggling autoFit settings
+    if (!mayHideTitle && !mayToggleAutoFit) {
+        return 0;
+    }
+
+
+    var canOverflow = mayToggleAutoFit ||
+                    (this.overflow != isc.Canvas.HIDDEN && this.overflow != isc.Canvas.CLIP_H);
 
     // consider whether to show or hide the button's title, based on the pixel offer
 
-    var hideTitle = this._hideTitle;
-    if (this.icon != null && (pixelDifference > 0 &&  hideTitle ||
-                              pixelDifference < 0 && !hideTitle))
+    var adaptToSmallerSize = this._adaptedToSmallerSize;
+    if ((pixelDifference > 0 && adaptToSmallerSize) ||
+         (pixelDifference < 0 && !adaptToSmallerSize))
     {
-        // desired state is opposite title visibility
-        hideTitle = !hideTitle;
+        // desired state is opposite title visibility / clipping
+        adaptToSmallerSize = !adaptToSmallerSize;
     } else {
-        // keep current title visibility, but possibly still adapt
+        // keep current title visibility/clipping, but possibly still adapt
         if (overflowed || !firstOffer) return 0;
     }
 
     // calculate the desired width (in the new state)
 
     var desiredWidth;
-    if (!hideTitle && !canOverflow && isc.isA.Number(this._userWidth)) {
+    if (!adaptToSmallerSize && !canOverflow && isc.isA.Number(this._userWidth)) {
         desiredWidth = this._userWidth;
     } else {
-        desiredWidth = this._measureWidth(hideTitle ? null : this.getTitle(true));
+        if (adaptToSmallerSize) {
+            desiredWidth = this.minWidth || 1;
+            if (mayHideTitle) desiredWidth = Math.max(desiredWidth, this._measureWidth(null));
+        } else {
+            desiredWidth = this._measureWidth(this.getTitleHTML(true));
+        }
     }
-
-    // we want to hide the title
-    if (hideTitle) {
+    // we want to render smaller than normal
+    if (adaptToSmallerSize) {
 
         if (desiredWidth < unadaptedWidth) {
-            this._hideTitle = true;
+            this._adaptedToSmallerSize = true;
+
+            this._hideTitle = mayHideTitle;
+            if (mayToggleAutoFit) {
+                this.setAutoFit(false);
+                // Remember that the user requested autoFit:true for next time this method runs
+                this._specifiedAutoFit = true;
+            }
+
             this.markForRedraw();
+
             return desiredWidth - unadaptedWidth;
         }
 
@@ -11141,7 +12238,12 @@ adaptWidthBy : function (pixelDifference, unadaptedWidth, firstOffer, overflowed
 
         var availableWidth = unadaptedWidth + pixelDifference;
         if (desiredWidth <= availableWidth) {
+            this._adaptedToSmallerSize = false;
+
             this._hideTitle = false;
+            if (mayToggleAutoFit) {
+                this.setAutoFit(true);
+            }
             this.markForRedraw();
             return desiredWidth - unadaptedWidth;
         }
@@ -11157,12 +12259,6 @@ getTitle : function (ignoreHide) {
     return this.title;
 },
 
-//> @attr button.iconOnlybaseStyle (CSSStyleName : null : IRW)
-// Base CSS style className applied to the component if +link{canAdaptWIdth} is true and we're
-// hiding the title.  Allows for more flexibility in how a title-hidden button is drawn.
-//
-// @see baseStyle
-//<
 getStateName : function (title) {
     var undef,
         modifier = this.getStateSuffix(),
@@ -11177,16 +12273,34 @@ getStateName : function (title) {
 //<
 stateChanged : function () {
 
+    var src, isSprite;
+    if (this.icon) {
+        src = this._getIconURL();
+        isSprite = this._iconIsSprite();
+    }
 
 
-    if (this._shouldRedrawOnStateChange() || !this.isDrawn()) {
-        return this.Super("stateChanged");
+    if (this._shouldRedrawOnStateChange() || !this.isDrawn() ||
+        this.icon && !this._canSetImage(this._$icon, src, isSprite))
+    {
+        // pass the param to force superclass method to redraw
+        return this.invokeSuper(isc.Button, "stateChanged", true);
+
     } else {
         var stateName = this.isPrinting ? this.getPrintStyleName() : this.getStateName();
 
         // if the border properties are on the DIV, apply them to the element's handle now
-        if (isc.StatefulCanvas.pushTableBorderStyleToDiv) this._applyBorderStyle(stateName);
-        if (isc.StatefulCanvas.pushTableShadowStyleToDiv && this._getHandleOverflow() === isc.Canvas.HIDDEN) {
+        if (this.shouldPushTableBorderStyleToDiv()) {
+            this._applyBorderStyle(stateName);
+            // Also apply the bg-color to the div. This is required to ensure
+            // the background butts up agains the inner edge of any curved borders properly
+            var styleHandle = this.getStyleHandle();
+            if (styleHandle != null) {
+                var newColor = this._getHandleBackgroundColor();
+                styleHandle.backgroundColor = newColor
+            }
+        }
+        if (this.shouldPushTableShadowStyleToDiv()) {
             this._applyShadowStyle(stateName);
         }
 
@@ -11198,7 +12312,7 @@ stateChanged : function () {
             // but either state or selectedness or both may have just changed, and we may be
             // transitioning from a state we do show to a state we don't, so no-oping is
             // tricky; we don't both for now.
-            this.setImage(this._$icon, this._getIconURL(), null, this._iconIsSprite());
+            this.setImage(this._$icon, src, null, isSprite);
 
             if (this.iconStyle != null) {
                 this.getImage(this._$icon).className =
@@ -11227,7 +12341,9 @@ stateChanged : function () {
 // Set the css className of the table cell
 _$TABLE: "TABLE",
 setTableClassName : function (newClass){
-    if (isc.StatefulCanvas.pushTableBorderStyleToDiv) {
+    // If we're pushing the border style to the div, we can't assume the
+    // border thickness for the widget won't change with the new style name
+    if (this.shouldPushTableBorderStyleToDiv()) {
         this._cachedBorderSize = null;
     }
 
@@ -11324,8 +12440,11 @@ setIcon : function (icon) {
 
     // Make sure that we're drawn before trying to set the image src or redraw().
     if (this.isDrawn()) {
-        if (hadIcon && (icon != null)) {
-            this.setImage(this._$icon, this._getIconURL(), null, this._iconIsSprite());
+        var src = this._getIconURL(),
+            isSprite = this._iconIsSprite()
+        ;
+        if (hadIcon && (icon != null) && this._canSetImage(this._$icon, src, isSprite)) {
+            this.setImage(this._$icon, src, null, isSprite);
         } else {
             this.redraw();
         }
@@ -11376,7 +12495,7 @@ _getShadowCSSHTML : function (stateName) {
 // return the border HTML used by getTagStart
 _getBorderHTML : function () {
 
-    if (isc.StatefulCanvas.pushTableBorderStyleToDiv) {
+    if (this.shouldPushTableBorderStyleToDiv()) {
         var stateName = this.isPrinting ? this.getPrintStyleName() : this.getStateName();
 
         var borderHTML = this.border != null ? ";BORDER:" + this.border : "";
@@ -11384,14 +12503,14 @@ _getBorderHTML : function () {
         // Also apply box-shadow CSS text. Not technically part of the border but
         // this also needs to be shifted from the Table element to the
         // widget handle
-        if (isc.StatefulCanvas.pushTableShadowStyleToDiv && this._getHandleOverflow() === isc.Canvas.HIDDEN) {
+        if (this.shouldPushTableShadowStyleToDiv()) {
             borderHTML += this._getShadowCSSHTML(stateName);
         }
         return borderHTML;
     }
 
     var borderHTML = this.Super("_getBorderHTML", arguments);
-    if (isc.StatefulCanvas.pushTableShadowStyleToDiv && this._getHandleOverflow() === isc.Canvas.HIDDEN) {
+    if (this.shouldPushTableShadowStyleToDiv()) {
         var stateName = this.isPrinting ? this.getPrintStyleName() : this.getStateName(),
             shadowCSS = this._getShadowCSSHTML(stateName);
         if (shadowCSS != isc.emptyString) {
@@ -11403,36 +12522,54 @@ _getBorderHTML : function () {
 },
 
 _applyBorderStyle : function (className) {
-    var styleHandle = this.getHandle().style,
+    var styleHandle = this.getClipHandle().style,
         properties = isc.StatefulCanvas._buildBorderStyle(this.border != null, className);
 
-    // Reset all border styling.
-    styleHandle.border = styleHandle.borderRadius = isc.emptyString;
-
+    // if this.border is set, we don't want the CSS style to clobber it - the first param in
+    // the call to _buildBorderStyle() above will cause it to return only border-radius styles
+    // - in that case, don't clear the border setting on the styleHandle.
+    if (!this.border) styleHandle.border = isc.emptyString;
+    styleHandle.borderRadius = isc.emptyString;
     isc.addProperties(styleHandle, properties);
 },
 
 _applyShadowStyle : function (className) {
 
-    var styleHandle = this.getHandle().style;
+    var styleHandle = this.getClipHandle().style;
     if (this.showShadow && this.shouldUseCSSShadow()) {
         styleHandle.boxShadow = this._getShadowCSSText();
         return;
     }
 
+    // get the outset shadows
     var properties = isc.StatefulCanvas._buildShadowStyle(className);
 
-    // Reset all shadow styling
+    // reset all shadow styling on the outer div
     styleHandle.boxShadow = isc.emptyString;
-
+    // apply just the outset shadows to the outer div
     isc.addProperties(styleHandle, properties);
+
+    // in Chrome, we want to apply inset shadows to the table element, to avoid missizing
+    // - in other browsers, assign them to the cell, so inset shadows show
+    var elem = (isc.Browser.isChrome) ? this._getTableElement() : this._getCellElement();
+
+    if (elem != null) {
+        var style = elem.style;
+        // get the inset shadows
+        properties = isc.StatefulCanvas._buildShadowStyle(className, null, true);
+
+        // reset all shadow styling on the inner table
+        style.boxShadow = isc.emptyString;
+        // apply just the inset shadows to the inner table
+        isc.addProperties(style, properties);
+    }
 },
 
 // CSS class that actually governs what borders appear on the handle.
 // This is overridden in Button.js where we apply the baseStyle + modifier to the
 // handle directly.
 _getBorderClassName : function () {
-    if (isc.StatefulCanvas.pushTableBorderStyleToDiv) {
+    if (this.shouldPushTableBorderStyleToDiv()) {
         return this.getStateName();
     }
     return this.Super("_getBorderClassName", arguments);
@@ -11475,6 +12612,22 @@ handleFocusIn : function (element, event) {
 }
 
 });    // END    isc.Button.addMethods()
+
+
+
+isc.Button.addClassProperties({
+    _stateBGColorCache:{},
+    _getStateBackgroundColor : function (className) {
+        var nullMarker = "**null**";
+        if (this._stateBGColorCache[className] == null) {
+            var computedStyle = isc.Element._deriveStyleProperties(className, ["backgroundColor"]);
+            this._stateBGColorCache[className] = computedStyle.backgroundColor == null ?
+                                                nullMarker : computedStyle.backgroundColor;
+        }
+        return this._stateBGColorCache[className] == nullMarker ? null :
+                this._stateBGColorCache[className];
+    }
+});
 
 isc.Button.registerStringMethods({
     getTitle:null
@@ -11571,6 +12724,154 @@ isc.defineClass("Img", "StatefulCanvas").addClassMethods({
     _buffer : [],
     urlForState : function (baseURL, selected, focused, state, pieceName, customState) {
         if (!baseURL) return baseURL;
+
+        // Stateful sprited images:
+        // if passed a single sprited image config like
+        //  sprite:someSprite.png;offset:100,100;size:25,25
+        // or
+        //  sprite:cssClass:someClassName;size:25,25
+        // apply statefulness via the following steps:
+        // - if there's an image URL, append the stateful suffix to it
+        // - if there's a css class, append the stateful suffix to that (without any "_" chars)
+        // (If both are specified, do both)
+
+        var spriteConfig;
+        if (baseURL.isSprite) spriteConfig = baseURL;
+        else spriteConfig = isc.Canvas._getSpriteConfig(baseURL);
+        if (spriteConfig != null) {
+            var url = spriteConfig.src,
+                cssClass = spriteConfig.cssClass;
+            if (url != null) {
+                // Go recursive to append statefulness to URL
+                spriteConfig.src = this.urlForState(url, selected, focused, state, pieceName, customState);
+            } if (cssClass != null) {
+                spriteConfig.cssClass = spriteConfig.cssClass +=
+                                        isc.StatefulCanvas._getStateSuffix(state, selected, focused, customState);
+            }
+
+            return isc.Canvas._encodeSpriteConfig(spriteConfig);
+        }
+
+        // Handle being passed a SCStatefulImgConfig object
+        // This is an object which contains image URL for multiple states
+        // States in this object are optional - if we can't find exactly the requested
+        // state we back off to an equivalent that is present
+        // (So if an object is Selected + Focused, but SelectedFocused is not defined, we
+        // back off to Focused, or Selected if present). Details below.
+        if (isc.isAn.Object(baseURL)) {
+            // a config with no "_base" is likely, though not necessarily, invalid.
+            // Warn if we encounter this.
+            if (baseURL._base == null) {
+                this.logWarn("Attempt to derive stateful URL for object:" + this.echo(baseURL) +
+                    " This has no explicit '_base' attribute and as such appears not to match " +
+                    "standard SCStatefulImgConfig format.", "StatefulImgConfig");
+            }
+
+
+            // short circuit to just return baseURL for the simple case
+            if (!state && !pieceName && !selected && !focused && !customState) return baseURL._base;
+
+
+            // If passed arguments for a combination of 'selected', 'focused', 'state', 'pieceName'
+            // and 'customState', we want to find a corresponding attribute by combining
+            // these into a single attribute name
+            //
+            // selected+focused+"over"+"RTL"+"Opened" = baseURL.selectedFocusedOverRTLOpened
+            //
+            // If this is un-populated we want to gracefully back off to whatever alternative
+            // state makes sense.
+            //
+
+
+            var hasState = !(state == null && pieceName == null && customState == null);
+            if (hasState && (selected || focused)) {
+                // Full attribute
+                if (selected && focused) {
+                    var combinedAttribute = this._getCombinedStatefulImgAttribute([
+                        "Selected",
+                        "Focused",
+                        state,
+                        pieceName,
+                        customState
+                    ]);
+                    if (baseURL[combinedAttribute]) {
+                        return this.resolveStatefulImgConfigEntry(combinedAttribute, baseURL);
+                    }
+                }
+                if (selected) {
+                    var combinedAttribute = this._getCombinedStatefulImgAttribute([
+                        "Selected",
+                        state,
+                        pieceName,
+                        customState
+                    ]);
+                    if (baseURL[combinedAttribute]) {
+                        return this.resolveStatefulImgConfigEntry(combinedAttribute, baseURL);
+                    }
+
+                }
+                if (focused) {
+                    var combinedAttribute = this._getCombinedStatefulImgAttribute([
+                        "Focused",
+                        state,
+                        pieceName,
+                        customState
+                    ]);
+                    if (baseURL[combinedAttribute]) {
+                        return this.resolveStatefulImgConfigEntry(combinedAttribute, baseURL);
+                    }
+                }
+            }
+
+            // At this state we know we don't have a combination of state + selected/focused
+            // Either use the state with no selected/focused modifier, or the
+            // selected/focused status with no state modifier
+
+            var modifiersAttr;
+            if (selected && focused && baseURL.SelectedFocused) {
+                modifiersAttr = "SelectedFocused";
+            }
+            if (!modifiersAttr && selected && baseURL.Selected) {
+                modifiersAttr = "Selected";
+            }
+            if (!modifiersAttr && focused && baseURL.Focused) {
+                modifiersAttr = "Focused";
+            }
+
+            // If no state was passed in, or we prefer the modifiers to the state,
+            // use the modifiers attribute by default ("SelectedFocused" or whatever)
+            if (modifiersAttr && (!hasState || this.preferModifiersToState[state])) {
+                return this.resolveStatefulImgConfigEntry(modifiersAttr, baseURL);
+            }
+
+            // If we have a state and we should prefer the state to the modifiers [the default]
+            // *or* the config didn't include any Selected/Focused entries, look for
+            // a simple state entry
+            if (hasState) {
+                var stateAttribute = this._getCombinedStatefulImgAttribute([
+                    state,
+                    pieceName,
+                    customState
+                ]);
+                if (baseURL[stateAttribute]) {
+                    return this.resolveStatefulImgConfigEntry(stateAttribute, baseURL);
+                }
+            }
+
+            // At this stage if we have a Selected/Focused entry we had a specified state
+            // but couldn't find an entry for it in the config object.
+            // Just use the Selected/Focused entry, or back off to the _base URL
+            if (modifiersAttr) {
+                return this.resolveStatefulImgConfigEntry(modifiersAttr, baseURL);
+            }
+
+            return baseURL._base;
+
+        } // End of the SCStatefulImgConfig handling
+
+        // Below here will assume baseURL is a string and assemble a new stateful URL
+        // by modifying it
+
         // short circuit to just return baseURL for the simple case
         if (!state && !pieceName && !selected && !focused && !customState) return baseURL;
 
@@ -11579,7 +12880,6 @@ isc.defineClass("Img", "StatefulCanvas").addClassMethods({
             name = baseURL.substring(0, period),
             extension = baseURL.substring(period),
             buffer = this._buffer;
-
         buffer.length = 1;
         buffer[0] = name;
         // add selected
@@ -11587,6 +12887,7 @@ isc.defineClass("Img", "StatefulCanvas").addClassMethods({
             buffer[1] = isc._underscore;
             buffer[2] = isc.StatefulCanvas.SELECTED;
         }
+        // add focused
         if (focused) {
             buffer[3] = isc._underscore;
             buffer[4] = isc.StatefulCanvas.FOCUSED;
@@ -11608,12 +12909,83 @@ isc.defineClass("Img", "StatefulCanvas").addClassMethods({
         buffer[11] = extension;
         var result = buffer.join(isc._emptyString);
         return result;
+    },
+    // Helper to combine a sparse array of state names into a single attribute name
+    _getCombinedStatefulImgAttribute : function (stateNames) {
+        stateNames.removeEmpty();
+        var combinedAttr;
+        for (var i = 0; i < stateNames.length; i++) {
+            if (stateNames[i] == "") continue;
+            if (combinedAttr == null) {
+                combinedAttr = stateNames[i];
+            } else {
+                combinedAttr += stateNames[i].substring(0,1).toUpperCase() + stateNames[i].substring(1);
+            }
+        }
+        return combinedAttr;
+    },
+
+    // This is a list of states for which if we're looking for as stateful image
+    // representing a modifier with the state ("Selected" + "Over") say, and we can't
+    // find an entry in a statefulImgConfig for this combined state, we should
+    // back off to the modifier(s) ("Selected") rather than backing off to the state ("Over")
+    preferModifiersToState : [
+        "Over", "Down"
+    ],
+
+    // Helper to resolve the special meta value naming pattern for entries in a
+    // statefulImgConfigEntry.
+    // If #modifier:<xxx> is specified, apply the modifier as a suffix to the base img URL
+    // If #state:<xxx> is specified, pick up the value of the other specified state
+    // Third parameter is used when the method calls recursively to resolve #state:... entries
+    // to detect circular references in the config object.
+    // For example:
+    // {state1:"#state:state2",
+    //  state2:"#state:state1"}
+    resolveStatefulImgConfigEntry : function (entry, config, previousValues) {
+        var value = config[entry];
+        if (value == null) return null;
+        if (value.startsWith("#")) {
+            var splitVal = value.split(":");
+            switch (splitVal[0]) {
+                case "#modifier" :
+                    var finalValue = config._base,
+                        suffixIndex = finalValue.lastIndexOf(".");
+                    finalValue = finalValue.substring(0,suffixIndex) +
+                            splitVal[1] +
+                            finalValue.substring(suffixIndex);
+                    return finalValue;
+                case "#state" :
+                    if (previousValues != null) {
+                        if (previousValues.contains(splitVal[1]) && !config._warnedOnCircularRef) {
+                            // Avoid spamming this warning repeatedly
+                            config._warnedOnCircularRef = true;
+                            this.logWarn("Stateful image Configuration contains a circular reference:" +
+                                this.echo(config) + ". Unable to resolve " + previousValues[0] + " to an image");
+                            return null;
+                        }
+
+                        previousValues.add(entry);
+                    } else {
+                        previousValues = [entry];
+                    }
+                    return this.resolveStatefulImgConfigEntry(splitVal[1], config, previousValues);
+                default :
+                    // it's unlikely that the file name starts with a hash tag.
+                    // If it does, log a warning but use it anyway.
+                    this.logWarn("stateful image configuration value:"
+                            + entry + " from configutation object:" + this.echo(config) +
+                            " has hash prefix but does not conform to expected naming" +
+                            " pattern for meta value. Returning as is.");
+            }
+        }
+        return value;
     }
 });
 
 // add default properties
 isc.Img.addProperties( {
-    //> @attr    img.name    (string : "main" : IA)
+    //> @attr    img.name    (String : "main" : IA)
     // The value of this attribute is specified as the value of the 'name' attribute in the
     // resulting HTML.
     // <p>
@@ -11623,12 +12995,505 @@ isc.Img.addProperties( {
     //<
     name:"main",
 
-    //>    @attr    img.src        (SCImgURL : "blank.gif" : [IRW])
-    // The base filename for the image.
+    //> @object SCStatefulImgConfig
+    //
+    // A configuration object containing image URLs for a set of possible
+    // images to display based on the +link{StatefulCanvas.state,state} of some components.
+    // See the +link{group:statefulImages,stateful images overview} for more information.
     // <P>
-    // This value will be combined with any specified +link{statefulCanvas.state,state}
-    // to form a combined URL, changing the appearance of the component as the
-    // state changes.
+    // Each attribute in this configuration object maps a state to a target URL.<br>
+    // Each URL may be specified in one of three ways
+    // <ul><li>a standard +link{SCImgURL} may be used to refer directly to an image file.</li>
+    //     <li>the <code>"#state:"</code> prefix may be used to display media from another
+    //         specified state.</li>
+    //     <li>the <code>"#modifier:"</code> prefix may be used to specify a modifier
+    //         string to apply to the +link{SCStatefulImgConfig._base,base image}.<br>
+    //         The modifier will be applied to the base file name before the file type suffix.</li>
+    // </ul>
+    // For example, consider a stateful image config with the following properties:
+    // <pre>
+    // {    _base:"button.png",
+    //      Over:"bright_button.png",
+    //      Focused:"#state:Over",
+    //      Selected:"#state:Over",
+    //      Disabled:"#modifier:_Disabled",
+    //      SelectedDisabled:"#state:Selected"
+    // }
+    // </pre>
+    // In this case
+    // <ul>
+    // <li>the base image URL and the the "Over" state image URL would be determined using
+    //     the standard +link{SCImgURL} rules</li>
+    // <li>the "Focused" and "Selected" state images would re-use the "Over" state image
+    //     (<code>"bright_button.png"</code>)</li>
+    // <li>the "Disabled" state image would be the base state image with a
+    //      <code>"_Disabled"</code> suffix applied to the file name
+    //      (<code>"button_Disabled.png"</code>)</li>
+    // <li>the <code>"SelectedDisabled"</code> entry would be used for the combined
+    //     <code>"Selected"</code> and <code>"Disabled"</code> states, and would
+    //     re-use the "Selected" state image (which in turn maps back to
+    //     the "Over" state, resolving to <code>"bright_button.png"</code>)</li>
+    // </ul>
+    // <P>
+    // The default set of standard states are explicitly documented, but this object format
+    // is extensible.
+    // A developer may specify additional attributes on a SCStatefulImgConfig beyond the
+    // standard documented states and they may be picked up if a custom state is applied to
+    // a component (via a call to +link{StatefulCanvas.setState()}, for example).
+    // <P>
+    // <h3>Combined states and missing entries:</h3>
+    // The +link{statefulCanvas.isFocused(),focused} and +link{statefulCanvas.selected,selected}
+    // states may be applied to a component in combination with other states. For example an +link{ImgButton}
+    // marked both <i>Selected</i> and <i>Disabled</i> will look for media to
+    // represent this combined state. To provide such media in a SCStatefulImgConfig,
+    // use the combined state names (in this case <code>SelectedDisabled</code>).<br>
+    // If a component is both <i>Selected</i> and <i>Focused</i>,
+    // three-part combined states are also possible (Selected + Focused + Over gives
+    // <code>SelectedFocusedOver</code> for example).
+    // <P>
+    // The SCStatefulImgConfig format may be sparse - developers may skip providing values for
+    // certain states (or combined states) in the SCStatefulImgConfig object.
+    // In this case the system will back off to using one of the state image entries
+    // that has been explicitly provided, according to the following rules:
+    // <table border=1>
+    // <tr> <td><b>State(s)</b></td>
+    //      <td><b>Stateful image attributes to consider (in order of preference)</b></td>
+    // </tr>
+    // <tr><td><code>Focused</code> and <code>Selected</code></td>
+    //     <td>If both focused and selected states are applied, the system will use the first
+    //         (populated) value from the following attribute list:
+    //         <ul><li>"FocusedSelected"</li>
+    //             <li>"Focused"</li>
+    //             <li>"Selected"</li>
+    //      </ul></td>
+    // </tr>
+    // <tr><td><code>Over</code> or <code>Down</code> in combination with <code>Focused</code>
+    //         / <code>Selected</code> </td>
+    //     <td>System will check for a combined state attribute with the Focused / Selected state first.<br>
+    //          For example for Focused + Selected + Over, consider the following attributes:
+    //          <ul><li>"FocusedSelectedOver"</li>
+    //              <li>"FocusedOver"</li>
+    //              <li>"SelectedOver"</li></ul>
+    //          If no combined state entry is specified, back off to considering just the
+    //          Focused / Selected state:
+    //          <ul><li>"FocusedSelected"</li>
+    //              <li>"Focused"</li>
+    //              <li>"Selected"</li>
+    //          </ul>
+    //          If no focused / selected state entry is present in the config object,
+    //          look for an entry for the unmodified state name
+    //          <ul><li>"Over"</li></ul>
+    //      </td>
+    // </tr>
+    // <tr><td>All other states, including <code>Disabled</code> (in combination with
+    //          <code>Focused</code> / <code>Selected</code>) </td>
+    //     <td>Check for a combined state attribute with the Focused / Selected state first.<br>
+    //          For example for Focused + Selected + "CustomState", consider the following attributes:
+    //          <ul><li>"FocusedSelectedCustomState"</li>
+    //              <li>"FocusedCustomState"</li>
+    //              <li>"SelectedCustomState"</li></ul>
+    //          If no combined state entry is specified, back off to considering just the
+    //          unmodified state name
+    //          <ul><li>"CustomState"</li></ul>
+    //          If there is no explicit entry for the state name, use the Focused / Selected
+    //          state without a state name:
+    //          <ul><li>"FocusedSelected"</li>
+    //              <li>"Focused"</li>
+    //              <li>"Selected"</li>
+    //          </ul>
+    //      </td>
+    // </tr></table>
+    // <br>
+    // If no entry can be found for the specified state / combined states using the above
+    // approach, the  <code>"_base"</code> attribute will be used.
+    //
+    // @treeLocation Client Reference/Foundation/Img
+    // @visibility external
+    //<
+
+
+
+    // ----
+    // SCStatefulImgConfig states:
+
+    // List out the default set of state name attributes
+
+
+    //>    @attr    SCStatefulImgConfig._base        (SCImgURL : null : [IRW])
+    // The base filename for the image. This will be used if no state is applied to the
+    // stateful component displaying this image, or if no explicit entry exists for
+    // a state that is applied.<br>
+    // It will also be used as a base file name for entries specified using the
+    // <code>"#modifier:<i>some_value</i>"</code> format.
+    // <P>
+    // See +link{SCStatefulImgConfig,SCStatefulImgConfig overview} for further information.
+    //
+    // @visibility external
+    //<
+
+    //>    @attr    SCStatefulImgConfig.Selected        (String : null : [IRW])
+    // Image to display when the component is +link{StatefulCanvas.selected,selected}.
+    // <P>
+    // May be specified as
+    // <ul><li>A +link{SCImgURL} indicating the media to load</li>
+    //     <li>A reference to another entry in this SCStatefulImgConfig via the format
+    //         <code>"#state:<i>otherStateName</i>"</code></li>
+    //     <li>A modifier to apply to the +link{SCstatefulImgConfig._base} media via the
+    //         format <code>"#modifier:<i>modifierString</i>"</code></li>
+    // </ul>
+    // See +link{SCStatefulImgConfig,SCStatefulImgConfig overview} for further information.
+    //
+    // @visibility external
+    //<
+
+    //>    @attr    SCStatefulImgConfig.Focused        (String : null : [IRW])
+    // Image to display when the component is +link{StatefulCanvas.isFocused(),focused}.
+    // <P>
+    // May be specified as
+    // <ul><li>A +link{SCImgURL} indicating the media to load</li>
+    //     <li>A reference to another entry in this SCStatefulImgConfig via the format
+    //         <code>"#state:<i>otherStateName</i>"</code></li>
+    //     <li>A modifier to apply to the +link{SCstatefulImgConfig._base} media via the
+    //         format <code>"#modifier:<i>modifierString</i>"</code></li>
+    // </ul>
+    // See +link{SCStatefulImgConfig,SCStatefulImgConfig overview} for further information.
+    //
+    // @visibility external
+    //<
+
+    //>    @attr    SCStatefulImgConfig.Over        (String : null : [IRW])
+    // Image to display on +link{StatefulCanvas.showRollOver,roll over}.
+    // <P>
+    // May be specified as
+    // <ul><li>A +link{SCImgURL} indicating the media to load</li>
+    //     <li>A reference to another entry in this SCStatefulImgConfig via the format
+    //         <code>"#state:<i>otherStateName</i>"</code></li>
+    //     <li>A modifier to apply to the +link{SCstatefulImgConfig._base} media via the
+    //         format <code>"#modifier:<i>modifierString</i>"</code></li>
+    // </ul>
+    // See +link{SCStatefulImgConfig,SCStatefulImgConfig overview} for further information.
+    //
+    // @visibility external
+    //<
+
+    //>    @attr    SCStatefulImgConfig.Down        (String : null : [IRW])
+    // Image to display on +link{StatefulCanvas.showDown,mouseDown}.
+    // <P>
+    // May be specified as
+    // <ul><li>A +link{SCImgURL} indicating the media to load</li>
+    //     <li>A reference to another entry in this SCStatefulImgConfig via the format
+    //         <code>"#state:<i>otherStateName</i>"</code></li>
+    //     <li>A modifier to apply to the +link{SCstatefulImgConfig._base} media via the
+    //         format <code>"#modifier:<i>modifierString</i>"</code></li>
+    // </ul>
+    // See +link{SCStatefulImgConfig,SCStatefulImgConfig overview} for further information.
+    //
+    // @visibility external
+    //<
+
+    //>    @attr    SCStatefulImgConfig.Disabled        (String : null : [IRW])
+    // Image to display when the component is +link{StatefulCanvas.disabled,disabled}.
+    // <P>
+    // May be specified as
+    // <ul><li>A +link{SCImgURL} indicating the media to load</li>
+    //     <li>A reference to another entry in this SCStatefulImgConfig via the format
+    //         <code>"#state:<i>otherStateName</i>"</code></li>
+    //     <li>A modifier to apply to the +link{SCstatefulImgConfig._base} media via the
+    //         format <code>"#modifier:<i>modifierString</i>"</code></li>
+    // </ul>
+    // See +link{SCStatefulImgConfig,SCStatefulImgConfig overview} for further information.
+    //
+    // @visibility external
+    //<
+
+
+    //>    @attr    SCStatefulImgConfig.SelectedOver        (String : null : [IRW])
+    // Image to display when the component is +link{StatefulCanvas.selected,selected} on
+    // +link{StatefulCanvas.showRollOver,roll over}.
+    // <P>
+    // May be specified as
+    // <ul><li>A +link{SCImgURL} indicating the media to load</li>
+    //     <li>A reference to another entry in this SCStatefulImgConfig via the format
+    //         <code>"#state:<i>otherStateName</i>"</code></li>
+    //     <li>A modifier to apply to the +link{SCstatefulImgConfig._base} media via the
+    //         format <code>"#modifier:<i>modifierString</i>"</code></li>
+    // </ul>
+    // See +link{SCStatefulImgConfig,SCStatefulImgConfig overview} for further information.
+    //
+    // @visibility external
+    //<
+
+    //>    @attr    SCStatefulImgConfig.SelectedDown        (String : null : [IRW])
+    // Image to display when the component is +link{StatefulCanvas.selected,selected} on
+    // +link{StatefulCanvas.showDown,mouse down}.
+    // <P>
+    // May be specified as
+    // <ul><li>A +link{SCImgURL} indicating the media to load</li>
+    //     <li>A reference to another entry in this SCStatefulImgConfig via the format
+    //         <code>"#state:<i>otherStateName</i>"</code></li>
+    //     <li>A modifier to apply to the +link{SCstatefulImgConfig._base} media via the
+    //         format <code>"#modifier:<i>modifierString</i>"</code></li>
+    // </ul>
+    // See +link{SCStatefulImgConfig,SCStatefulImgConfig overview} for further information.
+    //
+    // @visibility external
+    //<
+
+    //>    @attr    SCStatefulImgConfig.SelectedDisabled        (String : null : [IRW])
+    // Image to display when the component is +link{StatefulCanvas.selected,selected} and
+    // +link{StatefulCanvas.disabled,disabled}.
+    // <P>
+    // May be specified as
+    // <ul><li>A +link{SCImgURL} indicating the media to load</li>
+    //     <li>A reference to another entry in this SCStatefulImgConfig via the format
+    //         <code>"#state:<i>otherStateName</i>"</code></li>
+    //     <li>A modifier to apply to the +link{SCstatefulImgConfig._base} media via the
+    //         format <code>"#modifier:<i>modifierString</i>"</code></li>
+    // </ul>
+    // See +link{SCStatefulImgConfig,SCStatefulImgConfig overview} for further information.
+    //
+    // @visibility external
+    //<
+
+    //>    @attr    SCStatefulImgConfig.FocusedOver        (String : null : [IRW])
+    // Image to display when the component is +link{StatefulCanvas.isFocused,focused} on
+    // +link{StatefulCanvas.showRollOver,roll over}.
+    // <P>
+    // May be specified as
+    // <ul><li>A +link{SCImgURL} indicating the media to load</li>
+    //     <li>A reference to another entry in this SCStatefulImgConfig via the format
+    //         <code>"#state:<i>otherStateName</i>"</code></li>
+    //     <li>A modifier to apply to the +link{SCstatefulImgConfig._base} media via the
+    //         format <code>"#modifier:<i>modifierString</i>"</code></li>
+    // </ul>
+    // See +link{SCStatefulImgConfig,SCStatefulImgConfig overview} for further information.
+    //
+    // @visibility external
+    //<
+
+    //>    @attr    SCStatefulImgConfig.FocusedDown        (String : null : [IRW])
+    // Image to display when the component is +link{StatefulCanvas.isFocused(),focused} on
+    // +link{StatefulCanvas.showDown,mouse down}.
+    // <P>
+    // May be specified as
+    // <ul><li>A +link{SCImgURL} indicating the media to load</li>
+    //     <li>A reference to another entry in this SCStatefulImgConfig via the format
+    //         <code>"#state:<i>otherStateName</i>"</code></li>
+    //     <li>A modifier to apply to the +link{SCstatefulImgConfig._base} media via the
+    //         format <code>"#modifier:<i>modifierString</i>"</code></li>
+    // </ul>
+    // See +link{SCStatefulImgConfig,SCStatefulImgConfig overview} for further information.
+    //
+    // @visibility external
+    //<
+
+    //>    @attr    SCStatefulImgConfig.SelectedFocused        (String : null : [IRW])
+    // Image to display when the component is +link{StatefulCanvas.selected,selected} and
+    // +link{StatefulCanvas.isFocused(),focused}.
+    // <P>
+    // May be specified as
+    // <ul><li>A +link{SCImgURL} indicating the media to load</li>
+    //     <li>A reference to another entry in this SCStatefulImgConfig via the format
+    //         <code>"#state:<i>otherStateName</i>"</code></li>
+    //     <li>A modifier to apply to the +link{SCstatefulImgConfig._base} media via the
+    //         format <code>"#modifier:<i>modifierString</i>"</code></li>
+    // </ul>
+    // See +link{SCStatefulImgConfig,SCStatefulImgConfig overview} for further information.
+    //
+    // @visibility external
+    //<
+
+    //>    @attr    SCStatefulImgConfig.SelectedFocusedOver        (String : null : [IRW])
+    // Image to display when the component is +link{StatefulCanvas.selected,selected} and
+    // +link{StatefulCanvas.isFocused(),focused} on +link{StatefulCanvas.showRollOver,roll over}.
+    // <P>
+    // May be specified as
+    // <ul><li>A +link{SCImgURL} indicating the media to load</li>
+    //     <li>A reference to another entry in this SCStatefulImgConfig via the format
+    //         <code>"#state:<i>otherStateName</i>"</code></li>
+    //     <li>A modifier to apply to the +link{SCstatefulImgConfig._base} media via the
+    //         format <code>"#modifier:<i>modifierString</i>"</code></li>
+    // </ul>
+    // See +link{SCStatefulImgConfig,SCStatefulImgConfig overview} for further information.
+    //
+    // @visibility external
+    //<
+
+    //>    @attr    SCStatefulImgConfig.SelectedFocusedDown        (String : null : [IRW])
+    // Image to display when the component is +link{StatefulCanvas.selected,selected} and
+    // +link{StatefulCanvas.isFocused(),focused} on +link{StatefulCanvas.showDown,mouse down}.
+    // <P>
+    // May be specified as
+    // <ul><li>A +link{SCImgURL} indicating the media to load</li>
+    //     <li>A reference to another entry in this SCStatefulImgConfig via the format
+    //         <code>"#state:<i>otherStateName</i>"</code></li>
+    //     <li>A modifier to apply to the +link{SCstatefulImgConfig._base} media via the
+    //         format <code>"#modifier:<i>modifierString</i>"</code></li>
+    // </ul>
+    // See +link{SCStatefulImgConfig,SCStatefulImgConfig overview} for further information.
+    //
+    // @visibility external
+    //<
+
+    // End of standard SCStatefulImgConfig states
+    // --------
+
+    // Should we show stateful image media as well as stateful styling?
+    // Note: See statefulCanvas.shouldShowStatefulImage() / getURL() for implementation
+
+
+
+    //>    @attr    img.showRollOver        (Boolean : false : IRW)
+    // Should we visibly change state when the mouse goes over this object?
+    // <P>
+    // This will impact the +link{statefulCanvas.baseStyle,styling} of the component on
+    // roll over. It may also impact the +link{img.src,image being displayed} - see
+    // also +link{Img.showImageRollOver}.
+    //
+    // @group    state
+    // @visibility external
+    //<
+
+    //>    @attr   img.showImageRollOver        (Boolean : null : IRW)
+    // Should the image be updated on rollOver as described in +link{group:statefulImages}?
+    // <P>
+    // If not explicitly set, behavior is as follows:<br>
+    // If +link{Img.src} is specified as a string, +link{img.showRollOver} will be used to
+    // determine whether to show a roll-over image.<br>
+    // If +link{Img.src} is specified as a +link{SCStatefulImgConfig}, the appropriate
+    // +link{SCStatefulImgConfig.Over} state image will be displayed if defined.
+    //
+    // @group    state
+    // @visibility external
+    //<
+
+    //>    @attr    img.showFocused        (Boolean : false : IRW)
+    // Should we visibly change state when the canvas receives focus?  If
+    // +link{statefulCanvas.showFocusedAsOver} is <code>true</code>, then <b><code>"over"</code></b>
+    // will be used to indicate focus. Otherwise a separate <b><code>"focused"</code></b> state
+    // will be used.
+    // <P>
+    // This will impact the +link{statefulCanvas.baseStyle,styling} of the component on
+    // focus. It may also impact the +link{img.src,image being displayed} - see
+    // also +link{Img.showImageFocused}.
+    //
+    // @group    state
+    // @visibility external
+    //<
+
+    //>    @attr    img.showImageFocused        (Boolean : null : IRW)
+    // Should the image be updated on focus as described in +link{group:statefulImages}?
+    // <P>
+    // If not explicitly set, behavior is as follows:<br>
+    // If +link{Img.src} is specified as a string, +link{img.showFocused} will be used to determine
+    // whether to show a focused image.<br>
+    // If +link{Img.src} is specified as a +link{SCStatefulImgConfig}, the appropriate
+    // +link{SCStatefulImgConfig.Over} state image will be displayed if defined.
+    // <P>
+    // Note that if +link{img.src} is defined as a string, the "Over" media may be used
+    // to indicate a focused state. See +link{showFocusedAsOver} and +link{showImageFocusedAsOver}.<br>
+    // This is not the case for components with +link{img.src} defined as a +link{SCStatefulImgConfig}
+    // configuration.
+    //
+    // @group    state
+    // @visibility external
+    //<
+
+    //> @attr img.showFocusedAsOver (Boolean : true : IRW)
+    // If +link{StatefulCanvas.showFocused,showFocused} is true for this widget, should the
+    // <code>"over"</code> state be used to indicate the widget as focused. If set to false,
+    // a separate <code>"focused"</code> state will be used.
+    // <P>
+    // This property effects the css styling for the focused state.<br>
+    // If +link{img.src} is specified as a string it will also cause the "Over" media to be
+    // displayed to indicate focus, unless explicitly overridden by
+    // +link{img.showImageFocusedAsOver}. Note that this has no impact on the
+    // image to be displayed if +link{img.src} is specified as a +link{SCStatefulImgConfig}.
+    //
+    // @group state
+    // @visibility external
+    //<
+
+    //> @attr img.showImageFocusedAsOver (Boolean : null : IRW)
+    // If +link{img.src} is defined as a string, and this component is configured to
+    // +link{showImageFocused,show focused state images}, this property will cause the
+    // <code>"over"</code> state image to be used to indicate focused state.
+    // (If unset, +link{showFocusedAsOver} will be consulted instead).
+    // <P>
+    // Note that this has no impact on the
+    // image to be displayed if +link{img.src} is specified as a +link{SCStatefulImgConfig}.
+    //
+    // @group state
+    // @visibility external
+    //<
+
+    //>    @attr    img.showDown        (Boolean : false : IRW)
+    // Should we visibly change state when the mouse goes down in this object?
+    // This will impact the +link{statefulCanvas.baseStyle,styling} of the component on
+    // mouse down. It may also impact the +link{img.src,image being displayed} - see
+    // also +link{Img.showImageDown}.
+    //
+    // @group    state
+    // @visibility external
+    //<
+
+    //>    @attr   img.showImageDown        (Boolean : null : IRW)
+    // Should the image be updated on mouse down as described in +link{group:statefulImages}?
+    // <P>
+    // If not explicitly set, behavior is as follows:<br>
+    // If +link{Img.src} is specified as a string, +link{img.showDown} will be used to
+    // determine whether to show a mouse down image.<br>
+    // If +link{Img.src} is specified as a +link{SCStatefulImgConfig}, the appropriate
+    // +link{SCStatefulImgConfig.Down} state image will be displayed if defined.
+    //
+    // @group    state
+    // @visibility external
+    //<
+
+    //>    @attr    img.showDisabled  (Boolean : true : IRW)
+    // Should we visibly change state when disabled?
+    // <P>
+    // This will impact the +link{statefulCanvas.baseStyle,styling} of the component
+    // when disabled. It may also impact the +link{img.src,image being displayed} - see
+    // also +link{Img.showImageDisabled}.
+    //
+    // @group    state
+    // @visibility external
+    //<
+
+    //>    @attr   img.showImageDisabled        (Boolean : null : IRW)
+    // Should the image be updated when disabled as described in +link{group:statefulImages}?
+    // <P>
+    // If not explicitly set, behavior is as follows:<br>
+    // If +link{Img.src} is specified as a string, +link{img.showDisabled} will be used to
+    // determine whether to show a disabled image.<br>
+    // If +link{Img.src} is specified as a +link{SCStatefulImgConfig}, the appropriate
+    // +link{SCStatefulImgConfig.Disabled} state image will be displayed if defined.
+    //
+    // @group    state
+    // @visibility external
+    //<
+
+    // End of show<State> definitions
+    // ----
+
+    //> @groupDef statefulImages
+    // Images displayed in +link{StatefulCanvas,stateful components} may display different
+    // media depending on the current state of the component. See the +link{Img.src} attribute
+    // or +link{Button.icon} attribute for examples of such "stateful images".
+    // <P>
+    // In general the media to load for each state may be specified in two ways:
+    // <P>
+    // <H3>Base URL combined with state suffixes</H3>
+    // If the property in question is set to a standard +link{SCImgURL,image URL}, this value
+    // will be treated as a default, or base URL. When a new +link{statefulCanvas.state,state}
+    // is applied, this filename will be combined with the state name
+    // to form a combined URL. This in turn changes the media that gets loaded and updates
+    // the image to reflect the new state.<br>
+    // Note that if the property was defined as a sprite configuration string
+    // a css style may be defined instead of, or in addition to a src URL.
+    // See the +link{SCSpriteConfig,sprite configuration documentation} for a discussion
+    // of how sprites can be used for stateful images.
     // <P>
     // The following table lists out the standard set of combined URLs that
     // may be generated. Subclasses may support additional state-derived media of course.
@@ -11672,6 +13537,25 @@ isc.Img.addProperties( {
     // <tr><td><code><i>src</i>+"_Selected_Disabled"+<i>extension</i></code></td>
     //      <td>Combined Selected and Disabled state</td></tr>
     // </table>
+    // <P>
+    // <H3>Explicit stateful image configuration</H3>
+    // The +link{SCStatefulImgConfig} object allows developers to specify a set of explicit
+    // image URLs, one for each state to be displayed, rather than relying on an automatically
+    // generated combined URL. This pattern is useful for cases where the filename of the stateful
+    // versions of the image doesn't match up with the auto-generated format.
+    //
+    //
+    // @title Stateful Images
+    // @treeLocation Client Reference/Foundation/Img
+    // @visibility external
+    //<
+
+
+    //>    @attr    img.src        (SCImgURL | SCStatefulImgConfig : "blank.gif" : [IRW])
+    // The base filename or stateful image configuration for the image.
+    // Note that as the +link{statefulCanvas.state,state}
+    // of the component changes, the image displayed will be updated as described in
+    // +link{group:statefulImages}.
     //
     // @group  appearance
     // @visibility external
@@ -11701,7 +13585,7 @@ isc.Img.addProperties( {
     // @include Canvas.prompt
     //<
 
-    //>    @attr    img.activeAreaHTML        (String of HTML AREA tags : null : IRWA)
+    //>    @attr    img.activeAreaHTML        (String of HTML AREA Tag : null : IRWA)
     //
     // Setting this attribute configures an image map for this image.  The value is expected as a
     // sequence of &lg;AREA&gt tags - e.g:
@@ -11745,16 +13629,18 @@ isc.Img.addProperties( {
     //<
     imageType: isc.Img.STRETCH,
 
-    //> @attr img.imageHeight (integer : null : IR)
+    //> @attr img.imageHeight (Integer : null : IR)
     // Explicit size for the image, for +link{imageType} settings that would normally use the
     // image's natural size (applies to +link{img.imageType} "center" and "normal" only).
     // @visibility external
+    // @group  appearance
     //<
 
-    //> @attr img.imageWidth (integer : null : IR)
+    //> @attr img.imageWidth (Integer : null : IR)
     // Explicit size for the image, for +link{imageType} settings that would normally use the
     // image's natural size (applies to +link{img.imageType} "center" and "normal" only).
     // @visibility external
+    // @group  appearance
     //<
 
     //> @attr   img.size            (Number : null : [IR])
@@ -11792,6 +13678,10 @@ initWidget : function () {
     //this.Super(this._$initWidget);
 
     this.redrawOnResize = (this.imageType != isc.Img.STRETCH);
+    // Initialize the '_currentURL' to allow resetSrc to avoid unnecessary work if the
+    // state changes without requiring a new media be displayed
+    this._currentURL = this.getURL();
+
 },
 
 //> @method img.setImageType()
@@ -11808,17 +13698,16 @@ setImageType : function (imageType) {
     this.redrawOnResize = (this.imageType != isc.Img.STRETCH);
 },
 
-getURL : function () {
-    return this.statelessImage ? this.src : this.Super("getURL", arguments);
-},
+
+styleText:"line-height:1px;",
+
 
 //>    @method    img.getInnerHTML()    (A)
 //        @group    drawing
 //            write the actual image for the contents
 //
-//        @return    (HTML)    HTML output for this canvas
+//        @return    (HTMLString)    HTML output for this canvas
 //<
-
 _$tableStart : "<TABLE WIDTH=",
 _$heightEquals : " HEIGHT=",
 _$tableTagClose : " BORDER=0 CELLSPACING=0 CELLPADDING=0><TR>",
@@ -11832,7 +13721,8 @@ getInnerHTML : function () {
                                             : this.getInnerHeight(),
         imageType = this.imageType;
 
-    var extraStuff = this.extraStuff;
+    var extraStuff = this.extraStuff,
+        eventStuff = this.eventStuff;
     if (this.imageStyle != null) {
         var classText = " class='" + this.imageStyle + this.getStateSuffix() + this._$singleQuote;
         if (extraStuff == null) extraStuff = classText;
@@ -11854,8 +13744,21 @@ getInnerHTML : function () {
             height = this.imageHeight;
         }
 
-        return this.imgHTML(this.getURL(), width, height, this.name,
-                            extraStuff, null, this.activeAreaHTML);
+        var config = {
+                src:this.getURL(),
+                width:width,
+                height:height,
+                name:this.name,
+                extraStuff:extraStuff,
+                // Set alignment to be "top" rather than textTop for
+                // stretch and "normal" image types.
+
+                align:"top",
+
+                activeAreaHTML:this.activeAreaHTML,
+                eventStuff:eventStuff
+            }
+        return this.imgHTML(config);
     }
 
     var output = isc.SB.create();
@@ -11873,7 +13776,7 @@ getInnerHTML : function () {
 
         output.append(this._$centerCell,
                       this.imgHTML(this.getURL(), this.imageWidth, this.imageHeight, this.name,
-                                   extraStuff, null, this.activeAreaHTML));
+                                   extraStuff, null, this.activeAreaHTML, null, eventStuff));
     }
 
     output.append(this._$tableEnd);
@@ -11951,12 +13854,18 @@ setSrc : function (URL) {
 // @visibility external
 //<
 resetSrc : function () {
+    // No need to update the image if the URL is unchanged
+    var src = this.getURL();
+    if (this._currentURL == src) return;
+    this._currentURL = src;
+
     if (!this.isDrawn()) return;
+
 
     // depending on how the image was originally drawn,
     //    we may be able to simply reset the image
-    if (this.imageType != isc.Img.TILE) {
-        this.setImage(this.name, this.getURL());
+    if (this.imageType != isc.Img.TILE && this._canSetImage(this.name, src)) {
+        this.setImage(this.name, src);
         // The new image might have different intrinsic dimensions. Need to call adjustOverflow()
         // to refresh the scrollWidth/Height.
         this.adjustOverflow("setImage() called");
@@ -11966,14 +13875,13 @@ resetSrc : function () {
     }
 },
 
-
-
 //> @method img.stateChanged()
 //        Update the visible state of this image by changing the URL
 //
-//        @param  newState    (string)    name for the new state
+//        @param  newState    (String)    name for the new state
 //<
 stateChanged : function () {
+    // Update the css styling by calling Super
     this.Super("stateChanged");
 
     // call resetSrc() with null to efficiently reset the image
@@ -12213,12 +14121,12 @@ isc.StretchImg.addProperties({
 
     ignoreRTL:true,
 
-    //>    @attr    stretchImg.autoCalculateSizes        (attrtype : true : IRWA)
+    //>    @attr    stretchImg.autoCalculateSizes        (Attrtype : true : IRWA)
     // If true, we calculate the image sizes automatically
     //        @group    drawing
     //<
     autoCalculateSizes:true,
-    //>    @attr    stretchImg.cacheImageSizes        (attrtype : true : IRWA)
+    //>    @attr    stretchImg.cacheImageSizes        (Attrtype : true : IRWA)
     //    If true, we cache image sizes automatically, if not we calculatge it every time we draw
     //        @group    appearance
     //<
@@ -12237,7 +14145,7 @@ isc.StretchImg.addProperties({
     //<
     // actually implemented on StatefulCanvas
 
-    //> @attr   stretchImg.gripImgSuffix (string : "grip" : IRA)
+    //> @attr   stretchImg.gripImgSuffix (String : "grip" : IRA)
     // Suffix used the 'grip' image if +link{stretchImg.showGrip} is true.
     // @group grip
     // @visibility external
@@ -12292,7 +14200,7 @@ shouldShowLabel : function () {
 //        @group    appearance
 //            return a logical image "part"
 //
-//        @param    partName        (string)    name of the image part you're looking for
+//        @param    partName        (String)    name of the image part you're looking for
 //
 // @return (StretchItem) member of the +link{StretchImg.items,items} array
 //<
@@ -12309,7 +14217,7 @@ getPart : function (partName) {
 //        @group    appearance
 //            return the number of a logical image "part"
 //
-//        @param    partName        (string)    name of the image part you're looking for
+//        @param    partName        (String)    name of the image part you're looking for
 //
 //        @return    (number)    index of the part in this.items array
 //<
@@ -12537,7 +14445,7 @@ resizeImages : function () {
 //        @group    drawing
 //            return the HTML for this stretch image
 //
-//        @return    (HTML)    HTML output for this image
+//        @return    (HTMLString)    HTML output for this image
 //<
 _$noBRStart : "<NOBR>",
 _$noBREnd : "</NOBR>",
@@ -12707,7 +14615,14 @@ getInnerHTML : function () {
                                 "px;height:",height,"px;'>")
                         imgWidth = size+2;
                     }
-                    output.append(this.imgHTML(src, imgWidth, height, item.name, extraStuff));
+                    output.append(this.imgHTML({
+                        src: src,
+                        width: imgWidth,
+                        height: height,
+                        name: item.name,
+                        extraStuff: extraStuff,
+                        extraCSSText: item.extraCSSText
+                    }));
                     if (oversize) {
                         output.append("</div>");
                     }
@@ -12731,10 +14646,12 @@ getInnerHTML : function () {
 
                     var extraCSSText = isc.Browser.isDOM ? this._$displayBlock : null;
                     if (isc.Browser.isMobileSafari && item.browserTouchCallout == false) {
-                        extraCSSText += ((extraCSSText == null ? "" : extraCSSText + ";") +
+                        extraCSSText = ((extraCSSText == null ? "" : extraCSSText + ";") +
                                          "-webkit-touch-callout:none");
                     }
-
+                    if (item.extraCSSText) {
+                        extraCSSText = ((extraCSSText == null ? "" : extraCSSText + ";") + item.extraCSSText);
+                    }
                     output.append(this.imgHTML({
                         src: src,
                         width: width,
@@ -12783,7 +14700,14 @@ getItemStyleName : function (item) {
     if (!baseStyle) return null;
 
     var state = item.state ? item.state : this.getState(),
-        selected = item.selected != null ? item.selected : this.selected,
+        showStateProp = this._showStateProps[state];
+
+    // If we're in state "Over" [say], and showRollOver is false, ignore this state
+    if (state && showStateProp && this[showStateProp] === false) {
+        state = "";
+    }
+
+    var selected = item.selected != null ? item.selected : this.selected,
         focused = this.showFocused && !this.showFocusedAsOver && !this.isDisabled() ?
                     (item.focused != null ? item.focused : this.focused) : false;
 
@@ -12814,8 +14738,8 @@ _getItemURL : function (item) {
 //      @visibility external
 //        @group    appearance
 //
-//        @param    newState    (string)        name for the new state ("off", "down", etc)
-//        @param    [whichPart]    (string)        name of the piece to set ("start", "stretch" or "end")
+//        @param    newState    (String)        name for the new state ("off", "down", etc)
+//        @param    [whichPart]    (String)        name of the piece to set ("start", "stretch" or "end")
 //                                            if not specified, sets them all
 //<
 setState : function (newState, whichPart) {
@@ -12870,7 +14794,8 @@ stateChanged : function (whichPart) {
 
                 if (!whichPart || item.name == whichPart) {
                     // set the image to the new state image
-                    if (!this._$blankRE.test(item.name)) {
+
+                    if (!item.src && !this._$blankRE.test(item.name)) {
                         this.setImage(item.name, this._getItemURL(item));
                     }
 
@@ -12882,6 +14807,7 @@ stateChanged : function (whichPart) {
                         if (this.renderStretchImgInTable) {
                             handle = handle.parentNode;
                         }
+
                         handle.className = this.getItemStyleName(item);
                     }
                 }
@@ -12948,7 +14874,7 @@ inWhichPart : function () {
     // ScrollerBackImg we need to take it into account, as the emptyButton is not a valid
     // target for inWhichPart(). So, if the cursor is in the emptyButton, we will return the
     // next item in the scroller, that will be the ScrollerBackImg.
-    if (item.name == "emptyButton") item = this.items[num+1];
+    if (item && item.name == "emptyButton") item = this.items[num+1];
     return (item ? item.name : null);
 }
 
@@ -13008,6 +14934,18 @@ isc.defineClass("Label", "Button").addMethods({
 
     //> @attr label.autoFit    (boolean : null : [IRW])
     // @include StatefulCanvas.autoFit
+    // @visibility external
+    //<
+
+    //> @attr label.width
+    // @include statefulCanvas.width
+    // @group sizing
+    // @visibility external
+    //<
+
+    //> @attr label.height
+    // @include statefulCanvas.height
+    // @group sizing
     // @visibility external
     //<
 
@@ -13128,14 +15066,14 @@ isc.defineClass("Label", "Button").addMethods({
 
 
 
-//>    @class    Progressbar
+//> @class Progressbar
 //
 // The Progressbar widget class extends the StretchImg class to implement image-based progress
 // bars (graphical bars whose lengths represent percentages, typically of task completion).
 //
-//  @inheritsFrom StretchImg
-//  @treeLocation Client Reference/Control
-//  @visibility external
+// @inheritsFrom StretchImg
+// @treeLocation Client Reference/Control
+// @visibility external
 //<
 
 // declare the class itself
@@ -13143,7 +15081,7 @@ isc.ClassFactory.defineClass("Progressbar", "StretchImg");
 
 // add default properties
 isc.Progressbar.addProperties( {
-    //>    @attr    progressbar.percentDone        (number : 0 : [IRW])
+    //> @attr progressbar.percentDone (number : 0 : [IRW])
     // Number from 0 to 100, inclusive, for the percentage to be displayed graphically in
     // this progressbar.
     // @group appearance
@@ -13173,38 +15111,40 @@ isc.Progressbar.addProperties( {
     //<
     breadth: 20,
 
-    //>    @attr progressbar.vertical (Boolean : false : IRW)
+    //> @attr progressbar.vertical (Boolean : false : IRW)
     // Indicates whether this is a vertical or horizontal progressbar.
     // @group appearance
     // @visibility external
     //<
     vertical:false,
 
-    //>    @attr    progressbar.imgDir        (string : isc.Canvas.USE_WIDGET_IMG_DIR : IRW)
-    //            where progress bar images come from
-    //        @group    appearance
+    //> @attr progressbar.imgDir (String : isc.Canvas.USE_WIDGET_IMG_DIR : IRW)
+    // Where progress bar images come from
+    // @group appearance
     //<
-//    imgDir:isc.Canvas.USE_WIDGET_IMG_DIR,
+    //imgDir:isc.Canvas.USE_WIDGET_IMG_DIR,
 
-    //>    @attr    progressbar.skinImgDir        (URL : "images/Progressbar/" : IRWA)
-    //        Where do 'skin' images (those provided with the class) live?
-    //        This is local to the Page.skinDir
-    //        @group    appearance, images
+    //> @attr progressbar.skinImgDir (SCImgURL : "images/Progressbar/" : IRWA)
+    // Where do 'skin' images (those provided with the class) live?
+    // This is local to the Page.skinDir
+    // @group appearance, images
     //<
     skinImgDir:"images/Progressbar/",
 
-    //>    @attr    progressbar.src        (SCImgURL : "[SKIN]progressbar.gif" : IRW)
-    //    The base file name for the progressbar image.
+    //> @attr progressbar.src (SCImgURL : "[SKIN]progressbar.gif" : IRW)
+    // The base file name for the progressbar image.
     // @group appearance
     // @visibility external
     //<
     src:"[SKIN]progressbar.gif",
 
-    //>    @attr    progressbar.cacheImageSizes        (boolean : false : IRWA)
-    //            don't cache image sizes automatically
-    //        @group    appearance
+    //> @attr progressbar.cacheImageSizes (boolean : false : IRWA)
+    // Don't cache image sizes automatically
+    // @group appearance
     //<
     cacheImageSizes:false,
+
+    valign: "center",
 
     backgroundColor:"CCCCCC",
 
@@ -13224,7 +15164,28 @@ isc.Progressbar.addProperties( {
         {name:"h_empty_start",size:3},
         {name:"h_empty_stretch",size:0},
         {name:"h_empty_end",size:3}
-    ]
+    ],
+
+    //> @attr progressbar.useCssStyles (boolean : false : [IR])
+    // When set to true, styles the Progressbar via the +link{progressbar.baseStyle, base} and
+    // +link{progressbar.progressStyle, progress} CSS styles.
+    // @visibility external
+    //<
+    useCssStyles: false,
+
+    //> @attr progressbar.baseStyle (CSSStyleName : "progressbar" : [IR])
+    // +link{stretchImg.baseStyle,Base style} for this Progressbar.  Only used when
+    // +link{progressbar.useCssStyles, useCssStyles} is true.
+    // @visibility external
+    //<
+    baseStyle: "progressbar",
+
+    //> @attr progressbar.progressStyle (CSSStyleName : "progressbarProgress" : [IR])
+    // +link{stretchImg.baseStyle,Base style} used to style the percentage-done portion of this
+    // Progressbar.  Only used when +link{progressbar.useCssStyles, useCssStyles} is true.
+    // @visibility external
+    //<
+    progressStyle: "progressbarProgress"
 
 });
 
@@ -13240,10 +15201,17 @@ init : function () {
         this.height = this.breadth
         this.items = this.horizontalItems;
     }
+    if (this.useCssStyles) {
+        // create two items, styled by baseStyle and progressStyleName
+        this.items = [
+            { name: "blank1", size: 0, baseStyle: this.progressStyle },
+            { name: "blank2", size: 0, baseStyle: this.baseStyle }
+        ];
+    }
     this.Super("init", arguments);
 },
 
-//>    @method    progressbar.resizeImages()    (A)
+//> @method progressbar.resizeImages() (A)
 // Resize the images according to the percentDone, called automatically during rendering.
 // <P>
 // Sets this.sizes array to the new sizes
@@ -13253,45 +15221,50 @@ resizeImages : function() {
     var totalSize = this.getLength(),
         imgs = this.items,
         sizes = this._imgSizes = [],
-        percentDone = this.percentDone;
+        percentDone = this.percentDone
+    ;
 
-    if (this.vertical) {
-        // size the 'empty' cap images (3,5)
-        sizes[0] = (percentDone < 100 ? imgs[0].size : 0);
-        sizes[2]   = (percentDone < 100 ? imgs[2].size : 0);
-
-        // size the 'bar' cap images (0,2)
-        sizes[3] = (percentDone > 0 ? imgs[3].size : 0);
-        sizes[5]   = (percentDone > 0 ? imgs[5].size : 0);
-
-    } else {
-        // size the 'bar' cap images (0,2)
-        sizes[0] = (percentDone > 0 ? imgs[0].size : 0);
-        sizes[2]   = (percentDone > 0 ? imgs[2].size : 0);
-
-        // size the 'empty' cap images (3,5)
-        sizes[3] = (percentDone < 100 ? imgs[3].size : 0);
-        sizes[5]   = (percentDone < 100 ? imgs[5].size : 0);
-    }
-
-    // adjust the totalsize by the amounts allocated to the cap images
-    totalSize -= sizes[0] + sizes[2] + sizes[3] + sizes[5];
-
-    // size the stretch images
-    if (this.vertical) {
-        sizes[4] = Math.ceil(totalSize * percentDone/100);
+    if (this.useCssStyles) {
+        sizes[0] = Math.ceil(totalSize * percentDone/100);
         sizes[1] = Math.floor(totalSize * (100-percentDone)/100);
     } else {
-        sizes[1] = Math.ceil(totalSize * percentDone/100);
-        sizes[4] = Math.floor(totalSize * (100-percentDone)/100);
+        if (this.vertical) {
+            // size the 'empty' cap images (3,5)
+            sizes[0] = (percentDone < 100 ? imgs[0].size : 0);
+            sizes[2] = (percentDone < 100 ? imgs[2].size : 0);
+
+            // size the 'bar' cap images (0,2)
+            sizes[3] = (percentDone > 0 ? imgs[3].size : 0);
+            sizes[5] = (percentDone > 0 ? imgs[5].size : 0);
+        } else {
+            // size the 'bar' cap images (0,2)
+            sizes[0] = (percentDone > 0 ? imgs[0].size : 0);
+            sizes[2]   = (percentDone > 0 ? imgs[2].size : 0);
+
+            // size the 'empty' cap images (3,5)
+            sizes[3] = (percentDone < 100 ? imgs[3].size : 0);
+            sizes[5]   = (percentDone < 100 ? imgs[5].size : 0);
+        }
+
+        // adjust the totalsize by the amounts allocated to the cap images
+        totalSize -= sizes[0] + sizes[2] + sizes[3] + sizes[5];
+
+        // size the stretch images
+        if (this.vertical) {
+            sizes[4] = Math.ceil(totalSize * percentDone/100);
+            sizes[1] = Math.floor(totalSize * (100-percentDone)/100);
+        } else {
+            sizes[1] = Math.ceil(totalSize * percentDone/100);
+            sizes[4] = Math.floor(totalSize * (100-percentDone)/100);
+        }
     }
 },
 
-//>    @method    progressbar.setPercentDone()    ([])
+//> @method progressbar.setPercentDone() ([])
 // Sets percentDone to newPercent.
 //
-//      @visibility external
-//        @param    newPercent        (number)    percent to show as done (0-100)
+// @visibility external
+// @param newPercent (number) percent to show as done (0-100)
 //<
 setPercentDone : function (newPercent) {
     if (this.percentDone == newPercent) return;
@@ -13306,8 +15279,9 @@ setPercentDone : function (newPercent) {
     this.percentChanged();
 },
 
-//>    @method    progressbar.percentChanged()    ([A])
-// This method is called when the percentDone value changes. Observe this method to be notified upon
+//> @method progressbar.percentChanged() ([A])
+// This method is called when the percentDone value changes. <smartclient>Observe</smartclient>
+// <smartgwt>Call</smartgwt> this method to be notified upon
 // a change to the percentDone value.
 //
 // @see method:class.observe
@@ -13315,27 +15289,27 @@ setPercentDone : function (newPercent) {
 //<
 percentChanged : function () { },
 
-//>    @method    progressbar.getLength()    ([])
+//> @method progressbar.getLength() ([])
 // Returns the current width of a horizontal progressbar, or height of a vertical progressbar.
 //
-//      @visibility external
-//        @return    (Number)    the length of the progressbar
+// @visibility external
+// @return (Number) the length of the progressbar
 //<
 getLength : function () {
     return this.vertical ? this.getHeight() : this.getWidth();
 },
 
-//>    @method    progressbar.getBreadth()    ([])
+//> @method progressbar.getBreadth() ([])
 // Returns the current height of a horizontal progressbar, or width of a vertical progressbar.
 //
-//      @visibility external
-//        @return    (number)    the breadth of the progressbar
+// @visibility external
+// @return (number) the breadth of the progressbar
 //<
 getBreadth : function () {
     return this.vertical ? this.getWidth() : this.getHeight();
 },
 
-//>    @method    progressbar.setLength()
+//> @method progressbar.setLength()
 // Sets the length of the progressbar to newLength. This is the width of a horizontal progressbar,
 // or the height of a vertical progressbar.
 //
@@ -13347,7 +15321,7 @@ setLength : function (newLength) {
     this.vertical ? this.setHeight(newLength) : this.setWidth(newLength);
 },
 
-//>    @method    progressbar.setBreadth()
+//> @method progressbar.setBreadth()
 // Sets the breadth of the progressbar to newLength. This is the height of a horizontal progressbar,
 // or the width of a vertical progressbar.
 //
@@ -13654,7 +15628,6 @@ isc.Toolbar.addProperties( {
 
     //>    @attr    toolbar.overflow        (Overflow : Canvas.HIDDEN : IRWA)
     // Clip stuff that doesn't fit
-    //        @group    clipping
     //<
     overflow:isc.Canvas.HIDDEN,
 
@@ -13731,7 +15704,7 @@ isc.Toolbar.addProperties( {
     //<
     overrideDefaultButtonSizes: true,
 
-    //>    @attr    toolbar.buttonDefaults        (object : varies : [IRWA])
+    //>    @attr    toolbar.buttonDefaults        (Object : varies : [IRWA])
     // Settings to apply to all buttons of a toolbar. Properties that can be applied to
     // button objects can be applied to all buttons of a toolbar by specifying them in
     // buttonDefaults using the following syntax:<br>
@@ -14180,10 +16153,10 @@ makeButton : function (button) {
 // Creates and returns a widget for the toolbar
 //        @group    drawing
 //
-//        @param    [buttonProperties]    (object)    the button properties
-//        @param    [rect]        (object)    the rectangle for this widget, e.g. {top:50, left:100, ...}
+//        @param    [buttonProperties]    (Object)    the button properties
+//        @param    [rect]        (Object)    the rectangle for this widget, e.g. {top:50, left:100, ...}
 //
-//        @return    (object)    the created widget
+//        @return    (Object)    the created widget
 //<
 _makeItem : function (buttonProperties, rect) {
     var cons = (buttonProperties.buttonConstructor
@@ -14219,7 +16192,7 @@ _makeItem : function (buttonProperties, rect) {
 
 //>    @method    toolbar.addButtons()
 // Add a list of buttons to the toolbar
-// @param [buttons]    (Array of objects) list of button object initializers.
+// @param [buttons]    (Array of Object) list of button object initializers.
 // @param [position] (number) position to add the new buttons at
 // @visibility external
 //<
@@ -14379,7 +16352,7 @@ removeButtons : function (buttons) {
 //      @see    getButtonNumber()
 //      @visibility external
 //        @group    buttons
-//        @param    index        (number | string | object)    identifier for the button to retrieve
+//        @param    index        (number | String | Object)    identifier for the button to retrieve
 //
 //      @return (Button)    the button, or null if the button wasn't found
 //<
@@ -14399,7 +16372,7 @@ getButton : function (index) {
 //          </ul><p>
 //            returns -1 if not found
 //
-//        @param    button        (number | string  | button object | button widget)
+//        @param    button        (number | String  | Button Object | Button Widget)
 //
 //        @return    (number)    index of the button in question
 // @visibility external
@@ -14413,7 +16386,7 @@ getButtonNumber : function (button) {
 
 //>    @method    toolbar.getButtons()
 //        @group    buttons
-//        @return (array) array of all buttons in the Toolbar
+//        @return (Array) array of all buttons in the Toolbar
 //<
 getButtons : function () {
     return this.members;
@@ -14431,8 +16404,13 @@ setCanResizeItems : function (canResizeItems) {
     if (!buttons) return;
     for (var i = 0; i < buttons.length; i++) {
         var item = buttons[i];
-        item.canDragResize = (item.canDragResize != null ?
-            item.canDragResize && canResizeItems : canResizeItems);
+        if (!item.origDragResize) {
+            // store the item's original canDragResize
+            item.origDragResize = item.canDragResize;
+        }
+        // can resize if canResizeItems is true *and* the item itself was not specifically
+        // set to canDragResize: false originally
+        item.canDragResize = canResizeItems && (item.origDragResize != false);
     }
     this.setResizeRules();
 },
@@ -14470,7 +16448,8 @@ setResizeRules : function () {
     for (var i = 0; i < this.members.length; i++) {
         var button = this.members[i];
         if (!button.canDragResize) {
-            button.resizeFrom = button.edgeCursorMap = null;
+            button.resizeFrom = null;
+            button.edgeCursorMap = {};
             previousCantResize = true;
         } else {
             if (previousCantResize || i == 0)
@@ -14481,7 +16460,7 @@ setResizeRules : function () {
             } else {
                 button.resizeFrom = resizeFrom;
             }
-            button.edgeCursorMap = edgeCursorMap;
+            button.edgeCursorMap = edgeCursorMap || {};
             previousCantResize = false;
         }
     }
@@ -14489,7 +16468,7 @@ setResizeRules : function () {
 
 //>    @method    toolbar.getSelectedButton()    (A)
 // Get the button currently selected.
-//        @return (object) button
+//        @return (Object) button
 //<
 getSelectedButton : function () {
     return this.lastSelectedButton;
@@ -14502,7 +16481,7 @@ getSelectedButton : function () {
 //
 //      @see    getButtonNumber()
 //        @group    selection
-//        @param    buttonID        (number | string | object | canvas)    Button / Button identifier
+//        @param    buttonID        (number | String | Object | Canvas)    Button / Button identifier
 //      @visibility external
 //<
 selectButton : function (buttonID) {
@@ -14521,7 +16500,7 @@ selectButton : function (buttonID) {
 //      @see    getButtonNumber()
 //      @visibility external
 //        @group    selection
-//        @param    buttonID        (number | string | object | canvas)    Button / Button identifier
+//        @param    buttonID        (number | String | Object | Canvas)    Button / Button identifier
 //<
 deselectButton : function (buttonID) {
     var btn = this.getButton(buttonID);
@@ -14533,7 +16512,7 @@ deselectButton : function (buttonID) {
 // One of the toolbar button was just selected -- update other buttons as necessary
 //        @group    selection
 //
-//        @param    button        (button object)        a member of this.buttons
+//        @param    button        (Button Object)        a member of this.buttons
 //<
 buttonSelected : function (button) {
     if (button.getActionType() == isc.Button.RADIO) {
@@ -14546,26 +16525,34 @@ buttonSelected : function (button) {
 // Notification that one of the toolbar buttons was just DEselected
 //        @group    selection
 //
-//        @param    button        (button object)        a member of this.buttons
+//        @param    button        (Button Object)        a member of this.buttons
 //<
 buttonDeselected : function (button) {
 },
 
 
-//>    @method    toolbar.itemClick() ([A])
-//    Called when one of the buttons receives a click event
-//        @group    event handling
-//        @param    item        (button)        pointer to the button in question
-//        @param    itemNum        (number)        number of the button in question
-// @visibility external
+//> @method toolbar.itemClick() ([A])
+//  Called when one of the buttons receives a click event.
+// @param  item     (StatefulCanvas)  button in question
+// @param  itemNum  (number)          number of the button in question
+// @group  event handling
+// @visibility smartclient
 //<
 itemClick : function (item, itemNum) {
 },
 
+//> @method toolbar.sgwtItemClick() ([A])
+// @include itemClick
+// @param  targetCanvas  (StatefulCanvas)  button in question
+// @param  itemNum       (number)          number of the button in question
+// @group  event handling
+// @visibility sgwt
+//<
+
 //>    @method    toolbar.itemDoubleClick() ([A])
 //    Called when one of the buttons receives a double-click event
 //        @group    event handling
-//        @param    item        (button)        pointer to the button in question
+//        @param    item        (Button)        pointer to the button in question
 //        @param    itemNum        (number)        number of the button in question
 // @visibility external
 //<
@@ -14681,8 +16668,9 @@ getDropPosition : function () {
 
     if (position < 0 || position > maxIndex) position = revertPosition;
 
-    // for reorder/self-drop, check canReorder flag
-    else if (selfDrag && (this.members[position] && this.members[position].canReorder == false))
+    // for reorder/self-drop, check canReorder flag, and override API (used by headers)
+    else if (selfDrag && this.members[position] && this.members[position].canReorder == false &&
+             (!this._canReorderDrop || !this._canReorderDrop(position, revertPosition)))
     {
         position = revertPosition;
     }
@@ -14700,7 +16688,7 @@ dragReorderStart : function () {
 
 
 
-    if (startButton.showDown) startButton.setState(isc.StatefulCanvas.STATE_DOWN);
+    startButton.setState(isc.StatefulCanvas.STATE_DOWN);
 
     // get the item number that reordering started in (NOTE: depended on by observers like LV)
     this.dragStartPosition = this.getButtonNumber(startButton);
@@ -14820,7 +16808,7 @@ dragResizeMemberStart : function () {
     // NOTE: depended upon by observers (ListGrid)
     this._resizePosition = itemNum;
 
-    if (item.showDown) item.setState(isc.StatefulCanvas.STATE_DOWN);
+    item.setState(isc.StatefulCanvas.STATE_DOWN);
     if (offsetDrag) {
         var mouseDownItem = this.members[itemNum+1];
         if (mouseDownItem) mouseDownItem.setState(isc.StatefulCanvas.STATE_UP);
@@ -14878,7 +16866,8 @@ isc.Toolbar.registerStringMethods({
 itemClick : "item,itemNum",
 
 //> @method toolbar.itemDragResized
-// Observable, overrideable method - called when one of the Toolbar buttons is drag resized.
+// <smartclient>Observable, overrideable method - called</smartclient><smartgwt>Called</smartgwt>
+// when one of the Toolbar buttons is drag resized.
 //
 // @param itemNum (number) the index of the item that was resized
 // @param newSize (number) the new size of the item
@@ -15025,6 +17014,18 @@ isc.defineClass("ImgButton", "Img").addProperties({
     //<
     //> @method imgButton.setAutoFit()
     // @include statefulCanvas.setAutoFit
+    // @visibility external
+    //<
+
+    //> @attr imgButton.width
+    // @include statefulCanvas.width
+    // @group sizing
+    // @visibility external
+    //<
+
+    //> @attr imgButton.height
+    // @include statefulCanvas.height
+    // @group sizing
     // @visibility external
     //<
 
@@ -15198,7 +17199,7 @@ isc.defineClass("ImgButton", "Img").addProperties({
 
     // States
     // ---------------------------------------------------------------------------------------
-    //>    @attr    ImgButton.src        (SCImgURL : "[SKIN]/ImgButton/button.png" : IRW)
+    //> @attr ImgButton.src (SCImgURL | SCStatefulImgConfig : "[SKIN]/ImgButton/button.png" : IRW)
     // @include Img.src
     // @visibility external
     // @example buttonAppearance
@@ -15207,11 +17208,10 @@ isc.defineClass("ImgButton", "Img").addProperties({
 
     canFocus:true,
 
-    //>    @attr    isc.ImgButton.overflow      (string : "hidden" : IRW)
+    //>    @attr ImgButton.overflow      (String : "hidden" : IRW)
     // Clip by default, because expanding to the label (if present) is likely to distort image
     //<
     overflow:isc.Canvas.HIDDEN
-
 });
 
 isc.ImgButton.addMethods({
@@ -15416,6 +17416,18 @@ isc.defineClass("StretchImgButton", "StretchImg").addProperties({
     //<
     //> @method stretchImgButton.setAutoFit()
     // @include statefulCanvas.setAutoFit
+    // @visibility external
+    //<
+
+    //> @attr stretchImgButtonwidth
+    // @include statefulCanvas.width
+    // @group sizing
+    // @visibility external
+    //<
+
+    //> @attr stretchImgButtonheight
+    // @include statefulCanvas.height
+    // @group sizing
     // @visibility external
     //<
 
@@ -15770,6 +17782,2486 @@ isc.StretchImgButton.registerStringMethods({
 
 
 
+//>    @class Notify
+// Notify provides a means to display on-screen messages that are automatically dismissed after
+// a configurable amount of time, as an alternative to +link{isc.confirm(),modal notification}
+// dialogs that can lower end user productivity.  Messages may be shown at a particular
+// location, specified either with viewport-relative coordinates, or as an edge or center
+// location relative to the viewport or a canvas.  Messages can be configured to appear and
+// disappear instantly, by sliding into (or out of) view, or by fading in (or out).
+// <P>
+// One or more +link{NotifyAction,actions} can be provided when +link{Notify.addMessage(),
+// addMessage()} is called to display a message.  They will be rendered as links on which to
+// click to execute the action.
+// <P>
+// The behavior and appearance of messages are configured per +link{NotifyType}, which is simply
+// a string that identifies that message group, similar to +link{class.logWarn(),log category}.
+// By calling +link{Notify.configureMessages(),configureMessages()} with the
+// <code>NotifyType</code>, it can be assigned a +link{NotifySettings} configuration to control
+// message animation, placement, and the the +link{Label} used to render each message, allowing
+// styling and autofit behavior to be configured.
+// <P>
+// Messages of the same <code>NotifyType</code> may be stacked to provide a visible
+// history, with a configurable stacking direction and maximum stacking depth.  Details on how
+// to configure messages are provided in the documentation for +link{NotifySettings}.
+// <P>
+// Messages for different <code>NotifyType</code>s are stacked separately and animated by
+// independent Framework pipelines.  It's up to you to configure the placement of supported
+// <code>NotifyType</code>s in your app so that they don't overlap, as the Framework doesn't
+// manage it.  For example, separate <code>NotifyType</code>s could be assigned separate screen
+// edges, or assigned a different +link{notifySettings.positionCanvas}.
+// <P>
+// To dismiss a message manually before its scheduled duration expires, you may call
+// +link{Notify.dismissMessage(),dismissMessage()} with a <code>NotifyType</code> (to dismiss
+// all such messages) or an ID previously returned by +link{Notify.addMessage(),addMessage()}
+// (to dismiss that single message).
+// <P>
+// <B>Warnings and Errors</B>
+// <P>
+// Each notification may be assigned a +link{NotifySettings.messagePriority,messagePriority} in
+// the settings passed to +link{notify.addMessage(),addMessage()}.  By default, all
+// <code>NotifyType</code>s are configured to have priority +link{Notify.MESSAGE}, except for
+// "error" and "warn" <code>NotifyType</code>s, which are configured with priority
+// +link{Notify.ERROR} and +link{Notify.WARN}, respectively.
+// <P>
+// The +link{NotifySettings.messagePriority,messagePriority} determines the default styling of a
+// message, and which message to remove if a new message is sent while the message stack is
+// already at its limit.  We recommended applying a +link{NotifySettings.messagePriority,
+// messagePriority} as the best approach for showing pre-styled warnings and errors, since that
+// allows you to interleave them with ordinary messages in a single <code>NotifyType</code>.
+// <P>
+// Alternatively, you can display pre-styled warnings and errors by calling
+// +link{notify.addMessage(),addMessage()} with the separate <code>NotifyType</code>s
+// "warning" and "error", respectively, but then you must take care to
+// +link{notify.configureMessages(),assign each NotifyType} used to a separate screen
+// location to avoid one rendering on top of the other.
+// <P>
+// <B>Viewport Considerations</B>
+// <P>
+// Messages are edge or corner-aligned based on the +link{page.getScrollWidth(),viewport width}
+// and +link{page.getScrollHeight(),viewport height} of the current page rather than screen, so
+// you may need to scroll to see the targeted corner or edge.  Note that widgets placed
+// offscreen below or to the right of a page may cause the browser to report a larger viewport,
+// and prevent messages from being visible, even if no scrollbars are present.  If you need to
+// stage widgets offscreen for measurement or other reasons, place them above or to the left.
+// <P>
+// <B>Modal Windows and Click Masks</B>
+// <P>
+// Messages are always shown above all other widgets, including +link{window.isModal,
+// modal windows} and +link{canvas.showClickMask(),click masks}.  This is because it's expected
+// that messages are "out of band" and logically indepedent of the widget hierarchy being shown.
+// We apply this layering policy even for windows and widgets created by +link{notifyAction}s.
+// If there may a scenario where a message can block a window created by an action, set
+// +link{notifySettings.canDismiss} to true so that an unobstructed view of the underlying
+// widgets can be restored.
+// <P>
+// In the linked sample, note how we take care to reuse the existing modal window, if any, if
+// the "Launch..." link is clicked, so that repeated clicks never stack windows over each other.
+//
+// @see isc.say()
+// @see isc.confirm()
+// @treeLocation Client Reference/Control
+// @example notifications
+// @visibility external
+//<
+isc.ClassFactory.defineClass("Notify");
+
+isc.Notify.addClassMethods({
+    _$message: "message",
+    _$warn:    "warn",
+    _$error:   "error",
+
+    settings: {},
+    typeState: {},
+
+    _initializeSettings : function () {
+        this._settingsInitialized = true;
+        this.configureMessages(this._$message, this._initNotifySettings(this._$message));
+        this.configureMessages(this._$warn,    this._initNotifySettings(this._$warn));
+        this.configureMessages(this._$error,   this._initNotifySettings(this._$error));
+    },
+
+    //> @object MessageID
+    // Opaque message identifier for messages shown by the +link{Notify} class
+    // @treeLocation Client Reference/Control/Notify
+    // @visibility external
+    //<
+
+    //> @type MessagePriority
+    // A positive integer representing the priority of a message.  Lower numerical values have
+    // higher priority.
+    // @see NotifySettings.messagePriority
+    // @baseType int
+    // @visibility external
+    //<
+
+
+    //> @classAttr Notify.ERROR (MessagePriority : 1 : [R])
+    // Highest priority.  Default priority of +link{NotifyType}: "error".
+    // @see WARN
+    // @see MESSAGE
+    // @visibility external
+    // @constant
+    //<
+    ERROR: 1,
+
+    //> @classAttr Notify.WARN (MessagePriority : 2 : [R])
+    // Second-highest priority.  Default priority of +link{NotifyType}: "warn".
+    // @see ERROR
+    // @see MESSAGE
+    // @visibility external
+    // @constant
+    //<
+    WARN: 2,
+
+    //> @classAttr Notify.MESSAGE (MessagePriority : 3 : [R])
+    // Third-highest priority.  Default priority for all +link{NotifyType}s other than "error"
+    // and "warn".
+    // @see ERROR
+    // @see WARN
+    // @visibility external
+    // @constant
+    //<
+    MESSAGE: 3,
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // New Message
+
+    //> @classMethod Notify.addMessage()
+    // Displays a new message, subject to the +link{configureMessages(),stored configuration}
+    // for the passed <code>notifyType</code>, overridden by any passed <code>settings</code>.
+    // Returns an opaque <code>MessageID</code> that can be passed to +link{dismissMessage()}
+    // to clear it.
+    // <P>
+    // Note that an empty string may be passed for <code>contents</code> if <code>actions</code>
+    // have been provided, so you may have the message consist only of your specified actions.
+    // <P>
+    // Most users should do all configuration up front via a call to +link{configureMessages()}.
+    // The <code>settings</code> argument in this method is provided to allow adjustment of
+    // properties that affect only one message, such as +link{NotifySettings.autoFitWidth,
+    // autoFitWidth}, +link{NotifySettings.styleName,styleName}, or
+    // +link{NotifySettings.labelProperties,labelProperties}.  Making changes to
+    // +link{multiMessageMode,stacking}-related properties via this argument isn't supported,
+    // unless specifically documented on the property.
+    //
+    // @param  contents     (HTMLString)             message to be displayed
+    // @param  [actions]    (Array of NotifyAction)  actions (if any) for this message
+    // @param  [notifyType] (NotifyType)             category of message; default "message"
+    // @param  [settings]   (NotifySettings)         display and behavior settings for
+    //                                               this message that override the
+    //                                               +link{configureMessages(),configured}
+    //                                               settings for the <code>notifyType</code>
+    // @return  (MessageID)  opaque identifier for message
+    // @see isc.say()
+    // @see isc.confirm()
+    // @see isc.notify()
+    // @visibility external
+    //<
+    addMessage : function (contents, actions, notifyType, settings) {
+        // sanity check - we require contents or at least one titled NotifyAction
+        if (!contents && !this._hasTitledActions(actions)) {
+            this.logWarn("addMessage(): you must either provide valid contents for " +
+                         "the message, or at least one NotifyAction with a title", "notify");
+            return;
+        }
+
+        if (!notifyType) notifyType = this._$message;
+
+        // create default NotifySettings for NotifyType if needed
+        var typeSettings = this.settings[notifyType];
+        if (!typeSettings) {
+            this.configureMessages(notifyType);
+            typeSettings = this.settings[notifyType];
+        }
+
+
+        // passed settings override configured settings for notifyType
+        settings = this._filterCustomSettings(settings, typeSettings);
+
+        // create a new typeState for this notifyType if needed
+        var typeState = this.typeState[notifyType];
+        if (!typeState) {
+            typeState = this.typeState[notifyType] = {
+                notifyType: notifyType,
+                pendingQueue: [],
+                liveMessages: [],
+                dismissQueue: [],
+                replaceQueue: []
+            };
+        }
+
+        // message state/config
+        var messageState = {
+            contents: contents,
+            actions:  actions,
+            settings: settings
+        };
+
+
+        var ready = this._prepareForNewMessage(typeState, settings);
+        if (ready) {
+            this._addMessage(typeState, messageState);
+            if (this.logIsDebugEnabled("notify")) {
+                this.logDebug("addMessage(): showing message with notifyType: " +
+                              notifyType + " and contents: '" + contents + "'", "notify");
+            }
+        } else {
+            typeState.pendingQueue.add(messageState);
+            if (this.logIsInfoEnabled("notify")) {
+                this.logInfo("addMessage(): queuing message with notifyType: " +
+                             notifyType + " and contents: '" + contents + "'", "notify");
+            }
+        }
+
+        return {notifyType: notifyType, messageState: messageState};
+    },
+
+    _addMessage : function (typeState, messageState) {
+
+
+        typeState.liveMessages.add(messageState);
+
+        this._createMessageLabel(typeState, messageState);
+
+
+
+        var stackCoords, settings = messageState.settings,
+            messageCoords = this._getMessageCoords(typeState, messageState)
+        ;
+
+        // create stack if stacking messages and compute its position
+        if (settings.multiMessageMode == "stack") {
+            if (typeState.stack == null) {
+                var direction = settings.stackDirection,
+                    vertical = direction == "up" || direction == "down",
+                    stackClass = vertical ? isc.VStack : isc.HStack
+                ;
+                typeState.stack = stackClass.create({
+                    left: messageCoords[0],
+                    top: messageCoords[1],
+                    width: 1, height: 1,
+                    _notifyZLayer: true,
+
+                    instantRelayout: true, autoDraw: true,
+                    membersMargin: settings.stackSpacing,
+
+
+                    _setAnimation : function (effect, time) {
+                        this.setProperties({
+                            animateMembers: true,
+                            animateMemberTime: time,
+                            animateMemberEffect: effect
+                        });
+                    },
+                    _clearAnimation : function () {
+                        this.setProperty("animateMembers", false);
+                    }
+                });
+                typeState.stack.bringToFront();
+
+
+                typeState.placeholder = isc.Canvas.create({
+                    opacity: 0, top: -1000
+                });
+            } else {
+                var stack = typeState.stack;
+                if (!stack.members.length) {
+                    stack.moveTo(messageCoords[0], messageCoords[1]);
+                }
+            }
+            // message coords are affected by stacking, so (re)compute message and stack coords
+            stackCoords = this._getStackCoords(typeState, messageState, false);
+            messageCoords = this._getStackedMessageCoords(typeState, messageState, stackCoords);
+        }
+
+        var stack = typeState.stack,
+            label = messageState.label,
+            liveMessages = typeState.liveMessages;
+
+
+        var appearMethod = settings.appearMethod;
+        if (this.logIsDebugEnabled("notify")) {
+            this.logDebug("addMessage(): starting message animation: " + appearMethod +
+                " to/at coordinates: " + messageCoords + " and stack slide to coordinates: " +
+                stackCoords + " for notifyType: " + typeState.notifyType + " with contents: '" +
+                messageState.contents + "'", "notify");
+        }
+        switch (appearMethod) {
+        case "fade":
+
+            if (liveMessages.length > 1) {
+                this._prepSlideStack(typeState, messageState, messageCoords, stackCoords);
+            } else {
+                this._fadeInMessage(typeState, messageState, messageCoords, stackCoords);
+            }
+            break;
+        case "slide":
+            this._slideInMessage(typeState, messageState, messageCoords, stackCoords);
+            break;
+        case "instant":
+        default:
+            if (stack) this._addLabelToStack(typeState, messageState, stackCoords);
+            else label.moveTo(messageCoords[0], messageCoords[1]);
+            break;
+        }
+
+        // if a non-zero duration was supplied, the message will auto-dismiss after it elapses
+        if (settings.duration) this._scheduleMessageDismissal(typeState, messageState);
+    },
+
+
+    _crossMessageProps : [
+        "multiMessageMode", "stackDirection", "maxStackSize", "maxStackDismissMode",
+        "stackSpacing", "repositionMethod"
+    ],
+
+    // return new NotifySettings representing only allowed overrides of the configured settings
+    _filterCustomSettings : function (changedSettings, configuredSettings) {
+        // return configured settings if no settings changed
+        if (!changedSettings) return configuredSettings;
+
+        var violation,
+            propsToRemove = this._crossMessageProps,
+            filtered = isc.addProperties({}, changedSettings)
+        ;
+        // remove setting and warn for props that we can't customize
+        for (var i = 0; i < propsToRemove.length; i++) {
+            var prop = propsToRemove[i];
+            if (prop in filtered) {
+                delete filtered[prop];
+                violation = true;
+            }
+        }
+        if (violation) {
+            this.logWarn("addMessage(): you cannot change stack properties in a call to " +
+                "addMessage() - they can only be set through configureMessages()", "notify");
+        }
+
+        // apply priority-related defaults if appropriate (requires messagePriority, etc.)
+        if (this._shouldApplyPriorityToAppearance(filtered, configuredSettings)) {
+            var messagePriority = filtered.messagePriority,
+                prioritySettings = this._getConfigSettingsByPriority(messagePriority);
+            for (var prop in this._messageDefaults) {
+                if (!(prop in filtered)) filtered[prop] = prioritySettings[prop];
+            }
+        }
+
+        return isc.addDefaults(filtered, configuredSettings);
+    },
+
+    _hasTitledActions : function (actions) {
+        if (!actions) return false;
+        for (var i = 0; i < actions.length; i++) {
+            if (actions[i].title) return true;
+        }
+        return false;
+    },
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Message Dismissal
+
+    //> @classMethod Notify.dismissMessage()
+    // Dismisses one or more messages currently being shown, subject to the existing settings
+    // for their +link{NotifyType}.  You may either pass the opaque message identifier returned
+    // from the call to +link{addMessage()} to dismiss a single message, or a
+    // <code>NotifyType</code> to dismiss all such messages.
+    // @param messageID  (MessageID | NotifyType)  message identifier or category to dismiss
+    // @see notifySettings.duration
+    // @see notifyAction.wholeMessage
+    // @visibility external
+    //<
+    dismissMessage : function (messageID) {
+        if (this._isValidMessageID(messageID)) {
+            var typeState = this.typeState[messageID.notifyType];
+            this._dismissMessage(typeState, messageID.messageState);
+
+        } else if (isc.isA.String(messageID)) {
+            var typeState = this.typeState[messageID];
+            if (typeState) {
+                if (this.logIsInfoEnabled("notify")) {
+                    this.logInfo("dismissMessage(): dismissing all messages for " +
+                                 "notifyType: " + typeState.notifyType, "notify");
+                }
+
+                var pendingQueue = typeState.pendingQueue.duplicate();
+                for (var i = 0; i < pendingQueue.length; i++) {
+                    this._dismissMessage(typeState, pendingQueue[i]);
+                }
+                var liveMessages = typeState.liveMessages.duplicate();
+                for (var i = 0; i < liveMessages.length; i++) {
+                    this._dismissMessage(typeState, liveMessages[i]);
+                }
+            }
+        } else {
+            this.logWarn("dismissMessage(): " + messageID + " is neither a valid " +
+                         "messageID nor a valid notifyType", "notify");
+        }
+    },
+
+    _dismissMessage : function (typeState, messageState) {
+
+
+        var notifyType = typeState.notifyType,
+            pendingQueue = typeState.pendingQueue,
+            liveMessages = typeState.liveMessages,
+            dismissQueue = typeState.dismissQueue,
+            contents = messageState.contents
+        ;
+
+        if (!this._canDismissMessage(typeState, messageState)) {
+            this.logWarn("dismissMessage(): can't dismiss messageID with notifyType: " +
+                notifyType + "and contents: ;" + contents + "' as it can't be found", "notify");
+            return;
+        }
+
+        // if the message hasn't yet been shown, we can just remove it instantly
+        if (pendingQueue.contains(messageState)) {
+            if (this.logIsDebugEnabled("notify")) {
+                this.logDebug("dismissMessage(): removing message with notifyType: " +
+                              notifyType + " and contents: '" + contents +
+                              "' from the 'pending add' message queue", "notify");
+            }
+            pendingQueue.remove(messageState);
+            return true;
+        }
+
+        // if the message has already been dismissed, then there's nothing to do
+        if (dismissQueue.contains(messageState) ||
+            typeState.opMessage == messageState && messageState.dismissed)
+        {
+            if (this.logIsInfoEnabled("notify")) {
+                this.logInfo("dismissMessage(): message with notifyType: " +
+                             notifyType + " and contents: '" + contents +
+                             "' has already been dismissed or queued for dismissal", "notify");
+            }
+            return false;
+        }
+
+        // if we're busy with some other animation, then we've got to queue the dismiss
+        if (typeState.op != null) {
+            if (this.logIsInfoEnabled("notify")) {
+                this.logInfo("dismissMessage(): queuing message with notifyType: " +
+                    notifyType + " and contents: '" + contents + "' for dismissal", "notify");
+            }
+            dismissQueue.add(messageState);
+            return false;
+        }
+
+
+
+        // clear the timer for the message, if any
+        if (messageState.dismissEvent) {
+            isc.Timer.clear(messageState.dismissEvent);
+            messageState.dismissEvent = null;
+        }
+        messageState.dismissed = true;
+
+        var stackCoords,
+            stack = typeState.stack,
+            label = messageState.label,
+            settings = messageState.settings
+        ;
+        if (stack) stackCoords = this._getStackCoords(typeState, messageState, true);
+
+        var disappearMethod = settings.disappearMethod;
+        if (this.logIsDebugEnabled("notify")) {
+            var messageCoords = [label.getPageLeft(), label.getPageTop()];
+            this.logDebug("dismissMessage(): starting message animation: " +
+                disappearMethod + " from/at coordinates: " + messageCoords + " and stack " +
+                "slide to coordinates: " + stackCoords + " for notifyType: " + notifyType +
+                " with contents: '" + contents + "'", "notify");
+        }
+        switch (disappearMethod) {
+        case "fade":
+            this._fadeOutMessage(typeState, messageState, stackCoords);
+            return false;
+        case "slide":
+            this._slideOutMessage(typeState, messageState, stackCoords);
+            return false;
+        case "instant":
+        default:
+
+            typeState.liveMessages.remove(messageState);
+            if (stack) {
+                stack.moveTo(stackCoords[0], stackCoords[1]);
+                stack.removeMember(label);
+            }
+            if (label) label.destroy();
+            return true;
+        }
+    },
+
+    _scheduleMessageDismissal : function (typeState, messageState) {
+        var settings = messageState.settings,
+            duration = settings.duration
+        ;
+
+
+        if (settings.stackPersistence == "reset") {
+            var messages = typeState.liveMessages,
+                dismissed = typeState.dismissQueue,
+                resetCutoff = isc.timeStamp() + duration
+            ;
+            for (var i = 0; i < messages.length - 1; i++) {
+
+                var dismissEvent = messages[i].dismissEvent;
+                if (dismissEvent && !dismissed.contains(messages[i]) &&
+                    isc.Timer.getTimeoutFireTime(dismissEvent) < resetCutoff)
+                {
+                    isc.Timer.clear(dismissEvent);
+
+
+                    var messageToReset = messages[i]; // fix message for closure!
+                    messageToReset.dismissEvent = isc.Timer.setTimeout(function () {
+                        isc.Notify._dismissMessage(typeState, messageToReset);
+                    }, duration - messages.length + i + 1);
+
+                    if (this.logIsInfoEnabled("notify")) {
+                        this.logInfo("addMessage(): reset message with notifyType: " +
+                                     typeState.notifyType + " and contents: '" +
+                                     messageToReset.contents + "' to auto-dismiss after " +
+                                     duration + "ms to match new message's duration", "notify");
+                    }
+                }
+            }
+        }
+
+        messageState.dismissEvent = isc.Timer.setTimeout(function () {
+            isc.Notify._dismissMessage(typeState, messageState);
+        }, duration);
+    },
+
+    _isValidMessageID : function (messageID) {
+        if (messageID == null) return false;
+        var notifyType = messageID.notifyType;
+        return notifyType != null && this.typeState[notifyType] && messageID.messageState;
+    },
+
+    //> @classMethod Notify.canDismissMessage()
+    // Can the message corresponding to the <code>messageID</code> be dismissed?  Returns false
+    // if the message is no longer being shown.  The <code>messageID</code> must have been
+    // previously returned by +link{addMessage}.
+    // @param messageID  (MessageID)  message identifier to dismiss
+    // @return (boolean) whether message can be dismissed
+    // @see dismissMessage
+    // @visibility external
+    //<
+    canDismissMessage : function (messageID) {
+        if (this._isValidMessageID(messageID)) {
+            var typeState = this.typeState[messageID.notifyType];
+            return this._canDismissMessage(typeState, messageID.messageState);
+
+        }
+        isc.logWarn("canDismissMessage(): " + messageID + " isn't a valid messageID",
+                    "notify");
+        return false;
+    },
+
+    _canDismissMessage : function (typeState, messageState) {
+        return typeState.pendingQueue.contains(messageState) ||
+               typeState.liveMessages.contains(messageState) ||
+               typeState.dismissQueue.contains(messageState);
+    },
+
+    _destroyMessages : function (notifyType) {
+        var settings = this.settings[notifyType],
+            typeState = this.typeState[notifyType];
+
+
+        // destroy messages and cancel timeouts
+        var messages = typeState.liveMessages;
+        for (var i = 0; i < messages.length; i++) {
+            var messageState = messages[i],
+                label = messageState.label;
+            if (label) label.destroy();
+
+            var dismissEvent = messageState.dismissEvent;
+            if (dismissEvent) isc.Timer.clear(dismissEvent);
+        }
+
+        // destroy stack widget (if any)
+        var stack = typeState.stack;
+        if (stack) stack.destroy();
+
+        // wipe out notifyType's typeState
+        delete this.typeState[notifyType];
+    },
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Message Configuration
+
+    //> @classMethod Notify.configureMessages()
+    // Sets the default +link{NotifySettings} for the specified +link{NotifyType}.  This
+    // may be overridden by passing settings to +link{addMessage()} when the message
+    // is shown, but changing +link{multiMessageMode,stacking}-related properties via
+    // +link{addMessage()} isn't supported,
+    // <P>
+    // By default, the +link{NotifyType}s "message", "warn", and "error" are predefined, each
+    // with their own +link{NotifySettings} with different +link{NotifySettings.styleName,
+    // styleName}s.  When configuring a new (non-predefined) NotifyType with this method, any
+    // +link{NotifySettings} left unset will default to those for NotifyType "message".
+    //
+    // @param  notifyType  (NotifyType)      category of message; null defaults to "message"
+    // @param  settings    (NotifySettings)  settings to store for the <code>notifyType</code>
+    // @see configureDefaultSettings
+    // @visibility external
+    //<
+    configureMessages : function (notifyType, settings) {
+        // initialize the default notifyType categories lazily now
+        if (!this._settingsInitialized) this._initializeSettings();
+
+        // if needed, default notifyType to "message"
+        if (!notifyType) notifyType = this._$message;
+
+        // if the previous configuration has already been used, we must clear out all state
+        if (this.typeState[notifyType]) {
+            if (this.logIsInfoEnabled("notify")) {
+                this.logInfo("configureMessages(): destroying all state and widgets " +
+                    "associated with the current configuration of notifyType: " + notifyType,
+                    "notify");
+            }
+            this._destroyMessages(notifyType);
+        }
+
+        // initialize new NotifySettings with defaults, or update existing NotifySettings
+        var typeSettings = this.settings[notifyType];
+        if (typeSettings) isc.addProperties(typeSettings, settings);
+        else this.settings[notifyType] = this._initNotifySettings(notifyType, settings);
+
+        this.logInfo("configureMessages(): Changed settings for NotifyType: " + notifyType,
+                     "notify");
+    },
+
+    //> @classMethod Notify.configureDefaultSettings()
+    // Changes the default settings that are applied when you create a new +link{NotifyType}
+    // with +link{configureMessages()}.  If you want to change the defaults for the built-in
+    // NotifyTypes "message", "warn", and "error", with this method, it must be called before
+    // the first call to +link{configureMessages()} or +link{addMessage()}.  Once a NotifyType
+    // has been created, you must use +link{configureMessages()} to change its settings.
+    // <P>
+    // Note that for defaults that depend on priority (and thus differ between the built-in
+    // NotifyTypes), this method only sets the defaults for the "message" NotifyType.
+    //
+    // @param  settings  (NotifySettings)  changes to NotifyType defaults
+    // @see configureMessages
+    // @visibility external
+    //<
+    configureDefaultSettings : function (settings) {
+        var commonDefaults = this.commonDefaults,
+            priorityDefaults = this._messageDefaults;
+        // update global NotifyType defaults or priority-related "message" notifyType defaults
+        for (var prop in settings) {
+            var targetDefaults = prop in priorityDefaults ? priorityDefaults : commonDefaults;
+            targetDefaults[prop] = settings[prop];
+        }
+        this.logInfo("configureDefaultSettings(): Changed global defaults for new NotifyTypes",
+                     "notify");
+    },
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Message Content Update
+
+    //> @classMethod Notify.setMessageContents() [A]
+    // Updates the contents of the message from what was passed originally to
+    // +link{addMessage()}, while preserving any existing +link{NotifyAction,actions}.
+    // <P>
+    // The purpose of this method is to support messages that contain timer countdowns or other
+    // data that perhaps need refreshing during display.  If you find yourself replacing the
+    // entire content with something new, you should probably just add it as a new message.
+    // <P>
+    // Note that this method has minimal animation support.  The change in message content and
+    // corresponding resizing are instant, but the repositioning of the message or stack (if
+    // stacked) to keep your requested +link{notifySettings.position,alignment} is controlled
+    // by +link{notifySettings.repositionMethod}, allowing slide animation.  However, that
+    // setting is ignored and the repositioning is instant if you've chosen
+    // +link{notifySettings.positionCanvas,viewport alignment} to a border or corner along
+    // the +link{notifySettings.position,bottom or right} viewport edge, or if an animation is
+    // already in progress, in which case the instant repositioning will happen after it
+    // completes.
+    // @param  messageID  (MessageID)   message identifier from +link{addMessage()}
+    // @param  contents   (HTMLString)  updated message
+    // @visibility external
+    //<
+
+    setMessageContents : function (messageID, contents, actions) {
+        if (!this._isValidMessageID(messageID)) {
+            this.logWarn("setMessageContents(): can't set contents - invalid messageID",
+                         "notify");
+            return;
+        }
+        var messageState = messageID.messageState,
+            typeState = this.typeState[messageID.notifyType]
+        ;
+
+
+        if (!this._canDismissMessage(typeState, messageState)) {
+            this.logInfo("setMessageContents(): that message was dismissed - nothing to do",
+                         "notify");
+            return;
+        }
+
+        var undef;
+
+        // default method arguments from existing message state
+        if (contents == null) contents = messageState.contents;
+        if (actions === undef) actions = messageState.actions;
+
+        // sanity check - we require contents or at least one titled NotifyAction
+        if (!contents & !this._hasTitledActions(actions)) {
+            this.logWarn("setMessageContents(): you must either provide valid contents for " +
+                         "the message, or at least one NotifyAction with a title", "notify");
+            return;
+        }
+        // save changes to message state
+        messageState.contents = contents;
+        messageState.actions  = actions;
+
+        if (this.logIsDebugEnabled("notify")) {
+            this.logDebug("setMessageContents(): updating message with notifyType: " +
+                messageID.notifyType + " to have contents: '" + contents + "'", "notify");
+        }
+
+        // if the message is queued, the label may not yet exist; we're done in that case
+        if (!messageState.label) {
+            if (this.logIsDebugEnabled("notify")) {
+                this.logDebug("setMessageContents(): no label found - skipping widget update",
+                              "notify");
+            }x
+            return;
+        }
+
+        // update the message contents
+        if (actions && actions.length) {
+            var actionHTML = this._getActionHTML(messageState);
+            if (actionHTML) contents = contents ? contents + actionHTML : actionHTML;
+        }
+
+        // if an animation is in progress, then queue the contents update
+
+        if (typeState.op != null) {
+            var replaceQueue = typeState.replaceQueue;
+            if (!replaceQueue.contains(messageState)) {
+                replaceQueue.add(messageState);
+            }
+            messageState._labelContents = contents;
+            return;
+        }
+
+
+        this._setMessageContents(typeState, messageState, contents);
+    },
+
+    _setMessageContents : function (typeState, messageState, contents) {
+        if (!this._canDismissMessage(typeState, messageState)) {
+            this.logInfo("setMessageContents(): that message was dismissed - nothing to do",
+                         "notify");
+            return;
+        }
+
+        var label = messageState.label,
+            settings = messageState.settings;
+
+
+        // cache viewport size so we can restore bottom or right alignment
+        var fixViewport = this._hasViewportDependentAlignment(settings);
+        if (fixViewport) {
+            this._pageWidth  = isc.Page.getScrollWidth();
+            this._pageHeight = isc.Page.getScrollHeight();
+        }
+
+
+
+
+        label.setContents(contents);
+
+        // recalculate the autofit based on new contents
+        this._autoFitMessageContents(settings, label);
+
+        // update cached message width and height
+
+        label.redraw("contents changed");
+        messageState.width  = label.getVisibleWidth();
+        messageState.height = label.getVisibleHeight();
+
+        // reposition stack or message now, instantly if on the bottom or right edge or delayed
+        this._fixStackOrMessagePosition(typeState, fixViewport || messageState._labelContents);
+        if (fixViewport) delete this._pageWidth, delete this._pageHeight;
+    },
+
+
+    _applyContentsToMessages : function (typeState) {
+        var replaceQueue = typeState.replaceQueue;
+        for (var i = 0; i < replaceQueue.length; i++) {
+            var message = replaceQueue[i];
+            this._setMessageContents(typeState, message, message._labelContents);
+            delete message._labelContents;
+        }
+        replaceQueue.length = 0;
+    },
+
+    // along the bottom or right viweport edge, overflowed messages can expand the viewport
+    _hasViewportDependentAlignment : function (settings) {
+        if (settings.positionCanvas) return false;
+        // we have viewport-based alignment; check for alignment along bottom or right
+        var position = settings.position;
+        return position ? position.indexOf("B") >= 0 || position.indexOf("R") >= 0 : false;
+    },
+
+    //> @classMethod Notify.setMessageActions()
+    // Updates the actions of the message from those, if any, passed originally to
+    // +link{addMessage()}, while preserving any existing +link{addMessage(),contents}.
+    // <P>
+    // See +link{setMessageContents()} for further guidance and animation details.
+    // @param  messageID  (MessageID)  message identifier from +link{addMessage()}
+    // @param  actions    (Array of NotifyAction)  updated actions for this message
+    // @visibility external
+    //<
+    setMessageActions : function (messageID, actions) {
+        this.setMessageContents(messageID, null, actions);
+    },
+
+    //> @classMethod Notify.messageHasActions()
+    // @param   messageID  (MessageID)  message identifier to check
+    // @return  (boolean)  whether message has any actions
+    // @see addMessage()
+    // @see setMessageActions()
+    // @visibility external
+    //<
+    messageHasActions : function (messageID) {
+        if (this._isValidMessageID(messageID)) {
+            var messageState = messageID.messageState,
+                actions = messageState ? messageState.actions : null;
+            return actions && actions.length > 0;
+        }
+    },
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Message Queue
+
+
+    _prepareForNewMessage : function (typeState, settings) {
+        var messages = typeState.liveMessages;
+        if (messages.length == 0 ||
+            settings.multiMessageMode == "stack" && messages.length < settings.maxStackSize)
+        {
+            return typeState.op == null;
+        }
+        var message = typeState.opMessage,
+            dismiss = typeState.dismissQueue
+        ;
+        if (dismiss.length > 0 || message && message.dismissed) return false;
+
+        // dismiss the least important message to make room for the new message
+        var doomedMessage = this._getLeastImportantMessage(typeState, settings);
+        return this._dismissMessage(typeState, doomedMessage);
+    },
+
+
+    _getLeastImportantMessage : function (typeState, settings) {
+        var messages = typeState.liveMessages;
+
+        if (messages.length == 1) return messages[0];
+
+        // calculate the lowest priority (highest number) of any message
+        var lowestPriority = 0;
+        for (var i = 0; i < messages.length; i++) {
+            var messageSettings = messages[i].settings;
+            if (lowestPriority < messageSettings.messagePriority) {
+                lowestPriority = messageSettings.messagePriority;
+            }
+        }
+        // now trim to that priority the available candidates to dismiss
+        messages = messages.filter(function (message) {
+            return message.settings.messagePriority == lowestPriority;
+        });
+
+        // in "countdown" mode, pick the message with the least time left to live
+        if (settings.maxStackDismissMode == "countdown" && messages.length > 1) {
+            var lowestFireTime, dismissIndex;
+            for (var i = messages.length - 1; i >= 0; i--) {
+                var dismissEvent = messages[i].dismissEvent;
+                if (!dismissEvent) continue;
+
+                var fireTime = isc.Timer.getTimeoutFireTime(dismissEvent);
+                if (lowestFireTime == null || fireTime < lowestFireTime) {
+                    lowestFireTime = fireTime;
+                    dismissIndex = i;
+                }
+            }
+            // if any message had a timeout, we should have a dismissIndex
+            if (dismissIndex != null) return messages[dismissIndex];
+        }
+
+
+        return messages[0];
+    },
+
+    // process pending dismiss requests and added messages
+
+    _processMessageQueue : function (typeState) {
+        var dismiss = typeState.dismissQueue;
+        while (dismiss.length > 0 && typeState.op == null) {
+            this._dismissMessage(typeState, dismiss.removeAt(0));
+        }
+        var pending = typeState.pendingQueue;
+        while (pending.length > 0 && this._prepareForNewMessage(typeState, pending[0].settings))
+        {
+            this._addMessage(typeState, pending.removeAt(0));
+        }
+    },
+
+    // for dismissals, we want to remove the message before procesing pending messages
+    _completeMessageHandling : function (typeState, messageState, stackCoords, dismiss) {
+        if (dismiss) {
+            var stack = typeState.stack,
+                label = messageState.label,
+                messages = typeState.liveMessages
+            ;
+
+            if (label) label.destroy();
+            messages.remove(messageState);
+
+            if (stack && !messages.length) {
+                //stack.moveTo(stackCoords[0], stackCoords[1]);
+            }
+        }
+        this._processMessageQueue(typeState);
+    },
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Label/Action Creation
+
+
+    _createMessageLabel : function (typeState, messageState) {
+        var actions = messageState.actions,
+            settings = messageState.settings,
+            contents = messageState.contents,
+            notifyType = typeState.notifyType
+        ;
+        // required label-related settings
+        var styleName       = settings.styleName,
+            messageIcon     = settings.messageIcon,
+            iconOrientation = settings.messageIconOrientation
+        ;
+
+        var label = messageState.label = isc.NotifyLabel.create(settings.labelProperties,
+            {
+                contents: contents,
+                notifyType: notifyType,
+                messageState: messageState,
+                styleName: styleName,
+
+                animateShowTime: settings.fadeInDuration,
+                animateHideTime: settings.fadeOutDuration
+            },
+            settings.zIndex ? {zIndex: settings.zIndex} : null,
+
+            messageIcon                 ? {icon:               messageIcon} : null,
+            iconOrientation             ? {iconAlign:      iconOrientation,
+                                          iconOrientation: iconOrientation} : null,
+            settings.messageIconSpacing ? {iconSpacing: settings.messageIconSpacing} : null,
+            settings.messageIconWidth   ? {iconWidth:   settings.messageIconWidth}   : null,
+            settings.messageIconHeight  ? {iconHeight:  settings.messageIconHeight}  : null);
+
+        if (actions && actions.length) {
+            var actionHTML = this._getActionHTML(messageState);
+            if (actionHTML) contents = contents ? contents + actionHTML : actionHTML;
+            label.setContents(contents);
+        }
+        label.bringToFront();
+
+
+        label._origWidth = label.getWidth();
+        this._autoFitMessageContents(settings, label);
+        label.draw();
+
+        // cache this message's width and height
+
+        messageState.width  = label.getVisibleWidth();
+        messageState.height = label.getVisibleHeight();
+    },
+
+    _autoFitMessageContents : function (settings, label) {
+        if (!settings.autoFitWidth) return;
+
+        // warn of potentially unintentional and suboptimal autoFitWidth: true + wrap: false
+        if (label.wrap == false) {
+            this.logWarn("addMessage(): autoFitWidth:true specified in " +
+                "conjunction with wrap:false.  These settings are usually not intended " +
+                "to be used in conjunction as autoFitWidth is specifically intended to " +
+                "allow text to wrap when autoFitMaxWidth would otherwise be exceeded.",
+                "notify");
+        }
+
+        var contents = label.contents,
+            origWidth = label._origWidth,
+            wrapWidth = isc.Hover._getAutoFitWidth(settings, label, contents)
+        ;
+
+        // if the computed autofit width exceeds the original label width, apply it
+        if (wrapWidth > origWidth) {
+            if (this.logIsDebugEnabled("notify")) {
+                this.logDebug("addMessage(): message shown with autoFitWidth enabled. " +
+                    "It will expand from specified width:" + origWidth + " to content width:" +
+                    wrapWidth, "notify");
+            }
+            label.setWidth(wrapWidth);
+        }
+    },
+
+
+    _addMessageWidgets : function (unmaskedList) {
+        for (var notifyType in this.typeState) {
+            var typeState = this.typeState[notifyType];
+            if (typeState.stack) unmaskedList.add(typeState.stack);
+            // liveMessages - visible notifications
+            var liveMessages = typeState.liveMessages;
+            for (var i = 0; i < liveMessages.length; i++) {
+                var label = liveMessages[i].label;
+                if (!label.parentElement) unmaskedList.add(label);
+            }
+            // dismissQueue - these are still visible
+            var dismissQueue = typeState.dismissQueue;
+            for (var i = 0; i < dismissQueue.length; i++) {
+                var label = dismissQueue[i].label;
+                if (!label.parentElement) unmaskedList.add(label);
+            }
+        }
+    },
+
+    _getActionHTML : function (messageState) {
+        var label = messageState.label,
+            actions = messageState.actions,
+            settings = messageState.settings,
+            separate = !!messageState.contents,
+            styleName = settings.actionStyleName
+        ;
+        var actionHTML = isc.StringBuffer.create();
+        for (var i = 0; i < actions.length; i++) {
+            var action = actions[i],
+                title = action.title;
+            if (title) {
+                if (separate) actionHTML.append(action.separator || settings.actionSeparator);
+                if (action.wholeMessage) actionHTML.append(title);
+                else {
+                    actionHTML.append("<span eventpart='action' id='", label.getID(),
+                        "_action_", i, "' class='", styleName, "'>", title, "</span>");
+                }
+                separate = true;
+            }
+        }
+        return actionHTML.toString();
+    },
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Coordinates and Positioning
+
+    // resolve the desired location of the message into x, y coordinates
+    _getMessageCoords : function (typeState, messageState) {
+        var settings = messageState.settings;
+        if (settings.x != null && settings.y != null) return [settings.x, settings.y];
+
+        var label = messageState.label,
+            container = settings.positionCanvas
+        ;
+
+
+        var position = settings.position;
+        if (!position) {
+            if (container) position = "C";
+            else {
+                position = settings.slideInOrigin || settings.slideOutOrigin;
+                if (!position || !position.match(/[TBRLC]/)) position = "L";
+            }
+        }
+
+        return this._getPositionCoords(typeState, messageState, position, container);
+    },
+
+    // resolve the desired location of the stack into x, y coordinates;
+    // includes messageState's label unless isDismiss has been set
+    _getStackCoords : function (typeState, messageState, isDismiss) {
+        var latestMessage = typeState.liveMessages.last(),
+            latestSettings = latestMessage.settings;
+        if (latestSettings.x != null && latestSettings.y != null) {
+            return [latestSettings.x, latestSettings.y];
+        }
+        var container = latestSettings.positionCanvas;
+
+
+
+        var position = latestSettings.position;
+        if (!position) {
+            if (container) position = "C";
+            else {
+                var settings = messageState.settings;
+                position = settings.slideInOrigin || settings.slideOutOrigin;
+                if (!position || !position.match(/[TBRLC]/)) position = "L";
+            }
+        }
+
+        return this._getPositionCoords(typeState, messageState, position, container, isDismiss);
+    },
+
+    // get the slide start/end coordinates of the message - these should be just _off screen_
+    _getSlideOriginCoords : function (typeState, messageState, configCoords, isSlideIn) {
+        var label = messageState.label,
+            settings = messageState.settings,
+            origin = isSlideIn ? settings.slideInOrigin : settings.slideOutOrigin
+        ;
+
+
+
+        var left = configCoords ? configCoords[0] : label.getPageLeft(),
+            top  = configCoords ? configCoords[1] : label.getPageTop()
+        ;
+
+        var nearest = messageState.nearest ||
+                this._getNearestEdge(typeState, messageState, left, top)
+        ;
+        if (!origin || !origin.match(/[TBRL]/)) {
+            if (isSlideIn && !settings.defaultSlideOutToNearest) {
+                messageState.nearest = nearest;
+            }
+            origin = nearest;
+        }
+
+        return this._getPositionCoords(typeState, messageState, origin, null, null, left, top);
+    },
+
+    _getPositionCoords : function (typeState, messageState, position, container, isDismiss,
+                                   left, top)
+    {
+        var containerLeft, containerTop,
+            containerWidth, containerHeight
+        ;
+        if (container) {
+            containerLeft = container.getPageLeft();
+            containerTop = container.getPageTop();
+            containerWidth = container.getVisibleWidth();
+            containerHeight = container.getVisibleHeight();
+        } else {
+            containerLeft = containerTop = 0;
+            // use cached viewport size when repositioning due to content change
+
+            containerWidth  = this._pageWidth  || isc.Page.getScrollWidth();
+            containerHeight = this._pageHeight || isc.Page.getScrollHeight();
+        }
+
+        var isStack = isDismiss != null,
+            isSlide = left != null && top != null
+        ;
+
+
+        var firstMessage = isDismiss ? typeState.liveMessages.last() : messageState,
+            firstSettings = firstMessage.settings,
+            width = firstMessage.width,
+            height = firstMessage.height,
+            xOffset = 0, yOffset = 0
+        ;
+
+        // when stacking messages, adjust width and height based on stack size
+        if (isStack) {
+            var stackSize = this._getPostEffectsStackSize(typeState, isDismiss ?
+                                                          messageState : null);
+            switch (firstSettings.stackDirection) {
+            case "down": case "right":
+                switch (position) {
+                case "BR":
+                    height = stackSize[1];
+                    width = stackSize[0];
+                case "B": case "BL":
+                    height = stackSize[1];
+                    break;
+                case "R": case "TR":
+                    width = stackSize[0];
+                    break;
+                default:
+                case "T": case "L": case "C": case "TL":
+                    break;
+                }
+                break;
+            case "up":
+                switch (position) {
+                case "R": case "BR":
+                    width = stackSize[0];
+                    // fall through
+                case "B": case "L": case "C": case "BL":
+                    yOffset = height - stackSize[1];
+                    break;
+                case "TR":
+                    width = stackSize[0];
+                    // fall through
+                case "T": case "TL":
+                    height = stackSize[1];
+                    break;
+                }
+                break;
+            case "left":
+                switch (position) {
+                case "B": case "BR":
+                    height = stackSize[1];
+                    // fall through
+                case "R": case "C": case "T": case "TR":
+                    xOffset = width - stackSize[0];
+                    break;
+                case "BL":
+                    height = stackSize[1];
+                    // fall through
+                case "L": case "TL":
+                    width = stackSize[0];
+                    break;
+                }
+                break;
+            }
+        }
+
+
+
+        switch (position) { // left/x coordinate
+        case "L": case "TL": case "BL":
+            left = containerLeft;
+            if (isSlide) left -= width;
+            break;
+        case "R": case "TR": case "BR":
+            left = containerLeft + containerWidth;
+            if (!isSlide) left -= width;
+            break;
+        default:
+        //case "T": case "B": case "C":
+            if (!isSlide) left = Math.floor(containerLeft + containerWidth / 2 - width / 2);
+            break;
+        }
+        switch (position) { // top/y coordinate
+        case "T": case "TL": case "TR":
+            top = containerTop;
+            if (isSlide) top -= height;
+            break;
+        case "B": case "BL": case "BR":
+            top = containerTop + containerHeight;
+            if (!isSlide) top -= height;
+            break;
+        default:
+        //case "L": case "R": case "C":
+            if (!isSlide) top = Math.floor(containerTop + containerHeight / 2 - height / 2);
+            break;
+        }
+
+        // apply an offset from the message stack position if leftOffset/topOffset
+        if (firstSettings.leftOffset != null) xOffset += firstSettings.leftOffset;
+        if (firstSettings.topOffset  != null) yOffset += firstSettings.topOffset;
+
+        return [left + xOffset, top + yOffset];
+    },
+
+    // calculate the viewport edge nearest to the provided x, y coordinates
+    _getNearestEdge : function (typeState, messageState, left, top) {
+        var viewportWidth = isc.Page.getScrollWidth(),
+            viewportHeight = isc.Page.getScrollHeight()
+        ;
+        var rightOffset  = viewportWidth - left - messageState.width,
+            bottomOffset = viewportHeight - top - messageState.height
+        ;
+        if (left <= rightOffset) {
+            if (top <= bottomOffset) return left <= top          ? "L" : "T";
+            else                     return left <= bottomOffset ? "L" : "B";
+        } else {
+            if (top <= bottomOffset) return rightOffset <= top          ? "R" : "T";
+            else                     return rightOffset <= bottomOffset ? "R" : "B";
+        }
+    },
+
+    _getStackedMessageCoords : function (typeState, messageState, stackCoords) {
+        var direction = messageState.settings.stackDirection,
+            messageLeft = stackCoords[0], messageTop = stackCoords[1];
+        if (direction == "up" || direction == "left") {
+            var stackSize = this._getPostEffectsStackSize(typeState);
+            if (direction == "up") messageTop += stackSize[1] - messageState.height;
+            else                  messageLeft += stackSize[0] - messageState.width;
+        }
+        return [messageLeft, messageTop];
+    },
+
+    _getPostEffectsStackSize : function (typeState, excludedMessage) {
+        var liveMessages = typeState.liveMessages;
+        if (!liveMessages.length) return [1, 1];
+
+        var width = 0, height = 0,
+            stack = typeState.stack,
+            vertical = stack.vertical
+        ;
+        for (var i = 0; i < liveMessages.length; i++) {
+            var messageState = liveMessages[i];
+            if (messageState == excludedMessage) continue;
+
+            var messageWidth = messageState.width,
+                messageHeight = messageState.height
+            ;
+            if (vertical) {
+                if (height > 0) height += stack.membersMargin;
+                if (messageWidth > width) width = messageWidth;
+                height += messageHeight;
+            } else {
+                if (width > 0) width += stack.membersMargin;
+                if (messageHeight > height) height = messageHeight;
+                width += messageWidth;
+            };
+        }
+        return [width, height];
+    },
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Animation/Stack Mechanics - Common
+
+    // compute a duration given two points and a slideSpeed in pixels/second
+    _getSlideDuration : function (startX, startY, endX, endY, slideSpeed) {
+        if (slideSpeed < 1) slideSpeed = 1;
+
+        var deltaX = endX - startX, deltaY = endY - startY,
+            distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+        ;
+        return Math.ceil(1000 * distance / slideSpeed);
+    },
+
+    _addLabelToStack : function (typeState, messageState, stackCoords, callback) {
+        var stack = typeState.stack,
+            label = messageState.label,
+            direction = messageState.settings.stackDirection,
+            addFirst = direction == "down" || direction == "right"
+        ;
+        stack.addMember(label, addFirst ? 0 : null, null, callback);
+        if (stackCoords) stack.moveTo(stackCoords[0], stackCoords[1]);
+    },
+
+    // run appropriate animation for the stack during dismissal of a message
+
+    _moveStackForDismiss : function (typeState, messageState, stackCoords, callback, duration) {
+        var animations = 0,
+            stack = typeState.stack;
+        if (stack.getLeft() != stackCoords[0] || stack.getTop() != stackCoords[1]) {
+            var liveMessages = typeState.liveMessages,
+                pendingQueue = typeState.pendingQueue;
+            if (liveMessages.length > 1 && pendingQueue.length == 0) {
+                stack.animateMove(stackCoords[0], stackCoords[1], callback, duration);
+                animations++;
+            }
+        }
+        return animations;
+    },
+
+    _moveStackForAdd : function (typeState, messageState, stackCoords, callback, duration) {
+        var animations = 0,
+            stack = typeState.stack,
+            stackLeft = stackCoords[0],
+            stackTop = stackCoords[1],
+            settings = messageState.settings,
+            membersMargin = stack.membersMargin
+        ;
+        switch (settings.stackDirection) {
+        case "right":
+            stackLeft += messageState.width + membersMargin;
+            break;
+        case "down":
+            stackTop += messageState.height + membersMargin;
+            break;
+        }
+        if (stack.getLeft() != stackLeft || stack.getTop() != stackTop) {
+            stack.animateMove(stackLeft, stackTop, callback, duration);
+            animations++;
+        }
+        return animations;
+    },
+
+    // clear tracking of the in-progress animation and then clean up and check message queues
+    _completeAnimation : function (typeState, messageState, stackCoords, dismiss) {
+        delete typeState.op;
+        delete typeState.opCount;
+        delete typeState.opMessage;
+
+        if (typeState.stack) {
+            typeState.stack._clearAnimation();
+        }
+
+        // reposition the stack (or message if not stacking) if contents have changed
+        if (typeState.replaceQueue.length > 0) this._applyContentsToMessages(typeState);
+
+        this._completeMessageHandling(typeState, messageState, stackCoords, dismiss);
+    },
+
+    // reposition the stack or message to account for contents changing in setMessageContents()
+
+    _fixStackOrMessagePosition : function (typeState, forceInstant) {
+        var stack = typeState.stack,
+            messages = typeState.liveMessages,
+            first = messages[0];
+        if (!first) return;
+
+        // resolve which target to reposition, and get its message state
+        var target, messageState;
+        if (stack) {
+            messageState = messages.find("label", stack.getMember(0));
+            target = stack;
+        } else {
+            messageState = first;
+            target = first.label;
+        }
+        if (!messageState) return;
+
+
+
+        // calculate the desired new stack or message coordinates for proper alignment
+        var coords = stack ? this._getStackCoords(typeState, messageState, false) :
+                             this._getMessageCoords(typeState, messageState);
+
+        // reposition the animation target; skip animation unless possible and configured
+        var settings = messageState.settings,
+            effect = settings.repositionMethod,
+            left = target.left, top = target.top;
+        if (effect == "instant"  || coords[0] == left && coords[1] == top || forceInstant) {
+            target.moveTo(coords[0], coords[1]);
+            return;
+        }
+
+        // slide the target to its new coordinates, using slideSpeed setting
+        var duration = this._getSlideDuration(left, top, coords[0], coords[1],
+                                              settings.slideSpeed);
+        target.animateMove(coords[0], coords[1], null, duration);
+    },
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // "Slide In" Animation
+
+
+
+    _slideInMessage : function (typeState, messageState, messageCoords, stackCoords) {
+        var Notify = this,
+            stack = typeState.stack,
+            label = messageState.label,
+            settings = messageState.settings,
+            callback = function () {
+                Notify._slideInComplete(typeState, messageState, stackCoords);
+            },
+            startCoords = this._getSlideOriginCoords(typeState, messageState, messageCoords,
+                                                     true)
+        ;
+        label.moveTo(startCoords[0], startCoords[1]);
+
+        var animations = 1,
+            duration = this._getSlideDuration(startCoords[0], startCoords[1],
+                           messageCoords[0], messageCoords[1], settings.slideSpeed)
+        ;
+        label.animateMove(messageCoords[0], messageCoords[1], callback, duration);
+
+        if (stack) {
+            animations += this._moveStackForAdd(typeState, messageState, stackCoords, callback,
+                                                duration);
+        }
+
+
+        typeState.op        = "slideIn";
+        typeState.opCount   = animations;
+        typeState.opMessage = messageState;
+    },
+
+    _slideInComplete : function (typeState, messageState, stackCoords) {
+        if (--typeState.opCount > 0) return;
+
+        if (typeState.stack) {
+            this._addLabelToStack(typeState, messageState, stackCoords);
+        }
+
+        this._completeAnimation(typeState, messageState);
+    },
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // "Fade In" Animation
+
+
+
+    _prepSlideStack : function (typeState, messageState, messageCoords, stackCoords) {
+        var stack = typeState.stack,
+            vertical = stack.vertical,
+            label = messageState.label,
+            settings = messageState.settings,
+            duration = settings.fadeInDuration
+        ;
+
+
+
+        var animate = this._moveStackForAdd(typeState, messageState, stackCoords, function () {
+            isc.Notify._prepSlideComplete(typeState, messageState, messageCoords, stackCoords);
+        }, duration);
+
+        if (animate) {
+
+            typeState.op        = "slideStack";
+            typeState.opMessage = messageState;
+
+        } else {
+            this._fadeInMessage(typeState, messageState, messageCoords, stackCoords);
+        }
+    },
+
+    _prepSlideComplete : function (typeState, messageState, messageCoords, stackCoords) {
+        delete typeState.op;
+        delete typeState.opMessage;
+
+        this._fadeInMessage(typeState, messageState, messageCoords, stackCoords);
+    },
+
+    _fadeInMessage : function (typeState, messageState, messageCoords, stackCoords) {
+        var Notify = this,
+            stack = typeState.stack,
+            label = messageState.label,
+            settings = messageState.settings,
+            callback = function () {
+                Notify._fadeInComplete(typeState, messageState);
+            }
+        ;
+        if (stack) {
+            var duration = settings.fadeInDuration;
+            stack._setAnimation("fade", duration);
+            this._addLabelToStack(typeState, messageState, stackCoords, callback);
+        } else {
+            label.hide();
+            label.moveTo(messageCoords[0], messageCoords[1]);
+            label.animateShow(null, callback);
+        }
+
+
+        typeState.op        = "fadeIn";
+        typeState.opMessage = messageState;
+    },
+
+    _fadeInComplete : function (typeState, messageState) {
+        if (--typeState.opCount > 0) return;
+        this._completeAnimation(typeState, messageState);
+    },
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // "Slide Out" Animation
+
+
+
+    _slideOutMessage : function (typeState, messageState, stackCoords) {
+        var Notify = this,
+            stack = typeState.stack,
+            label = messageState.label,
+            settings = messageState.settings,
+            startLeft = label.getPageLeft(),
+            startTop = label.getPageTop()
+        ;
+
+        var animations = 1,
+            callback = function () {
+                Notify._slideOutComplete(typeState, messageState, stackCoords);
+            },
+            endCoords = this._getSlideOriginCoords(typeState, messageState),
+            duration = this._getSlideDuration(startLeft, startTop, endCoords[0], endCoords[1],
+                                              settings.slideSpeed)
+        ;
+
+        if (stack) {
+            // size the placeholder to match the label, and make sure it's visible
+            var placeholder = typeState.placeholder;
+            placeholder.resizeTo(label.getVisibleWidth(), label.getVisibleHeight());
+            placeholder.show();
+
+            // replace label with placeholder, but then draw the label right where it was before
+            stack._replaceMember(label, placeholder);
+            label.moveTo(startLeft, startTop);
+            label.moveAbove(stack);
+            label.draw();
+
+            // slide the stack's placeholder slot closed
+            stack._setAnimation("slide", duration);
+            stack.removeMember(placeholder, null, callback);
+            animations++;
+
+            // slide the stack into its new desired position (if it's changed)
+            animations += this._moveStackForDismiss(typeState, messageState, stackCoords,
+                                                    callback, duration);
+        }
+
+        // slide the label off screen to the configured or nearest screen edge
+        label.animateMove(endCoords[0], endCoords[1], callback, duration, duration);
+
+
+        typeState.op        = "slideOut";
+        typeState.opCount   = animations;
+        typeState.opMessage = messageState;
+    },
+
+    _slideOutComplete : function (typeState, messageState, stackCoords) {
+        if (--typeState.opCount > 0) return;
+        this._completeAnimation(typeState, messageState, stackCoords, true);
+    },
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // "Fade Out" Animation
+
+
+
+    _fadeOutMessage : function (typeState, messageState, stackCoords) {
+        var Notify = this,
+            animations = 1,
+            stack = typeState.stack,
+            label = messageState.label,
+            settings = messageState.settings,
+            callback = function () {
+                Notify._fadeOutComplete(typeState, messageState, stackCoords, slideStack);
+            }
+        ;
+
+        if (stack) {
+            var duration = settings.fadeOutDuration,
+                slideStack = stack.members.last() != messageState.label
+            ;
+            // fade out dismissed member; stack will be "slid closed" later
+            if (slideStack) {
+                label.animateFade(0, callback, duration);
+
+            // optimized case - no separate stack "slide closed" is required
+            } else {
+                stack._setAnimation("fade", duration);
+                stack.removeMember(label, null, callback);
+
+                animations += this._moveStackForDismiss(typeState, messageState, stackCoords,
+                                                        callback, duration);
+            }
+        } else {
+            label.animateHide(null, callback);
+        }
+
+
+        typeState.op        = "fadeOut";
+        typeState.opCount   = animations;
+        typeState.opMessage = messageState;
+    },
+
+    _fadeOutComplete : function (typeState, messageState, stackCoords, slideStack) {
+        if (--typeState.opCount > 0) return;
+
+        delete typeState.op;
+        delete typeState.opCount;
+        delete typeState.opMessage;
+
+        if (slideStack) {
+            this._slideClosedStack(typeState, messageState, stackCoords);
+        } else {
+            this._completeAnimation(typeState, messageState, stackCoords, true);
+        }
+    },
+
+    _slideClosedStack : function (typeState, messageState, stackCoords) {
+        var animations = 1,
+            stack = typeState.stack,
+            vertical = stack.vertical,
+            label = messageState.label,
+            settings = messageState.settings,
+            duration = settings.fadeOutDuration,
+            callback = function () {
+                isc.Notify._slideClosedComplete(typeState, messageState, stackCoords);
+            };
+        ;
+
+
+        if (this._canUpdateStackInstantly(typeState, messageState, stackCoords)) {
+            stack.removeMember(label);
+            stack.moveTo(stackCoords[0], stackCoords[1]);
+            this._completeMessageHandling(typeState, messageState, stackCoords, true);
+            return;
+        }
+
+
+
+        stack._setAnimation("slide", duration);
+        stack.removeMember(label, null, callback);
+
+        animations += this._moveStackForDismiss(typeState, messageState, stackCoords, callback,
+                                                duration);
+
+
+        typeState.op        = "slideClosed";
+        typeState.opCount   = animations;
+        typeState.opMessage = messageState;
+    },
+
+    _slideClosedComplete : function (typeState, messageState, stackCoords) {
+        if (--typeState.opCount > 0) return;
+        this._completeAnimation(typeState, messageState, stackCoords, true);
+    },
+
+     _canUpdateStackInstantly : function (typeState, messageState, stackCoords) {
+         var settings = messageState.settings,
+             direction = settings.stackDirection,
+             pendingQueue = typeState.pendingQueue,
+             liveMessages = typeState.liveMessages
+         ;
+         if (liveMessages.length < 2 || pendingQueue.length ||
+             direction == "down" || direction == "right")
+         {
+             return;
+         }
+         var stack = typeState.stack,
+             label = messageState.label;
+         if (label != stack.members.first()) return;
+
+         var second = stack.members[1];
+         if (second.getPageLeft() == stackCoords[0] &&
+             second.getPageTop()  == stackCoords[1])
+         {
+             return true;
+         }
+         return false;
+     }
+
+});
+
+// define a default static label config for notification labels
+isc.defineClass("NotifyLabel", "Label").addProperties({
+
+    width: 1, height: 1,
+    animateHideEffect: "fade",
+    animateShowEffect: "fade",
+    left: 0, top: -1000,
+    autoDraw: false,
+
+
+    _getAfterPadding : function () {
+        return this._afterPadding ? this._afterPadding : null;
+    },
+
+    _notifyZLayer: true,
+
+
+    ID: null,
+
+    closeButtonConstructor: "ImgButton",
+    closeButtonDefaults: {
+        snapTo:         isc.Page.isRTL() ? "L" : "R",
+        snapOffsetLeft: isc.Page.isRTL() ?   8 :  -8,
+        imageType: "center",
+
+        showDown: false,
+        showRollOver: false,
+
+        src: "[SKINIMG]/Notify/close.png",
+        click : function () {
+            var label = this.creator,
+                typeState = isc.Notify.typeState[label.notifyType];
+            isc.Notify._dismissMessage(typeState, label.messageState);
+        }
+    },
+
+    closeButtonSize: 12,
+
+    initWidget : function () {
+        this.Super("initWidget", arguments);
+
+        // configure the closeButton if canDismiss is set
+        var size = this.closeButtonSize,
+            settings = this.messageState.settings,
+            canDismiss = settings.canDismiss;
+        if (canDismiss || canDismiss != false && !settings.duration) {
+            this.addAutoChild("closeButton", {
+                size: size, imageWidth: size, imageHeight: size
+            });
+            // padding may be needed depending on the applied style
+            var controlPadding = settings.messageControlPadding;
+            if (controlPadding) this._afterPadding = controlPadding;
+        }
+    },
+    click : function () {
+        var messageState = this.messageState,
+            actions = messageState.actions;
+        if (!actions) return;
+
+        for (var i = 0; i < actions.length; i++) {
+            var action = actions[i];
+            if (action.wholeMessage) {
+                isc.Class.fireCallback(action);
+            }
+        }
+    },
+    actionClick : function (element, ID, event) {
+
+
+        var messageState = this.messageState,
+            action = messageState.actions[ID];
+        if (!action) return;
+        // fire target[methodName] if defined (or method for SGWT)
+        if (action.target && action.methodName || action.method) {
+            isc.Class.fireCallback(action);
+            return false;
+        }
+    }
+
+});
+
+//> @type NotifyType
+// An identifier passed to +link{Notify} APIs to group related messages together so that they
+// all use the same behavior and display settings.
+// @baseType Identifier
+// @see Notify.addMessage()
+// @see Notify.configureMessages()
+// @see Notify.dismissMessage()
+// @visibility external
+//<
+
+
+////////////////////////////////////////////////////////////////////////////////
+// NotifySettings
+
+//> @object NotifySettings
+// An object used to configure how messages shown by +link{Notify.addMessage()} are drawn and
+// behave.
+// @see Notify.addMessage()
+// @see Notify.configureMessages()
+// @treeLocation Client Reference/System
+// @visibility external
+//<
+
+isc.Notify.addClassMethods({
+
+    commonDefaults: {
+        //> @attr notifySettings.duration (int : 5000 : IR)
+        // Length of time a message is shown before being auto-dismissed, in milliseconds.
+        // A value of 0 means that the message will not be dismissed automatically.
+        // Messages can always be dismissed by calling +link{Notify.dismissMessage()} or,
+        // if +link{canDismiss} is set, by performing a "close click".
+        // @visibility external
+        //<
+        duration: 5000,
+
+        //> @attr notifySettings.stayIfHovered (boolean : false : IR)
+        // If true, pauses the auto-dismiss countdown timer when the mouse is over the
+        // messasge.
+        // @visibility external
+        //<
+
+        //> @attr notifySettings.x (Integer : null : IR)
+        // Where to show the message, as a viewport-relative x coordinate offset to the
+        // left edge of the +link{Label} rendering the message.  Properties +link{position}
+        // and +link{positionCanvas} will only be used to place messages if coordinates
+        // aren't provided.
+        // @see y
+        // @see position
+        // @visibility external
+        //<
+
+        //> @attr notifySettings.y (Integer : null : IR)
+        // Where to show the message, as a viewport-relative y coordinate offset to the top
+        // edge of the +link{Label} rendering the message.
+        // @see x
+        // @see position
+        // @visibility external
+        //<
+
+        //> @attr notifySettings.position (EdgeName : varies : IR)
+        // Where to show the message, specified as an edge ("T", "B", "R", "L"), a corner
+        // ("TL", "TR", "BL", "BR), or "C" for center,  similar to +link{canvas.snapTo}.
+        // If an edge is specified, the message will be shown at its center (or the very
+        // center for "C").  Only used if +link{x,coordinates} haven't been provided.
+        // <P>
+        // If a +link{positionCanvas} has been specified, the <code>position</code> is
+        // interpreted relative to it instead of the viewport, and this property defaults
+        // to "C".  Otherwise, if no <code>positionCanvas</code> is present, the default is
+        // to use +link{slideInOrigin} or +link{slideOutOrigin}, or "L" if neither property
+        // is defined.
+        // <P>
+        // To place the message at an offset from the specified position, use +link{leftOffset}
+        // or +link{topOffset}.
+        // @see x
+        // @see y
+        // @see positionCanvas
+        // @visibility external
+        //<
+
+        //> @attr notifySettings.positionCanvas (Canvas : null : IR)
+        // Canvas over which to position the message, available as an alternative means of
+        // placement if viewport-relative +link{x,coordinates} aren't provided.  Note that
+        // the canvas is only used to compute where to the place message, and will not be
+        // altered.
+        // @see leftOffset
+        // @see topOffset
+        // @see position
+        // @visibility external
+        //<
+
+        //> @attr notifySettings.leftOffset (Integer : null : IR)
+        // Specifies a left offset from the position specified by +link{position} or
+        // +link{positionCanvas} where the message should be shown.  Ignored if
+        // +link{x,coordinates} are provided to position the message.
+        // @see position
+        // @see topOffset
+        // @visibility external
+        //<
+
+        //> @attr notifySettings.topOffset (Integer : null : IR)
+        // Specifies a top offset from the position specified by +link{position} or
+        // +link{positionCanvas} where the message should be shown.  Ignored if
+        // +link{y,coordinates} are provided to position the message.
+        // @see position
+        // @see leftOffset
+        // @visibility external
+        //<
+
+        //>@type NotifyTransition
+        // @value  "slide"    message slide-animates onto or off of the screen
+        // @value  "fade"     message appears or disappears via a fade effect
+        // @value  "instant"  message instantly appears or disappears
+        // @visibility external
+        //<
+
+        //> @attr notifySettings.appearMethod (NotifyTransition : "slide" : IR)
+        // Controls how messages appear at or reach their requested location.  The default
+        // of "slide" is recommended because the motion will draw the user's attention to
+        // the notification.
+        // @visibility external
+        //<
+        appearMethod: "slide",
+
+        //> @attr notifySettings.disappearMethod (NotifyTransition : "fade" : IR)
+        // Controls how messages disappear from or leave their requested location.  The
+        // default of "fade" is recommended because a slide animation would draw too much
+        // attention to a notification that is no longer current, whereas a subtle fade
+        // should draw a minimum of attention (less even than instantaneously
+        // disappearing).
+        // @visibility external
+        //<
+        disappearMethod: "fade",
+
+        //> @attr notifySettings.repositionMethod (NotifyTransition : "slide" : IR)
+        // Controls how the stack or message is repositioned, if required, after
+        // +link{notify.setMessageContents()} has been called.  Valid values are "slide" and
+        // "instant".
+        // @visibility external
+        //<
+        repositionMethod: "slide",
+
+        //> @attr notifySettings.canDismiss (Boolean : false : IR)
+        // Displays an icon to allow a message to be dismissed through the UI.  Messages
+        // can always be dismissed programmatically by calling
+        // +link{Notify.dismissMessage()}.
+        // @visibility external
+        //<
+
+        //> @attr notifySettings.slideInOrigin (String : null : IR)
+        // Determines where messages originate when they appear for +link{appearMethod}:
+        // "slide".  Possible values are "L", "R", "T", and "B".
+        // <P>
+        // If not specified, the edge nearest the message's requested coordinates or
+        // position is used.
+        // @visibility external
+        //<
+
+        //> @attr notifySettings.slideOutOrigin (String : null : IR)
+        // Determines where messages go when they disappear for +link{disappearMethod}:
+        // "slide".  Possible values are "L", "R", "T", and "B".  <P> If not specified, the
+        // edge nearest the message's requested coordinates or position is used.
+        // @visibility external
+        //<
+
+        //> @attr notifySettings.defaultSlideOutToNearest (boolean : false : IR)
+        // If +link{disappearMethod} is "slide", should we default +link{slideOutOrigin} to
+        // the edge nearest to the location of a message at the moment it's dismissed?  The
+        // default value of false means that if +link{appearMethod} is "slide" and
+        // +link{slideInOrigin} isn't set, we'll reuse the edge nearest to the initial
+        // location of the message to default +link{slideOutOrigin}, if needed, so that the
+        // message slides in from, and out to, the same edge.
+        //<
+
+        //> @attr notifySettings.slideSpeed (int : 300 : IR)
+        // Animation speed for +link{NotifyTransition}: "slide", in pixels/second.
+        // @visibility external
+        //<
+        slideSpeed: 300,
+
+        //> @attr notifySettings.fadeInDuration (int : 500 : IR)
+        // Time over which the fade-in effect runs for +link{NotifyTransition}: "fade", in
+        // milliseconds.
+        // @visibility external
+        //<
+        fadeInDuration: 500,
+
+        //> @attr notifySettings.fadeOutDuration (int : 500 : IR)
+        // Time over which the fade-out effect runs for +link{NotifyTransition}: "fade", in
+        // milliseconds.
+        // @visibility external
+        //<
+        fadeOutDuration: 500,
+
+        //> @type MultiMessageMode
+        // @value  "stack"  messages of the same +link{NotifyType} are arranged in a stack
+        // @value  "replace"  messages of the same +link{NotifyType} replace each other
+        // @visibility external
+        //<
+
+        //> @attr notifySettings.multiMessageMode (MultiMessageMode : "stack": IR)
+        // Determines what happens if a message appears while there's still another one of
+        // the same +link{NotifyType} being shown.  Such messages are either stacked or
+        // replace one another,
+        // @visibility external
+        //<
+        multiMessageMode: "stack",
+
+        //> @type StackDirection
+        // @value  "up"     older messages move up
+        // @value  "down"   older messages move down
+        // @value  "right"  older messages move right
+        // @value  "left"   older messages move left
+        // @visibility external
+        //<
+
+        //> @attr notifySettings.stackDirection (StackDirection : "down" : IR)
+        // Determines how messages are stacked if +link{multiMessageMode} is "stack".  For
+        // example, "down" means that older messages move down when a new message of the
+        // same +link{NotifyType} appears.
+        // @visibility external
+        //<
+        stackDirection: "down",
+
+        //> @attr notifySettings.stackSpacing (int : 2 : IR)
+        // Space between each message when +link{multiMessageMode} is "stack".
+        // @visibility external
+        //<
+        stackSpacing: 2,
+
+        //> @attr notifySettings.maxStackSize (int : 3 : IR)
+        // Sets a limit on how many messages may be stacked if +link{multiMessageMode} is
+        // "stack".  The oldest message of the affected +link{NotifyType} will be dismissed
+        // to enforce this limit.
+        // @visibility external
+        //<
+        maxStackSize: 3,
+
+        //> @type StackPersistence
+        // @value  "none"   older messages disappear as if unrelated
+        // @value  "reset"  older messages have their duration timers reset so they stick
+        //                  around as long as the new message if they've got less time left
+        //                  than that message
+        // @visibility external
+        //<
+
+        //> @attr notifySettings.stackPersistence (StackPersistence : "none" : IRA)
+        // Controls how older messages' +link{duration} countdowns are affected when a new
+        // message of the same +link{NotifyType} appears.  We either continue the
+        // countdowns on the older messages as if they are unrelated, or we reset any
+        // countdowns that are less than the new message's <code>duration</code>.
+        // <P>
+        // Note that you can set this property in a call to +link{NOtify.addMessage()} even
+        // though it has "stack" in its name, since it governs the logic run on behalf of
+        // this message.
+        // @visibility external
+        //<
+        stackPersistence: "none",
+
+        //> @type MaxStackDismissMode
+        // @value  "oldest"     dismiss the oldest message
+        // @value  "countdown"  dismiss the message with least time left
+        // @visibility external
+        //<
+
+        //> @attr notifySettings.maxStackDismissMode (MaxStackDismissMode : "oldest" : IR)
+        // Specifies how to pick which message to dismiss when the +link{maxStackSize} is
+        // reached, and the lowest priority value (highest numerical
+        // +link{notifySettings.messagePriority,messagePriority}) is shared by more than one
+        // message.
+        // <P>
+        // We can simply dismiss the oldest message of that
+        // +link{notifySettings.messagePriority,messagePriority}, or we can pick the message
+        // with the least time left until it's auto-dismissed.
+        // @see duration
+        // @see Notify.dismissMessage
+        // @visibility external
+        //<
+        maxStackDismissMode: "oldest",
+
+        //> @attr notifySettings.actionSeparator (HTMLString : " " : IR)
+        // HTML to be added before each action to separate it from the previous action.
+        // For the first action, it will only be added if the message contents aren't
+        // empty.
+        // <P>
+        // You may override this on a per action basis using +link{notifyAction.separator}.
+        // <P>
+        // Besides the default, some other known useful values are "&amp;emsp;" and "&amp;nbsp;".
+        // @visibility external
+        //<
+        actionSeparator: " ",
+
+        //> @attr notifySettings.messageIcon (SCImgURL : varies : IR)
+        // Optional icon to be shown in the +link{Label} drawn for this message.  Default is
+        // <ul>
+        // <li>"[SKIN]/Notify/error.png" for +link{NotifyType}: "error",
+        // <li>"[SKIN]/Notify/warning.png" for +link{NotifyType}: "warn", and
+        // <li>"[SKIN]/Notify/checkmark.png" for all other +link{NotifyType}s.
+        // </ul>
+        // However, if you specify a +link{notifySettings.messagePriority,messagePriority},
+        // it will determine the default rather than the actual <code>NotifyType</code>, if
+        // +link{applyPriorityToAppearance} is true.
+        // @see NotifySettings.messagePriority
+        // @visibility external
+        //<
+
+        //> @attr notifySettings.messageIconWidth (int : 17 : IR)
+        // Width in pixels of the icon image.
+        // @see label.iconWidth
+        // @visibility external
+        //<
+        messageIconWidth: 17,
+
+        //> @attr notifySettings.messageIconHeight (int : 17 : IR)
+        // Height in pixels of the icon image.
+        // @see label.iconHeight
+        // @visibility external
+        //<
+        messageIconHeight: 17,
+
+        //> @attr notifySettings.messageIconSpacing (int : 20 : IR)
+        // Pixels between icon and title text.
+        // @see label.iconSpacing
+        // @visibility external
+        //<
+        messageIconSpacing: 20,
+
+        //> @attr notifySettings.messageControlPadding (int : null : IR)
+        // Optional specified padding to apply after the message content when showing a
+        // +link{canDismiss,dismiss button} so that the button doesn't occlude any content.
+        // Only needed if the message +link{styleName,styling} doesn't already provide
+        // enough padding.
+        // @visibility external
+        //<
+
+        //> @attr notifySettings.messagePriority (MessagePriority : varies : IRA)
+        // Sets the priority of the message.  Priority is used to determine which message to
+        // dismiss if +link{maxStackSize} is hit.  Lower numerical values have higher
+        // priority.
+        // <p>The default is:
+        // <ul>
+        // <li>+link{Notify.ERROR} for +link{NotifyType}: "error",
+        // <li>+link{Notify.WARN} for +link{NotifyType}: "warn", and
+        // <li>+link{Notify.MESSAGE} for all other +link{NotifyType}s
+        // </ul>
+        // <b>Impact on Appearance</b>
+        // <p>
+        // If you specify <code>messagePriority</code>, and +link{applyPriorityToAppearance}
+        // is set, the properties:
+        // <ul>
+        // <li> +link{messageIcon},
+        // <li> +link{styleName}, and
+        // <li> +link{actionStyleName}
+        // </ul>
+        // will be assigned, if not specified, to the default values from:<ul>
+        // <li> +link{NotifyType}: "error" for priority +link{Notify.ERROR},
+        // <li> +link{NotifyType}: "warn" for priority +link{Notify.WARN}, or
+        // <li> +link{NotifyType}: "message" for priorities at or below
+        //                         +link{Notify.MESSAGE} (greater or equal numerically)
+        // </ul>
+        // This allows you to automatically set "error" or "warn" styling, on a per-message
+        // basis, for any non-"error" or "warn" <code>NotifyType</code> by simply supplying
+        // a <code>messagePriority</code> for that message.
+        // @see Notify.addMessage()
+        // @see NotifySettings.maxStackDismissMode
+        // @visibility external
+        //<
+        messagePriority: isc.Notify.MESSAGE,
+
+        //> @attr notifySettings.applyPriorityToAppearance (boolean : varies : IRA)
+        // Whether to default properties affecting the message appearance to those of the
+        // built-in +link{NotifyType} corresponding to the
+        // +link{notifySettings.messagePriority,messagePriority}.  Default is true except
+        // for +link{NotifyType}s "error" and "warn", which default to false.
+        // @see NotifySettings.messagePriority
+        // @visibility external
+        //<
+        applyPriorityToAppearance: true,
+
+        //> @attr notifySettings.messageIconOrientation (String : varies : IR)
+        // If an icon is present, should it appear to the left or right of the title?
+        // valid options are <code>"left"</code> and <code>"right"</code>.  If unset,
+        // default is "left" unless +link{page.isRTL(),RTL} is active, in which case it's
+        // "right".
+        // <P>
+        // Note that the icon will automatically be given an alignment matching its
+        // orientation, so "left" for <code>messageIconOrientation</code> "left", and vice
+        // versa.
+        // @see label.iconAlign
+        // @see label.iconOrientation
+        // @visibility external
+        //<
+        messageIconOrientation: isc.Page.isRTL() ? "right" : "left",
+
+        //> @attr notifySettings.styleName (CSSStyleName : varies : IR)
+        // The CSS class to apply to the +link{Label} drawn for this message.  Default is:
+        // <ul>
+        // <li>"notifyError" for +link{NotifyType}: "error",
+        // <li>"notifyWarn" for +link{NotifyType}: "warn", and
+        // <li>"notifyMessage" for all other +link{NotifyType}s.
+        // </ul>
+        // However, if you specify a +link{notifySettings.messagePriority,messagePriority},
+        // it will determine the default rather than the actual <code>NotifyType</code>, if
+        // +link{applyPriorityToAppearance} is true.
+        // <P>
+        // Note that if +link{page.isRTL(),RTL} is active, the default will be as above, but
+        // with an "RTL" suffix added.
+        // @see NotifySettings.messagePriority
+        // @visibility external
+        //<
+
+        //> @attr notifySettings.actionStyleName (CSSStyleName : varies : IR)
+        // The CSS class to apply to action text in this message.  default is:
+        // <ul>
+        // <li>"notifyErrorActionLink" for +link{NotifyType}: "error",
+        // <li>"notifyWarnActionLink" for +link{NotifyType}: "warn", and
+        // <li>"notifyMessageActionLink" for all other +link{NotifyType}s.
+        // </ul>
+        // However, if you specify a +link{notifySettings.messagePriority,messagePriority},
+        // it will determine the default rather than the actual <code>NotifyType</code>, if
+        // +link{applyPriorityToAppearance} is true.
+        // @see NotifySettings.messagePriority
+        // @visibility external
+        //<
+
+        //> @attr notifySettings.zIndex (Integer : null : IRA)
+        // Provides control over which message occludes the other if messages of different
+        // +link{NotifyType}s overlap.  (By design, messages of the same
+        // <code>NotifyType</code> are guaranteed not to overlap.)
+        // <P>
+        // Generally, you should avoid overlapping messages.  The default behavior is that
+        // more recent messages will occlude older ones.
+        //<
+
+
+        //> @attr notifySettings.autoFitWidth (Boolean : null : IRA)
+        // If true, the specified width of the +link{Label} drawn for this message will be
+        // treated as a minimum width.  If the message content string exceeds this, the
+        // +link{Label} will expand to accommodate it up to +link{autoFitMaxWidth} (without
+        // the text wrapping).
+        // <P>
+        // Using this setting differs from simply disabling wrapping via
+        // +link{label.wrap,wrap:false} as the content will wrap if the
+        // +link{autoFitMaxWidth} is exceeded.
+        // @visibility external
+        //<
+        autoFitWidth: true,
+
+        //> @attr notifySettings.autoFitMaxWidth (Integer | String : 300 : IR)
+        // Maximum auto-fit width for a message if +link{autoFitWidth} is enabled. May be
+        // specified as a pixel value, or a percentage of page width.
+        // @see autoFitWidth
+        // @visibility external
+        //<
+        autoFitMaxWidth: 300
+
+        //> @attr notifySettings.labelProperties (Label Properties : null : IR)
+        // Configures the properties, such as +link{label.autoFit}, +link{label.align}, and
+        // +link{label.width}. of the +link{Label} autochildren that will be used to draw messages,
+        // where not already determined by message layout or other <code>NotifySettings</code>
+        // properties such as +link{styleName}.
+        // <P>
+        // Not all label properties are guaranteed to work here, as the Notify system is
+        // assumed to layout message content and manage positioning messages.  In particular,
+        // the following properties should be avoided:
+        //
+        // <table border=1 class="normal">
+        // <tr bgcolor="#D0D0D0"><td>Property Name</td><td>Issue</td><td>Guidance</td></tr>
+        // <tr>
+        // <td>margin</td>
+        // <td>Layout and positioning of the messages is handled by the Notify system.</td>
+        // <td>Use +link{stackSpacing} to configure the separation between messages, and
+        // +link{leftOffset} and +link{topOffset} to fine-tine stack
+        // +link{position,positioning}.
+        // </td>
+        // </tr>
+        // <tr>
+        // <td>padding</td>
+        // <td>Padding is set by notification CSS so that children are positioned corrected
+        // relative to content.</td>
+        // <td>You can apply your own +link{styleName,styling} to messages via CSS.  Or you can
+        // use HTML as the message contents to create whatever sort of interior layout you
+        // like.</td>
+        // </tr>
+        // <tr>
+        // <td>wrap</td>
+        // <td>Autowrap behavior is managed by the Notify system.</td>
+        // <td>To have +link{autoFitWidth,autofitted} content not wrap, set
+        // +link{autoFitMaxWidth} higher than your expected message widths.  You can set it to
+        // "100%" if needed to allow the message to expand across the entire page.</td>
+        // </tr>
+        // </table>
+        // @visibility external
+        //<
+    },
+
+    // get the default messagePriority for the notifyType
+    _getDefaultPriority : function(notifyType) {
+        switch (notifyType) {
+        case this._$error: return isc.Notify.ERROR;
+        case this._$warn:  return isc.Notify.WARN;
+        case this._$message:
+        default:
+            return isc.Notify.MESSAGE;
+        }
+    },
+
+    _initNotifySettings : function(notifyType, settings) {
+        // duplicate settings to avoid ever sharing them
+        settings = isc.addProperties({}, settings);
+
+        // don't default the appearance from priority for notifyTypes "error" and "warn"
+        var messagePriority = this._getDefaultPriority(notifyType);
+        if (messagePriority < isc.Notify.MESSAGE) isc.addDefaults(settings, {
+            applyPriorityToAppearance: false, messagePriority: messagePriority
+        });
+        settings._defaultPriority = messagePriority;
+
+        // default priority-related styling properties according to the notifyType
+        isc.addDefaults(settings, this._getPriorityRelatedDefaults(messagePriority));
+        // now default the remaining common message properties
+        isc.addDefaults(settings, this.commonDefaults);
+
+        return settings;
+    },
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Priority-related Defaults
+
+    _errorDefaults : { // notifyType: "error"
+        messageIcon: "[SKIN]/Notify/error.png",
+        actionStyleName: "notifyErrorActionLink",
+        styleName: isc.Page.isRTL() ? "notifyErrorRTL" : "notifyError"
+    },
+
+    _warnDefaults : { // notifyType: "warn"
+        messageIcon: "[SKIN]/Notify/warning.png",
+        actionStyleName: "notifyWarnActionLink",
+        styleName: isc.Page.isRTL() ? "notifyWarnRTL" : "notifyWarn"
+    },
+
+    _messageDefaults : { // notifyType: "message"
+        messageIcon: "[SKIN]/Notify/checkmark.png",
+        actionStyleName: "notifyMessageActionLink",
+        styleName: isc.Page.isRTL() ? "notifyMessageRTL" : "notifyMessage",
+        messageControlPadding: null // declares it "priority-related"
+    },
+
+    _getPriorityRelatedDefaults : function (priority) {
+        switch (priority) {
+        case isc.Notify.ERROR:
+            return this._errorDefaults;
+        case isc.Notify.WARN:
+            return this._warnDefaults;
+        default:
+        case isc.Notify.MESSAGE:
+            return this._messageDefaults;
+        }
+    },
+
+    _getConfigSettingsByPriority : function (priority) {
+        var settings = this.settings;
+        switch (priority) {
+        case isc.Notify.ERROR: return settings[this._$error];
+        case isc.Notify.WARN:  return settings[this._$warn];
+        default:
+        case isc.Notify.MESSAGE:
+            return settings[this._$message];
+        }
+    },
+
+    _shouldApplyPriorityToAppearance : function (changedSettings, configuredSettings) {
+        if (changedSettings.messagePriority == null) return false;
+        // allow applyPriorityToAppearance to be specified per-message
+        return changedSettings.applyPriorityToAppearance != null ?
+               changedSettings.applyPriorityToAppearance :
+            configuredSettings.applyPriorityToAppearance;
+    }
+
+});
+
+
+////////////////////////////////////////////////////////////////////////////////
+// NotifyAction
+
+//> @object NotifyAction
+// Represents an action that's associated with a message.  Similar to the object form of
+// +link{Callback}, except a title must also be specified, which is rendered as a clickable
+// link in the message (unless +link{notifyAction.wholeMessage,wholeMessage} is set).
+// @see Notify.configureMessages()
+// @treeLocation Client Reference/System
+// @visibility external
+//<
+
+//> @attr notifyAction.title (HTMLString : null : IR)
+// The title of the action to render into the message.
+// @visibility external
+//<
+
+//> @attr notifyAction.separator (HTMLString : null : IR)
+// Overrides +link{NotifySettings.actionSeparator} for this action.
+// @visibility external
+//<
+
+//> @attr notifyAction.target (Object : null : IR)
+// The object that will be passed as <code>this</code> when the action is executed.
+// @visibility external
+//<
+
+//> @attr notifyAction.methodName (String : null : IR)
+// The method to invoke on the +link{target} when the action is executed.
+// @visibility external
+//<
+
+//> @attr notifyAction.wholeMessage (Boolean : null : IR)
+// Allows a click anywhere on the notification to execute the action.  If true, the action won't
+// be rendered as a link.
+// @visibility external
+//<
+
+//> @method Callbacks.NotifyActionCallback
+// A +link{type:Callback} called when +link{NotifyAction} fires.
+// @visibility sgwt
+//<
+
+//>    @staticMethod isc.notify()
+// Displays a new message that's automatically dismissed after a configurable amount of time,
+// as an alternative to +link{isc.confirm(),modal notification} dialogs that can lower end user
+// productivity.
+// <P>
+// This method is simply a shorthand way to call +link{Notify.addMessage()}.  For further study,
+// see the +link{Notify} class overview, and the class methods +link{Notify.dismissMessage(),
+// dismissMessage()} and +link{Notify.configureMessages(),configureMessages()}.
+// @param  contents     (HTMLString)             message to be displayed
+// @param  [actions]    (Array of NotifyAction)  actions (if any) for this message
+// @param  [notifyType] (NotifyType)             category of message
+// @param  [settings]   (NotifySettings)         display and behavior settings for this message,
+//                                               overriding any stored settings for this
+//                                               <code>NotifyType</code>
+// @return  (MessageID)  opaque identifier for message
+// @see isc.say()
+// @see isc.confirm()
+// @visibility external
+//<
+isc.addGlobal("notify", function (contents, actions, notifyType, settings) {
+    isc.Notify.addMessage(contents, actions, notifyType, settings);
+});
+
+
+
+
 
 
 //>    @class    ToolStrip
@@ -15840,6 +20332,9 @@ isc.defineClass("ToolStrip", "Layout").addProperties({
     // <P>
     // Note that if +link{toolStrip.vertical} is true for this toolStrip,
     // +link{toolStrip.verticalStyleName} will be used instead of this value if it is non-null.
+    //
+    // @group appearance
+    // @visibility external
     //<
     styleName: "toolStrip",
 
@@ -15913,6 +20408,12 @@ isc.defineClass("ToolStrip", "Layout").addProperties({
     //<
     groupTitleOrientation : "top",
 
+    init : function () {
+        // if there's no fixed width, set a flag to reflow on draw() - see comment there
+        if (!isc.isA.Number(this.width)) this.reflowOnDraw = true;
+        return this.Super("init", arguments);
+    },
+
     initWidget : function (a,b,c,d,e,f) {
         this.members = this._convertMembers(this.members);
         this.invokeSuper(isc.ToolStrip, this._$initWidget, a,b,c,d,e,f);
@@ -15920,7 +20421,13 @@ isc.defineClass("ToolStrip", "Layout").addProperties({
         if (this.vertical && this.verticalStyleName != null) {
             this.setStyleName(this.verticalStyleName);
         }
+    },
 
+    draw : function () {
+        var result = this.Super("draw", arguments);
+
+        if (this.reflowOnDraw) this.reflow(true);
+        return result;
     },
 
     // support special "separator" and "resizer" strings
@@ -15947,14 +20454,20 @@ isc.defineClass("ToolStrip", "Layout").addProperties({
 
                 var params = (this.vertical ? { height: "*" } : { width: "*" });
                 newMembers.add(isc.LayoutSpacer.create(params));
+
             // handle being passed an explicitly created ToolStripResizer instance.
             // This is normal usage from Component XML or SGWT
+
             } else if (isc.isA.ToolStripResizer(m) && i > 0) {
                 members[i-1].showResizeBar = true;
                 m.destroy();
             } else {
                 // handle being passed an explicitly created ToolStripSeparator instance.
                 // This is normal usage from Component XML or SGWT
+                if (!isc.isA.ToolStripSeparator(m) && !isc.isA.ToolStripSpacer(m) && !isc.isA.ToolStripGroup(m)) {
+                    // punt to Canvas heuristics
+                    m = this.createCanvas(m);
+                }
                 if (isc.isA.ToolStripSeparator(m)) {
                     var separator = m;
                     separator.vertical = !this.vertical;
@@ -15976,9 +20489,6 @@ isc.defineClass("ToolStrip", "Layout").addProperties({
                     if (!m.showTitle) m.setShowTitle(this.showGroupTitle);
                     if (!m.titleAlign) m.setTitleAlign(this.groupTitleAlign);
                     if (!m.titleOrientation) m.setTitleOrientation(this.groupTitleOrientation);
-                } else {
-                    // punt to Canvas heuristics
-                    m = this.createCanvas(m);
                 }
 
                 newMembers.add(m);
@@ -15986,16 +20496,16 @@ isc.defineClass("ToolStrip", "Layout").addProperties({
         }
         return newMembers;
     },
-    addMembers : function (newMembers, position, dontAnimate,d,e) {
+    addMembers : function (newMembers, position, dontAnimate, d, e) {
         if (!newMembers) return;
         if (!isc.isAn.Array(newMembers)) newMembers = [newMembers];
 
         var firstMember = newMembers[0],
             isResizerWidget = isc.isA.ToolStripResizer(firstMember);
         if (firstMember == "resizer" || isResizerWidget) {
-            position = position || this.members.length;
+            if (position == null) position = this.members.length;
             var precedingPosition = Math.min(position, this.members.length) -1;
-            if (precedingPosition > 0) {
+            if (precedingPosition >= 0) {
                 var precedingMember = this.getMember(precedingPosition);
                 if (precedingMember != null) {
                     precedingMember.showResizeBar = true;
@@ -16007,7 +20517,8 @@ isc.defineClass("ToolStrip", "Layout").addProperties({
         }
 
         newMembers = this._convertMembers(newMembers);
-        return this.invokeSuper(isc.ToolStrip, "addMembers", newMembers,position,dontAnimate,d,e);
+        return this.invokeSuper(isc.ToolStrip, "addMembers", newMembers, position, dontAnimate,
+                                d, e);
     },
 
     groupConstructor: "ToolStripGroup",
@@ -16045,7 +20556,7 @@ isc.defineClass("ToolStrip", "Layout").addProperties({
     //  formWrapper component. If passed, specified properties will be overlaid onto the
     //  properties derived from +link{toolStrip.formWrapperDefaults} and
     //  +link{toolStrip.formWrapperProperties}.
-    // @param [position] (integer) desired position for the form item in the tools
+    // @param [position] (Integer) desired position for the form item in the tools
     // @return (DynamicForm) generated wrapper containing the form item.
     // @visibility external
     //<
@@ -16110,7 +20621,7 @@ isc.defineClass("ToolStrip", "Layout").addProperties({
 // @visibility external
 //<
 isc.defineClass("ToolStripSeparator", "Img").addProperties({
-    //> @attr toolStripSeparator.skinImgDir (URL : "images/ToolStrip/" : IR)
+    //> @attr toolStripSeparator.skinImgDir (SCImgURL : "images/ToolStrip/" : IR)
     // Path to separator image.
     // @visibility external
     //<
@@ -16147,7 +20658,7 @@ isc.defineClass("ToolStripSeparator", "Img").addProperties({
     _generated: true,
     // Don't write anything but constructor in Component XML
     updateEditNode : function (editContext, editNode) {
-        editContext.removeNodeProperties(editNode, ["autoDraw", "ID", "title"]);
+        editContext.removeNodeProperties(editNode, ["autoDraw", "ID", "autoID", "title"]);
     }
 });
 
@@ -16171,7 +20682,7 @@ isc.defineClass("ToolStripSpacer", "LayoutSpacer").addProperties({
     _generated: true,
     // Don't write anything but constructor in Component XML
     updateEditNode : function (editContext, editNode) {
-        editContext.removeNodeProperties(editNode, ["autoDraw", "ID", "title"]);
+        editContext.removeNodeProperties(editNode, ["autoDraw", "ID", "autoID", "title"]);
     }
 });
 
@@ -16186,7 +20697,7 @@ isc.defineClass("ToolStripSpacer", "LayoutSpacer").addProperties({
 
 isc.defineClass("ToolStripButton", "Button").addProperties({
 
-    showTitle:true,
+    //showTitle:true,
     showRollOver:true,
     showDown:true,
 
@@ -16211,6 +20722,82 @@ isc.defineClass("ToolStripButton", "Button").addProperties({
     src:"[SKIN]/ToolStrip/button/button.png",
     capSize:3,
     height:22
+});
+
+//> @class Header
+// Component for showing a header. This header
+// is a special type of ToolStrip, so any ToolStrip controls can
+// be added to the Header.  Consider also the SectionStack and
+// SectionHeader if you want expand/collapse behavior or multiple sections.
+// @inheritsFrom ToolStrip
+// @treeLocation Client Reference/Layout
+// @visibility external
+//<
+isc.defineClass("Header", "ToolStrip").addProperties({
+
+    // Styling to match HeaderItem
+    styleName: "headerItem",
+
+    //> @attr header.title (HTMLString : null : IWR)
+    // Title to show for the header
+    // @visibility external
+    // @setter setTitle
+    //<
+
+    titleLabelDefaults: {
+        _constructor: "Label",
+        _isTitleLabel: true,
+        baseStyle:"headerItem",
+        padding: 2,
+        autoFit: true,
+        wrap: false
+    }
+});
+
+isc.Header.addMethods({
+
+    initWidget : function () {
+
+        // Create the title label if the title property is provided. It always goes first.
+        if (this.title) {
+            if (!this.members || this.members.length == 0) {
+                this.members = [this.createTitleLabel(this.title)];
+            } else if(this.members && !this.members[0]._isTitleLabel) {
+                this.members.addAt(this.createTitleLabel(this.title), 0);
+            }
+        }
+
+        this.Super(this._$initWidget);
+    },
+
+    // adjust position leaving title in position 0 always
+    addMembers : function (newMembers, position, dontAnimate,d,e) {
+        position = (position != null ? position+1 : null);
+        return this.Super("addMembers", [newMembers, position, dontAnimate,d,e]);
+    },
+
+    createTitleLabel : function (title) {
+        this._titleLabel = this.createAutoChild("titleLabel", { contents: title });
+        return this._titleLabel;
+    },
+
+    //> @method header.setTitle()
+    // Setter for the +link{header.title,title}.
+    // @param newTitle (HTMLString) the new title HTML.
+    // @visibility external
+    //<
+    setTitle : function (newTitle) {
+        // remember the contents
+        this.title = newTitle;
+        // For performance, don't force a redraw / setContents, etc if the
+        // title is unchanged
+        if (this._titleHTML != null && this._titleHTML == newTitle) {
+            return;
+        } else {
+            this._titleHTML = newTitle;
+        }
+        if (this._titleLabel) this._titleLabel.setContents(newTitle);
+    }
 });
 
 
@@ -16286,7 +20873,7 @@ isc.defineClass("ToolStripGroup", "VLayout").addProperties({
     labelDefaults: {
         width: "100%",
         height: 18,
-        autoDraw: true,
+        autoDraw: false,
         wrap: false,
         overflow: "visible"
     },
@@ -16356,7 +20943,7 @@ isc.defineClass("ToolStripGroup", "VLayout").addProperties({
     bodyConstructor:"HLayout",
 
     bodyDefaults: {
-        width: 1,
+        width: "100%",
         height: "*",
         overflow: "visible",
         membersMargin: 2,
@@ -16398,12 +20985,12 @@ isc.defineClass("ToolStripGroup", "VLayout").addProperties({
         removeMember : function (member) {
             this.Super("removeMember", arguments);
 
+            delete member._currentColumn;
             if (member._dragPlaceHolder) return;
             if (member.rowSpan == null) member.rowSpan = 1;
             this.numRows -= member.rowSpan;
 
-            member.markForDestroy();
-            member = null;
+            // don't destroy members
         }
     },
 
@@ -16457,7 +21044,7 @@ isc.defineClass("ToolStripGroup", "VLayout").addProperties({
         this.addAutoChild("body", {
             _constructor: this.bodyConstructor,
             height: this.numRows * this.rowHeight,
-            resized: function () {
+            parentResized : function () {
                 var newWidth = this.getVisibleWidth();
                 if (this.parentElement.label) this.parentElement.label.setWidth(newWidth);
             }
@@ -16465,10 +21052,45 @@ isc.defineClass("ToolStripGroup", "VLayout").addProperties({
 
         this.addMember(this.body, showLabel ? (this.titleOrientation == "bottom" ? 0 : 1) : 0);
 
-        if (this.controls) {
-            this.addControls(this.controls, false);
-        }
+        // observe body-resize
+        this.observe(this.body, "resized", "observer.bodyResized(observed);");
 
+        var controls = this.controls || [];
+        this.controls = [];
+        if (!this.editingOn && controls.length > 0) {
+            // if not in editMode, add the controls - editMode adds them with separate calls to
+            // addControl()
+            this.setControls(controls);
+        }
+    },
+
+    // resize the title labelLayout when the body overflows, so it always fills width
+    bodyResized : function (body) {
+        var newWidth = this.getInnerWidth();
+        if (newWidth < 0) {
+            newWidth =  body ? body.getVisibleWidth() : this.getVisibleWidth();
+        }
+        if (this.labelLayout) this.labelLayout.setWidth(newWidth);
+    },
+
+    destroy : function () {
+        // ignore body-resize
+        this.ignore(this.body, "resized");
+        for (var i=0; i<this.controls.length; i++) {
+            // ignore visibilityChanged observation
+            this.ignoreControl(this.controls[i]);
+            this.controls[i].destroy();
+            this.controls[i] = null;
+        }
+        if (this.members) {
+            for (var i=0; i<this.members.length; i++) {
+                var m = this.members[i];
+                if (m && !m.destroying && !m.destroyed) m.destroy();
+                this.members[i] = null;
+                m = null
+            }
+        }
+        return this.Super("destroy", arguments);
     },
 
     //> @attr toolStripGroup.title (String : null : IRW)
@@ -16574,7 +21196,9 @@ isc.defineClass("ToolStripGroup", "VLayout").addProperties({
         var colWidth = this.defaultColWidth;
         if (this.colWidths && this.colWidths[index] != null) colWidth = this.colWidths[index];
 
-        var props = { maxRows: this.numRows, numRows: 0, width: colWidth, height: this.body.getVisibleHeight()-1};
+        var props = { maxRows: this.numRows, numRows: 0, width: colWidth,
+            height: this.body.getInnerHeight()
+        };
         var newColumn = this.createAutoChild("columnLayout", props);
         this.body.addMember(newColumn, index);
 
@@ -16583,13 +21207,21 @@ isc.defineClass("ToolStripGroup", "VLayout").addProperties({
         return newColumn;
     },
 
+    autoFillColumns: false,
     getAvailableColumn : function (createIfUnavailable) {
         var members = this.body.members;
 
         if (members && members.length > 0) {
-            for (var i=0; i<members.length; i++) {
-                var member = members[i];
-                //this.logWarn("member " + member + " numRows is " + member.numRows);
+            var member;
+            if (this.autoFillColumns) {
+                for (var i=0; i<members.length; i++) {
+                    member = members[i];
+                    //this.logWarn("member " + member + " numRows is " + member.numRows);
+                    if (member.numRows < member.maxRows) return member;
+                }
+            } else {
+                member = members[members.length-1];
+                //isc.logWarn("ID: " + member.ID + " -- numRows: " + member.numRows + " -- maxRows: " + member.maxRows);
                 if (member.numRows < member.maxRows) return member;
             }
         }
@@ -16628,10 +21260,17 @@ isc.defineClass("ToolStripGroup", "VLayout").addProperties({
     // @visibility external
     //<
     setControls : function (controls, store) {
+        this._settingControls = true;
         if (this.controls) {
             this.removeAllControls();
         }
-        this.addControls(controls, store);
+        this.controls = controls;
+        this._updateControls();
+        // observe visibilityChanged on each control, to reflow at runtime
+        for (var i=0; i<this.controls.length; i++) {
+            this.observeControl(this.controls[i]);
+        }
+        delete this._settingControls;
     },
 
     //> @method toolStripGroup.reflowControls()
@@ -16641,10 +21280,7 @@ isc.defineClass("ToolStripGroup", "VLayout").addProperties({
     // @visibility external
     //<
     reflowControls : function () {
-        if (this.controls) {
-            this.removeAllControls(false);
-        }
-        this.addControls(this.controls, false);
+        this._updateControls();
     },
 
     //> @method toolStripGroup.addControls()
@@ -16675,29 +21311,50 @@ isc.defineClass("ToolStripGroup", "VLayout").addProperties({
     // @param [index] (Integer) optional insertion index for this control
     // @visibility external
     //<
-    addControl : function (control, index, store) {
+    addControl : function (control, index, skipUpdate) {
         if (!control) return null;
-
-        var undef;
-        if (index === null || index === undef || index >= this.numRows) index = this.numRows-1;
-
-        if (control) control._toolStripGroup = this;
-
-        var column = this.getAvailableColumn(true);
-
-        if (!this.controls) this.controls = [];
-        if (store != false) {
-            if (!this.controls.contains(control)) this.controls.add(control);
+        if (this.controls.contains(control)) this.controls.remove(control);
+        if (index == null) index = this.controls.length;
+        control._ribbonGroup = this;
+        // observe visibility changed on the control
+        this.observeControl(control);
+        this.controls.addAt(control, index);
+        if (!skipUpdate) this._updateControls();
+    },
+    _addControl : function (control) {
+        var column;
+        if (control.vertical) {
+            column = this.addColumn()
+        } else {
+            column = this.getAvailableColumn(true);
         }
-        column.addMember(control, index);
+        control._ribbonGroup = this;
+        control._currentColumn = column.getID();
+        column.addMember(control);
+        if (!column.isVisible()) column.show();
         column.reflowNow();
-        if (!store && control._wasVisible && !control.isVisible()) {
-            // if !store, this is a call from reflowControls(), which hides all controls - so,
-            // the control needs to be shown now, but only if it was visible before the reflow
-            // started
-            delete control._wasVisible;
-            control.show();
+    },
+
+    _updateControls : function () {
+        this._updatingControls = true;
+        for (var i=0; i<this.controls.length; i++) {
+            var control = this.controls[i];
+            if (control._currentColumn) {
+                var canvas = isc.Canvas.getById(control._currentColumn);
+                //if (canvas && !canvas.destroyed) canvas.members.remove(control);
+                if (canvas && !canvas.destroyed) canvas.removeMember(control);
+            }
+            this.addChild(control);
+            delete control._currentColumn;
         }
+        this.body.members.callMethod("hide");
+
+        for (var i=0; i<this.controls.length; i++) {
+            var control = this.controls[i];
+            if (!control.isVisible()) continue;
+            this._addControl(control);
+        }
+        delete this._updatingControls;
     },
 
     //> @method toolStripGroup.removeControl()
@@ -16708,76 +21365,92 @@ isc.defineClass("ToolStripGroup", "VLayout").addProperties({
     // @visibility external
     //<
     autoHideOnLastRemove: false,
-    removeControl : function (control, destroy) {
+    removeControl : function (control) {
         control = isc.isAn.Object(control) ? control : this.getMember(control);
         if (!control) return null;
 
-        var column = this.getControlColumn(control);
-
-        if (column) {
-            column.members.remove(control);
-            if (destroy) this.controls.remove(control);
-            else this.addChild(control);
-            if (column.members.length == 0) {
-                // if the column is now empty, destroy it
-                column.hide();
-                this.body.members.remove(column);
-                column.markForDestroy();
-                column = null;
-            }
-        }
-
+        if (this.controls.contains(control)) this.controls.remove(control);
+        this.getControlColumn(control).removeMember(control);
+        control._ribbonGroup = null;
+        this.ignoreControl(control);
+        this._updateControls();
         if (this.body.members.length == 0 && this.autoHideOnLastRemove) {
             // hide ourselves
             this.hide();
         }
     },
+    // observe visibilityChanged on child controls to enable runtime reflow
+    observeControl : function (control) {
+        if (!this.isObserving(control, "visibilityChanged")) {
+            this.observe(control, "visibilityChanged", "observer.controlVisibilityChanged(observed);");
+        }
+    },
+    ignoreControl : function (control) {
+        if (this.isObserving(control, "visibilityChanged")) {
+            this.ignore(control, "visibilityChanged");
+        }
+    },
+    controlVisibilityChanged : function (control) {
+        if (this._settingControls || this._updatingControls) return;
+        this._updateControls();
+    },
 
-    removeAllControls : function (destroy) {
+    removeAllControls : function () {
         if (!this.controls || this.controls.length == 0) return null;
 
-        for (var i=this.controls.length-1; i>=0; i--) {
+        for (var i=0; i<this.controls.length; i++) {
             var control = this.controls[i];
-            // !destroy means a call from reflowControls() - remember visibility so that
-            // addControl() can re-instate in later
-            if (!destroy) control._wasVisible = control.isVisible();
             control.hide();
-            this.removeControl(control, destroy);
-            if (destroy) {
-                control.markForDestroy();
-                control = null;
+            if (control._currentColumn) {
+                var canvas = isc.Canvas.getById(control._currentColumn);
+                //if (canvas && !canvas.destroyed) canvas.members.remove(control);
+                if (canvas && !canvas.destroyed && canvas.members.contains(control)) {
+                    canvas.removeMember(control);
+                }
             }
+            this.controls[i] = null;
         }
 
         // clear out nulls - that is, any controls that got destroyed
-        this.controls.removeEmpty();
+        this.controls = [];
+
+        this._updateControls();
 
         // shrink the group's body layout, so it can overflow properly when new controls arrive
         this.body.height = 1;
         this.height = 1;
-        this.redraw();
+        //this.redraw();
     },
 
     resized : function () {
+        if (this.destroyed || this.destroying) return;
         this._updateLabel();
     },
 
     draw : function () {
+        if (this.destroyed || this.destroying) return;
         this.Super("draw", arguments);
-
         this._updateLabel();
     },
 
     redraw : function () {
+        if (this.destroyed || this.destroying) return;
         this.Super("redraw", arguments);
-
         this._updateLabel();
     },
 
     _updateLabel : function () {
-        if (this.label) {
-            this.label.setWidth(this.body.getVisibleWidth());
+        //this.logWarn("in _updateLabel")
+
+
+        var innerWidth = this.getInnerWidth(),
+            newWidth = innerWidth
+        ;
+        if (newWidth < 0) {
+            newWidth =  this.body ? this.body.getVisibleWidth() : this.getVisibleWidth();
         }
+
+        if (this.label) this.label.setWidth(newWidth);
     }
 
 });
@@ -16889,6 +21562,9 @@ align: null,
 valign: null,
 
 initWidget : function () {
+    if (this.menuAlign == null) {
+        this.menuAlign = !this.isRTL() ? isc.Canvas.LEFT : isc.Canvas.RIGHT;
+    }
     if (this.orientation == "vertical") {
         this.align = this.align || "center";
         this.valign = this.valign || "top";
@@ -16900,7 +21576,6 @@ initWidget : function () {
     this._originalAlign = this.align;
     this._originalVAlign = this.valign;
 
-    this._originalTitle = this.title;
     this._originalIcon = this.icon;
 
     this.Super("initWidget", arguments);
@@ -16954,7 +21629,17 @@ setIcon : function (icon) {
     // we don't use the regular "icon", but instead we build it into the "title" - store the
     // new icon appropriately and rebuild the title to incorporate the new icon.
     this._originalIcon = icon;
-    this.setTitle(this._originalTitle);
+    this.setTitle(this.title);
+},
+
+stateChanged : function () {
+    if (this.destroyed || this.destroying) return;
+    var result = this.Super("stateChanged", arguments);
+    // rebuild the title, to include stateful icons for example
+    //this.logWarn("in StateChanged")
+    //this.redraw();
+    //this.setTitle(this.title);
+    return result;
 },
 
 //> @attr iconButton.largeIcon (SCImgURL : null : IRW)
@@ -16975,7 +21660,7 @@ setIcon : function (icon) {
 setLargeIcon : function (icon) {
     // set the largeIcon and rebuild the title to incorporate it.
     this.largeIcon = icon;
-    this.setTitle(this._originalTitle);
+    this.setTitle(this.title);
 },
 
 //> @attr iconButton.largeIconSize (Number : 32 : IRW)
@@ -16987,28 +21672,22 @@ setLargeIcon : function (icon) {
 largeIconSize: 32,
 
 setTitle : function (title) {
-    this._originalTitle = title;
-    // getTitle() updates this.title
-    this.getTitle();
-    title = this.title;
+    this.title = title;
     this.align = this._originalAlign;
     this.valign = this._originalVAlign;
     this.Super("setTitle", arguments);
 },
 
-//redraw : function () {
-//    this.logWarn("redrawing " + this.title);
-//    this.Super("redraw", arguments);
-//},
-
 titleSeparator: "&nbsp;",
 getTitle : function () {
-
+    return this.title;
+},
+getTitleHTML : function () {
     var isLarge = this.orientation == "vertical",
         icon = this.showIcon == false ? null :
             (isLarge ? this.largeIcon || this._originalIcon : this._originalIcon),
         iconSize = (isLarge ? this.largeIconSize : this.iconSize),
-        title = this.showButtonTitle ? this._originalTitle : ""
+        title = this.showButtonTitle ? this.title : ""
     ;
 
     if (icon == "") icon = null;
@@ -17019,8 +21698,8 @@ getTitle : function () {
             src: icon,
             width: iconSize,
             height: iconSize,
-            extraStuff: " eventpart='icon'",
-            cssClass: isLarge ? "iconButtonVIcon" : "iconButtonHIcon"
+            eventStuff: " eventpart='icon'",
+            cssClass: isLarge ? this.baseStyle + "VIcon" : this.baseStyle + "HIcon"
         }) : null
     ;
 
@@ -17034,17 +21713,16 @@ getTitle : function () {
                 width: this.menuIconWidth,
                 height: this.menuIconHeight,
                 name: "menuIcon",
-                extraStuff: " eventpart='menuIcon'",
-                cssClass: isLarge ? "iconButtonVMenuIcon" : "iconButtonHMenuIcon"
+                eventStuff: " eventpart='menuIcon'",
+                cssClass: isLarge ? this.baseStyle + "VMenuIcon" : this.baseStyle + "HMenuIcon"
             }) : null);
         ;
     }
 
     this.icon = null;
 
-    var tempTitle = title,
-        title = img || ""
-    ;
+    var tempTitle = title;
+    title = img || "";
 
     if (this.orientation == "vertical") {
         if (this.showButtonTitle) {
@@ -17056,18 +21734,25 @@ getTitle : function () {
             title += menuIcon;
         }
     } else {
+        var titleSeparator = this.titleSeparator;
+
+        if (isc.Browser.isChrome && isc.Browser.version == 78 && titleSeparator == "&nbsp;") {
+            titleSeparator = " ";
+        }
+
         this.valign = "center";
         if (this.showButtonTitle) {
-            if (title != "") title += this.titleSeparator;
+            if (title != "") {
+                title += titleSeparator;
+            }
             title += "<span style='vertical-align:middle;align-content:center;'>" + tempTitle + "</span>";
         }
         if (this.showMenuIcon && menuIcon) {
-            if (title != "") title += this.titleSeparator;
+            if (title != "") title += titleSeparator;
             title += menuIcon;
         }
     }
 
-    this.title = title;
     return title;
 },
 
@@ -17081,7 +21766,8 @@ _getMenuIconURL : function () {
     //this.logWarn(isc.echoFull("state is " + state));
 
     // ignore states we don't care about
-    if (state == sc.STATE_DISABLED && !this.showMenuIconDisabled) state = null;
+    if (state == sc.STATE_DOWN && !this.showMenuIconDown) state = null;
+    else if (state == sc.STATE_DISABLED && !this.showMenuIconDisabled) state = null;
     else if (state == sc.STATE_OVER && (!this.showMenuIconOver || !this.showingMenuButtonOver))
         state = null;
 
@@ -17092,7 +21778,7 @@ _getMenuIconURL : function () {
 
 setHandleDisabled : function () {
     this.Super("setHandleDisabled", arguments);
-    this.setTitle(this._originalTitle);
+    if (this.isDrawn()) this.setTitle(this.title);
 },
 
 mouseOut : function () {
@@ -17142,13 +21828,16 @@ click : function () {
     if (this.showMenuOnClick && this.showMenu) this.showMenu();
 },
 
-//> @attr iconButton.showMenuOnClick (Boolean : null : IRW)
+//> @attr iconButton.showMenuOnClick (Boolean : false : IRW)
 // If set to true, shows this button's +link{class:Menu, menu} when a user clicks anywhere
 // in the button, rather than specifically on the +link{iconButton.menuIconSrc, menuIcon}.
+// <P>
+// Note that this property has a different meaning than +link{statefulCanvas.showMenuOnClick,
+// showMenuOnClick} in the ancestor class +link{StatefulCanvas}.
 //
 // @visibility external
 //<
-//showMenuOnClick: false,
+showMenuOnClick: false,
 
 //> @attr iconButton.showMenuIconOver (Boolean : true : IRW)
 // Whether to show an Over version of the +link{menuIconSrc, menuIcon}.
@@ -17156,6 +21845,13 @@ click : function () {
 // @visibility external
 //<
 showMenuIconOver: true,
+
+//> @attr iconButton.showMenuIconDown (Boolean : false : IRW)
+// Whether to show a Down version of the +link{menuIconSrc, menuIcon}.
+//
+// @visibility external
+//<
+showMenuIconDown: false,
 
 //> @attr iconButton.showMenuIconDisabled (Boolean : true : IRW)
 // Whether to show a Disabled version of the +link{menuIconSrc, menuIcon}.
@@ -17171,7 +21867,7 @@ menuIconMouseMove : function () {
 
     if (element) {
         this.showingMenuButtonOver = true;
-        this.setTitle(this._originalTitle);
+        this.setTitle(this.title);
     }
 },
 
@@ -17182,13 +21878,13 @@ menuIconMouseOut : function () {
 
     if (element) {
         this.showingMenuButtonOver = false;
-        this.setTitle(this._originalTitle);
+        this.setTitle(this.title);
     }
 },
 
 _shouldRedrawOnStateChange : function () {
     if (this.Super("_shouldRedrawOnStateChange", arguments)) return true;
-    var icon = this.showIcon ?
+    var icon = this.showIcon != false ?
                 (this.orientation == "vertical" ?  this.largeIcon || this._originalIcon
                                                 : this._originalIcon)
                             : null;
@@ -17240,12 +21936,27 @@ menuIconClick : function () {
 //<
 menu:null,
 
-//> @attr iconMenuButton.menuAnimationEffect (string : null : IRWA)
+//> @attr iconMenuButton.menuAnimationEffect (String : null : IRWA)
 // Allows you to specify an animation effect to apply to the menu when it is being shown.
 // Valid options are "none" (no animation), "fade", "slide" and "wipe".
 // If unspecified falls through to <code>menu.showAnimationEffect</code>
 // @visibility animation
 //<
+
+//> @attr iconMenuButton.menuAlign (Alignment : null : IR)
+// The horizontal alignment of this button's menu, in relation to the button.  When unset,
+// default behavior is to align the right edges of button and menu if the page is in RTL
+// mode, and the left edges otherwise.
+// @visibility external
+//<
+//menuAlign: null,
+
+//>    @attr iconMenuButton.showMenuBelow (Boolean : true : IRW)
+// The menu drops down below the menu button.
+// Set to false if the menu should appear above the menu button.
+// @visibility external
+//<
+showMenuBelow: true,
 
 //> @method iconMenuButton.showMenu()
 // Shows this button's +link{iconMenuButton.menu}.  Called automatically when a user clicks the
@@ -17267,19 +21978,27 @@ showMenu : function () {
     // Note that we use _showOffscreen which handles figuring out the size, and
     // applying scrollbars if necessary.
     menu._showOffscreen();
+    this.positionMenu(menu);
+    menu.show(this.menuAnimationEffect);
+},
 
+positionMenu : function (menu) {
+    if (!menu) return;
     // figure out the left coordinate of the drop-down menu
     var left = this.getPageLeft();
 
-    //left = left - (menu.getVisibleWidth() - this.getVisibleWidth());
+    if (this.menuAlign == isc.Canvas.CENTER) {
+        // center-align the menu to the menuButton
+        left = left - ((menu.getVisibleWidth() - this.getVisibleWidth()) / 2);
+    } else if (this.menuAlign == isc.Canvas.RIGHT) {
+        // align the right-edge of the menu to the right edge of the menuButton
+        left -= (menu.getVisibleWidth() - this.getVisibleWidth());
+    }
 
-    var top = this.getPageTop()+this.getVisibleHeight()+1;
-
+    var top = this.showMenuBelow ? this.getPageTop()+this.getVisibleHeight()+1 :
+                                   this.getPageTop()-menu.getVisibleHeight()+2;
     // don't allow the menu to show up off-screen
     menu.placeNear(left, top);
-    menu.show(this.menuAnimationEffect);
-
-    return true;
 },
 
 _createMenu : function (menu) {
@@ -17380,7 +22099,8 @@ isc.defineClass("RibbonGroup", "ToolStripGroup").addProperties({
 // an "Accordion".
 // <P>
 // SectionStack can be configured so that only one section is visible at a time (similar to MS Outlook's
-// left-hand Nav), or to allow multiple sections to be visible and share the available space.
+// left-hand Nav), or to allow multiple sections to be visible and share the available space.  For
+// further details, see +link{sectionStack.visibilityMode}.
 //
 // @inheritsFrom VLayout
 // @treeLocation Client Reference/Layout
@@ -17471,11 +22191,7 @@ isc.SectionStack.addProperties({
         overflow: "hidden",
         visibility: "hidden",
         // Hide using display:none so as not to affect scrollHeight
-        hideUsingDisplayNone: true,
-        // Suppress adjustOverflow() because the tabPanel is always hidden using display:none,
-        // so _browserDoneDrawing() is always false and this causes an infinite loop of delayed
-        // adjustOverflow() attempts.
-        _suppressAdjustOverflow: true
+        hideUsingDisplayNone: true
 
     },
 
@@ -17486,10 +22202,12 @@ isc.SectionStack.addProperties({
     //> @attr SectionStack.sections (Array of SectionStackSection Properties : null : [IR])
     // List of sections of components managed by this SectionStack.
     //
-    // @see sectionStack.getSections()
-    // @visibility external
+    // @getter noauto
+    // @see sectionStack.getSectionNames()
     // @example sectionsExpandCollapse
+    // @visibility external
     //<
+
 
     //> @attr SectionStack.canResizeSections (Boolean : true : [IRA])
     // Whether sections can be drag resized by the user dragging the section header.
@@ -17539,7 +22257,10 @@ isc.SectionStack.addProperties({
     // order for accessibility.
     // May be overridden at the Section level via +link{SectionStackSection.canTabToHeader}
     // <P>
-    // If unset, section headers will be focusable if +link{isc.setScreenReaderMode} has been called.
+    // If unset, section headers will be focusable if <smartclient>+link{isc.setScreenReaderMode}
+    // </smartclient>
+    // <smartgwt>{@link com.smartgwt.client.util.SC#setScreenReaderMode SC.setScreenReaderMode()}
+    // </smartgwt> has been called.
     // See +link{group:accessibility}.
     // @visibility external
     //<
@@ -17568,15 +22289,24 @@ isc.SectionStack.addProperties({
     //> @object SectionStackSection
     // Section descriptor used by a SectionStack to describe a section of items which are shown
     // or hidden together along with their associated header.
-    // <P>
-    // A section header (see +link{sectionStack.sectionHeaderClass}) is created from this descriptor when
-    // the SectionStack is drawn. Any changes after creation  must be made to the section header:
-    // +link{sectionStack.getSectionHeader}.
-    // <P>
-    // Additional SectionHeader properties set on the SectionStackSection not explicitly documented such as
-    // "iconAlign" or "prompt" is supported<smartgwt> - use
+    // <P><smartclient>
+    // A section header (see +link{sectionStack.sectionHeaderClass}) is created from this
+    // descriptor when the SectionStack is created.  Any changes after creation  must be made to
+    // the section header: +link{sectionStack.getSectionHeader}.
+    // </smartclient><smartgwt>
+    // A <code>SectionStackSection</code> can't be modified once it's been added to a
+    // +link{SectionStack}, which creates its section header (by default a +link{SectionHeader},
+    // but see +link{sectionStack.sectionHeaderClass}).  After that, you must call the
+    // appropriate <code>SectionStack</code> method to modify a section property, or the
+    // section header getter method to get the updated property value.  As a convenience, we
+    // route several <code>SectionStackSection</code> setter methods to the +link{SectionStack}
+    // for you after the <code>SectionStackSection</code> has been added to it, but with the
+    // exception of +link{SectionStackSection.items}, you'll always get the original property
+    // values when calling a getter directly on a <code>SectionStackSection</code>.
+    // </smartgwt><P>
+    // Additional SectionHeader properties set on the SectionStackSection not explicitly
+    // documented, such as "iconAlign" or "prompt", are supported<smartgwt> - use
     // <code>setAttribute()</code></smartgwt>.
-    //
     // @treeLocation Client Reference/Layout/SectionStack
     // @visibility external
     //<
@@ -17645,9 +22375,13 @@ isc.SectionStack.addProperties({
     // @visibility external
     //<
 
-    //> @attr SectionStackSection.items (Array of Canvas : null : [I])
+    //> @attr SectionStackSection.items (Array of Canvas | Array of AutoChildShortcut : null : [I])
     // List of Canvases that constitute the section.  These Canvases will be shown and hidden
     // together.
+    // <P>
+    // Along with live Canvases, you may also pass special string autochild shortcuts of the
+    // form "autoChild:<i>autoChildName</i>" as discussed at the bottom of help topic
+    // +link{group:autoChildren}.
     // @visibility external
     //<
 
@@ -17719,6 +22453,13 @@ isc.SectionStack.addProperties({
     // regardless of this setting.
     // @visibility external
     // @example sectionsExpandCollapse
+    //<
+
+    //> @attr SectionStackSection.destroyOnRemove (Boolean : false : [I])
+    // Should the +link{attr:items} be +link{canvas.destroy(),destroyed} if this section is
+    // +link{sectionStack.removeSection(),removed}?  The section header itself and any controls
+    // will always be destroyed.
+    // @visibility external
     //<
 
     //>Animation
@@ -17877,14 +22618,14 @@ isc.SectionStack.addMethods({
     },
 
     // replace one member with another, without an intervening relayout, and without animation
-    replaceMember : function (oldMember, newMember) {
+    _replaceMember : function (oldMember, newMember) {
 
         var oldMemberPos = this.getMemberNumber(oldMember),
             section = this.sectionForItem(oldMember)
         ;
 
         if (!section) {
-            return this.Super("replaceMember", arguments);
+            return this.Super("_replaceMember", arguments);
         }
 
         var oldSetting = this.instantRelayout;
@@ -17994,7 +22735,7 @@ isc.SectionStack.addMethods({
                     visibleMemberIndex++;
                 }
 
-                memberIndex += 1
+                memberIndex += 1;
                 member = this.members[memberIndex];
 
             }
@@ -18101,7 +22842,7 @@ isc.SectionStack.addMethods({
         if (!isc.isA.Canvas(canvas)) {
             this.logWarn("addItem passed:" + this.echo(item) +
                     " cannot be resolved to a Canvas - ignoring");
-            return
+            return;
         }
         var sectionHeader = this.getSection(section);
         if (index  == null) index = 0;
@@ -18127,7 +22868,7 @@ isc.SectionStack.addMethods({
             if (isc.Canvas.ariaEnabled()) {
                 section = this.getSectionHeader(section);
                 if (isc.isA.Canvas(section)) {
-                    var itemIDs = section.items.callMethod("_getAriaHandleID");
+                    var itemIDs = section.items.callMethod("getAriaHandleID");
                     section._tabPanel.setAriaState("owns", itemIDs.join(" "));
                 }
             }
@@ -18145,8 +22886,8 @@ isc.SectionStack.addMethods({
     // @visibility external
     //<
     removeItem : function (section, item) {
-        if (!section) section = this.sectionForItem(item);
-        if (!section) return;
+        if (section == null) section = this.sectionForItem(item);
+        if (section == null) return;
 
         var sectionHeader = this.getSection(section);
         sectionHeader.items.remove(item);
@@ -18156,10 +22897,46 @@ isc.SectionStack.addMethods({
         if (isc.Canvas.ariaEnabled()) {
             section = this.getSectionHeader(section);
             if (isc.isA.Canvas(section)) {
-                var itemIDs = section.items.callMethod("_getAriaHandleID");
+                var itemIDs = section.items.callMethod("getAriaHandleID");
                 section._tabPanel.setAriaState("owns", itemIDs.join(" "));
             }
         }
+    },
+
+    //> @method sectionStack.setItems()
+    // Sets a new list of canvii as items into the specified section by removing the existing
+    // items, then adding the new ones.  Initial items for a section should be specified using
+    // the property +link{sectionStackSection.items}.
+    // @param section (String | Number) ID or index of the section to set items on
+    // @param items (Array of Canvas) new items to add
+    // @visibility external
+    //<
+    setItems : function (section, items) {
+        if (section == null) return;
+
+        // delay reflow until we're done
+        var oldSetting = this.instantRelayout;
+        this.instantRelayout = false;
+
+        // first remove all existing items from the section
+        var sectionHeader = this.getSection(section);
+        while (sectionHeader.items.length > 0) {
+            this.removeItem(section, sectionHeader.items.last());
+        }
+
+
+
+        // now the new items must be added to the section
+        if (!isc.isAn.Array(items)) items = [items];
+        for (var i = 0; i < items.length; i++) {
+            this.addItem(section, items[i], i);
+        }
+
+
+
+        // reflow now if so configured
+        this.instantRelayout = oldSetting;
+        if (oldSetting) this.reflowNow();
     },
 
     //> @method sectionStack.setSectionProperties()
@@ -18297,29 +23074,32 @@ isc.SectionStack.addMethods({
             //   name slot, so getSection() et al will continue to work with the specified ID
             // - if this.useGlobalSectionIDs is false, we will not apply the specified ID
             //   property to the generated widget (so it doesn't have to be page-unique).
-            var name = null, resetID = null, undef;
+            var name = null, resetID = null, resetAutoID = null, undef;
             if (section.name != null) name = section.name;
-            if (section.ID != null) {
-                if (name == null) name = section.ID;
+            if (section.ID != null || section.autoID != null) {
+                if (name == null) name = section.ID || section.autoID;
                 // If an ID was specified, support passing it through to the generated
                 // widget (will do this by default)
                 if (!this.useGlobalSectionIDs) {
                     resetID = section.ID;
+                    resetAutoID = section.autoID;
 
                     if (isc.Browser.isSGWT) {
                         delete section.ID;
+                        delete section.autoID;
                         delete section._autoAssignedID;
                     } else {
                         section.ID              = undef;
+                        section.autoID          = undef;
                         section._autoAssignedID = undef;
                     }
                 } else {
                     // detect anything with a matching global ID - this'll trip a collision
                     // which may be quite confusing in a live app.
-                    var collision = window[section.ID];
+                    var collision = window[section.ID || section.autoID];
                     if (collision != null) {
                         this.logWarn("Note: Section Stack Section has ID specified as '" +
-                            section.ID + "'. This collides with an existing " +
+                            (section.ID || section.autoID) + "'. This collides with an existing " +
                             (isc.isA.Canvas(collision) ? "SmartClient component ID." :
                                                         "object reference.") +
                             " The existing object will be replaced by the generated header" +
@@ -18370,22 +23150,21 @@ isc.SectionStack.addMethods({
             // Check if we need to dereference
             sectionHeader = isc.SGWTFactory.extractFromConfigBlock(sectionHeader);
 
-            section._sectionHeader = sectionHeader
+            section._sectionHeader = sectionHeader;
 
             // APIs to get from one to the other.
             sectionHeader.getSectionConfig=function () {
                 return this._sectionConfig;
-            }
+            };
             section.getSectionHeader = function () {
                 return this._sectionHeader;
-            }
+            };
 
             // if we cleared the ID so as not to effect the generated widget ID,
             // restore it now so the user can continue to reference the attribute on
             // the config object originally passed in if necessary.
-            if (resetID != null) {
-                section.ID = resetID;
-            }
+            if (resetID != null) section.ID = resetID;
+            if (resetAutoID != null) section.autoID = resetAutoID;
 
             section = sectionHeader;
 
@@ -18443,6 +23222,9 @@ isc.SectionStack.addMethods({
     //> @method sectionStack.addSection()
     //
     // Add a section to the SectionStack.
+    // <P>
+    // You may want to apply +link{canvas.overflow,overflow}: "auto" to your stack if users can
+    // add an unlimited/ number of sections, so that they're all accessible.
     //
     // @param sections  (SectionStackSection Properties | List of SectionStackSection Properties) Initialization block
     //                  for the section or a list of initialization blocks to add.
@@ -18458,7 +23240,9 @@ isc.SectionStack.addMethods({
     //> @method sectionStack.removeSection()
     //
     // Remove a section or set of sections from the SectionStack.  The removed sections' header
-    // and items (if any) are automatically destroyed.
+    // and controls (if any) are automatically destroyed.  A section's
+    // +link{sectionStackSection.items,items} will also be destroyed if
+    // +link{sectionStackSection.destroyOnRemove,destroyOnRemove} is set on the section.
     //
     // @param sections  (int | String | Array of int | Array of String)  Section(s) to remove.
     //                  For this parameter, you can pass the position of the section in the
@@ -18480,18 +23264,24 @@ isc.SectionStack.addMethods({
                     section._tabPanel.destroy();
                     section._tabPanel = null;
                 }
+                var destroyOnRemove = section.destroyOnRemove;
                 for (var ii = section.items.length-1; ii >= 0; ii--) {
                     var item = section.items[ii];
 
 
                     if (this.members.contains(item)) this.removeMember(item);
+
+                    // removing item from the layout won't destroy it; do it now if appropriate
+                    if (destroyOnRemove && item && !item.destroying && !item.destroyed) {
+                        item.destroy();
+                    }
                 }
                 if (!section.destroying && !section.destroyed) section.destroy();
             }
         }
     },
 
-    //> @method sectionStack.getSections()
+    //> @method sectionStack.getSectionNames()
     //
     // Returns a list of all +link{SectionStackSection.name,section names} in the order in which
     // they appear in the SectionStack.
@@ -18499,8 +23289,17 @@ isc.SectionStack.addMethods({
     // @return (List) list of all section names in the order in which they appear in the SectionStack.
     // @visibility external
     //<
-    getSections : function () {
+    getSectionNames : function () {
         return this.sections.getProperty("name");
+    },
+
+    //> @method sectionStack.getSections()
+    // @include getSectionNames()
+    // @deprecated in favor of +link{getSectionNames()}.
+    // @visibility external
+    //<
+    getSections : function () {
+        return this.getSectionNames();
     },
 
     //> @method sectionStack.reorderSection()
@@ -18708,7 +23507,7 @@ isc.SectionStack.addMethods({
                     itemsToShow.addList(section.items);
 
                     if (ariaEnabled) {
-                        var itemIDs = section.items.callMethod("_getAriaHandleID");
+                        var itemIDs = section.items.callMethod("getAriaHandleID");
                         section._tabPanel.setAriaState("owns", itemIDs.join(" "));
                     }
                 }
@@ -18727,27 +23526,37 @@ isc.SectionStack.addMethods({
         // normalized by the caller
         if (sections.length == 0) return;
 
-        // this method jsut scrolls things into view, but if we haven't been drawn yet, then
+        // this method just scrolls things into view, but if we haven't been drawn yet, then
         // there's no need to do anything.
-        if (this.isDrawn()) {
-
+        if (this.isDrawn() && this.scrollSectionIntoView &&
+            (this.overflow == isc.Canvas.SCROLL || this.overflow == isc.Canvas.AUTO))
+        {
             // scroll the first passed section into view
             var section = this.getSectionHeader(sections[0]);
-
-            // bring the section that was just shown into the viewport
-            if (this.vscrollOn && this.scrollSectionIntoView) {
-                var firstMember = (section.showHeader ? section : section.items.first()),
-                    lastMember = section.items.last();
-
-                // NOTE: visible height wouldn't be correct until component is drawn
-                this.delayCall("scrollIntoView",
-                                [firstMember.getLeft(), firstMember.getTop(),
-                                 firstMember.getVisibleWidth(), lastMember.getVisibleHeight(),
-                                 "left", "top"], 0);
-            }
+            this.delayCall("_scrollSectionIntoView", [section], 0);
         }
 
         if (callback != null) this.fireCallback(callback);
+    },
+
+    _scrollSectionIntoView : function (section) {
+        if (!this.vscrollOn || !this.sectionIsVisible(section)) return;
+
+        // first "item" in section is either the header or first items widget
+        var firstItem = section.showHeader ? section : section.items.first();
+
+
+        var lastItem = firstItem,
+            items = section.items;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].isDrawn() && items[i].isVisible()) lastItem = items[i];
+        }
+
+        // scroll section (header if visible plus all item widgets) into view
+        var top = firstItem.getTop();
+        this.scrollIntoView(firstItem.getLeft(), top, firstItem.getVisibleWidth(),
+                            lastItem.getTop() - top + lastItem.getVisibleHeight(),
+                            "left", "top");
     },
 
     //> @method sectionStack.sectionForItem()
@@ -18793,7 +23602,7 @@ isc.SectionStack.addMethods({
     // this method has no effect
     //
     // @visibility external
-    // @param child (ID | Canvas)   the child Canvas to reveal, or its global ID
+    // @param child (GlobalId | Canvas)   the child Canvas to reveal, or its global ID
     //<
     revealChild : function (child) {
         if (isc.isA.String(child)) child = window[child];
@@ -19081,7 +23890,7 @@ isc.SectionStack.addMethods({
     // Returns the position of the specified section in the SectionStack.  The numbering is
     // zero-based.
     //
-    // @param sectionName     (string) name of a section for which you want to obtain the position.
+    // @param sectionName     (String) name of a section for which you want to obtain the position.
     //
     // @return (number)     Position of the section in the SectionStack or -1 if the specified
     //                      section is not a member of this SectionStack.
@@ -19352,6 +24161,14 @@ isc._commonHeaderProps = {
     // Collapse behavior
     // ---------------------------------------------------------------------------------------
 
+    // Show expand/collapse icon?
+    shouldShowExpandIcon : function () {
+        // if the section cannot be collapsed, or SectionStack.showExpandControls: false, don't
+        // show the expand/collapse icons and allow clicks anywhere to expand and collapse
+        return !(!this.canCollapse || (this._hasLayout() && this.getSectionStack() &&
+                this.getSectionStack().showExpandControls == false));
+    },
+
     // Snap open/closed on  "space" / "enter" keypress
     // Allow resizing via ctrl+arrow keys
     keyPress : function () {
@@ -19369,7 +24186,7 @@ isc._commonHeaderProps = {
             var resizeStep = (keyName == "Arrow_Up" ? -5 : 5);
             this.bringToFront(); // so we aren't occluded by what we will resize
             this.resizeTarget(target, true, this.resizeInRealTime, 0, 0,
-                                (this.getPageTop() + resizeStep))
+                              (this.getPageTop() + resizeStep));
             // set a flag so we know to kill the when the user releases the ctrl key
             this._keyResizeTarget = target;
         }
@@ -19426,6 +24243,21 @@ isc._commonHeaderProps = {
         if (!this._hasLayout()) return;
         this.getSectionStack().removeItem(this, item);
     },
+    addControl : function (control, index) {
+        if (!this.controls) this.controls = [];
+        // this.controls is the same as this.controlsLayout.members so don't
+        // modify it directly except for the first new control
+        if (this.controlsLayout) {
+            this.controlsLayout.addMembers(this.parentElement.createCanvii([control]), index);
+        } else {
+           this.controls.addAt(control, index);
+            this.refreshControls();
+        }
+    },
+    removeControl : function (control) {
+        if (!this.controls || !this.controlsLayout) return;
+        this.controlsLayout.removeMember(control);
+    },
     //<EditMode
 
     // Resize interaction
@@ -19449,6 +24281,7 @@ isc._commonHeaderProps = {
         this.resizeTarget(this._sectionDragTarget, true, this.resizeInRealTime, offset, resizeIgnore);
     },
     dragStop : function () {
+        if (!this._hasLayout()) return;
         this.finishTargetResize(this._sectionDragTarget, true, this.resizeInRealTime);
     },
 
@@ -19523,14 +24356,20 @@ isc._commonHeaderProps = {
         return (this.controlsLayout == null ? null : this.controlsLayout.getVisibleWidth());
     },
 
+    getControlsSnapTo : function () {
+        var isRTL = this.isRTL();
+        return isRTL ? "L" : "R";
+    },
     addControls : function () {
         if (!this.controls) return;
 
         var isRTL = this.isRTL();
+        var controlsSnapTo = this.getControlsSnapTo();
+
         this.addAutoChild("controlsLayout", {
             height:this.getInnerHeight(),
             align:isRTL ? "left" : "right",
-            snapTo:isRTL ? "L" : "R",
+            snapTo:controlsSnapTo,
             // use createCanvii on parentElement such that the "autoChild:foo" instantiation
             // scheme can be used for controls just like for items
             members: this.parentElement.createCanvii(this.controls),
@@ -19544,12 +24383,15 @@ isc._commonHeaderProps = {
         this.allowContentAndChildren = true;
     },
 
+
     refreshControls : function () {
         if (!this.controls) return;
-        if (!this.controlsLayout) this.addControls();
-
-        var layout = this.controlsLayout;
-        layout.addMembers(this.controls);
+        if (!this.controlsLayout) {
+            this.addControls();
+        } else {
+            var layout = this.controlsLayout;
+            layout.addMembers(this.controls);
+        }
 
         this.allowContentAndChildren = true;
     },
@@ -19637,7 +24479,26 @@ isc.defineClass("SectionHeader", "Label").addMethods(isc._commonHeaderProps,
         // a child component may have shown a picker or other canvas which is now EH.lastTarget
         // - check whether the original mouseDown target is a child
         if (this.contains(isc.EH.mouseDownTarget())) return false;
+
+        //>EditMode
+        // To allow inline-editing of title, delay click handling until after a double-click
+        // could have started editing. EditProxy clears noDoubleClicks to allow them to
+        // trigger editing and will call _clearPendingClickTimer() when editing starts
+        // thus suppressing the click event.
+        this._clearPendingClickTimer();
+        if (((this.parentElement && this.parentElement.editingOn) || this.editingOn) && !this.noDoubleClicks) {
+            this._pendingClickTimer = this.getSectionStack().delayCall("sectionHeaderClick", [this], isc.EH.DOUBLE_CLICK_DELAY);
+            return;
+        }
+        //<EditMode
         return this.getSectionStack().sectionHeaderClick(this);
+    },
+
+    _clearPendingClickTimer : function () {
+        if (this._pendingClickTimer) {
+            isc.Timer.clear(this._pendingClickTimer);
+            delete this._pendingClickTimer;
+        }
     },
 
     draw : function (a,b,c,d) {
@@ -19646,11 +24507,7 @@ isc.defineClass("SectionHeader", "Label").addMethods(isc._commonHeaderProps,
 
 
 
-        // if the section cannot be collapsed, or SectionStack.showExpandControls: false, don't
-        // show the expand/collapse icons and allow clicks anywhere to expand and collapse
-        if (!this.canCollapse || (this._hasLayout() && this.getSectionStack() &&
-            this.getSectionStack().showExpandControls == false))
-        {
+        if (!this.shouldShowExpandIcon()) {
             this.icon = null;
             this.showIconState = false;
         }
@@ -19951,9 +24808,7 @@ isc.defineClass("ImgSectionHeader", "HLayout").addMethods({
 
         // if the section cannot be collapsed, or SectionStack.showExpandControls: false, don't
         // show the expand/collapse icons and allow clicks anywhere to expand and collapse
-        if (!this.canCollapse || (this._hasLayout() && this.getSectionStack() &&
-            this.getSectionStack().showExpandControls == false))
-        {
+        if (!this.shouldShowExpandIcon()) {
             props.icon = null;
             props.showIconState = false;
         }
@@ -20076,10 +24931,158 @@ isc.SectionStack.registerStringMethods({
 isc.SectionStack.registerDupProperties(
     "sections",
     // second array is sub-properties!
-    ["items"],
-    ["controls"]);
+    ["items", "controls"]
+);
 
 
+// Layout based section header to allow more control over "controlLayout" without
+// overflowing the title, etc
+
+
+isc.defineClass("SectionHeaderLayout", isc.HLayout);
+
+isc.SectionHeaderLayout.addProperties(
+
+    isc._commonMediaProps, isc._commonHeaderProps
+);
+
+isc.SectionHeaderLayout.addProperties({
+
+    // titleLabel autoChild - label to hold the title + icon
+
+    titleLabelConstructor:isc.SectionHeader,
+    titleLabelDefaults:{
+        isSectionHeader:false, // used for drag/drop within the sectionStack only, not necessary here
+        width:"*",
+        height:"*",
+
+        // avoid style doubling since we apply the same css style to both the title label
+        // and the parent HLayout
+        border:"0px",
+        backgroundColor:"transparent",
+        backgroundImage:isc.Canvas._blankImgURL,
+
+        shouldShowExpandIcon : function () {
+            return this.creator.shouldShowExpandIcon();
+        },
+
+        getCurrentCursor : function () {
+            return this.creator.getCurrentCursor();
+        },
+
+        _canFocus:function () {
+            return false;
+        },
+
+        stateChanged : function () {
+            this.Super("stateChanged", arguments);
+            this.creator.updateStateStyling();
+        }
+    },
+
+    initWidget : function () {
+
+        this.addAutoChild("titleLabel",
+            {
+                title:this.title,
+
+
+
+                expanded:this.expanded
+            }
+        );
+    },
+    // Don't set snapTo on the controlsLayout - we want it to be a member, not a floating child
+    // If snapTo is unset this will happen automatically when addAutoChild() runs
+    getControlsSnapTo : function () {
+        return null;
+    },
+
+    setTitle : function (title) {
+        this.title = title;
+        if (this.titleLabel) this.titleLabel.setTitle(title);
+    },
+
+    updateStateStyling : function () {
+
+        // we're not a statefulCanvas, but we need to combine the baseStyle with
+        // "opened" / "closed" suffix and dislay that style.
+        // Quick way to do this is to just borrow the state directly from the
+        // titleLabel
+
+        if (this.titleLabel) return this.setStyleName(this.titleLabel.getStateName());
+    },
+    draw : function (a,b,c,d) {
+        if (isc._traceMarkers) arguments.__this = this;
+        if (!this.readyToDraw()) return;
+
+        // Not being a subclass of statefulCanvas, we won't automatically display
+        // a styleName calculated from baseStyle - do this explicitly now
+        this.updateStateStyling();
+
+        this.addControls();
+        this.invokeSuper(isc.SectionHeaderLayout, "draw", a,b,c,d);
+    },
+
+    expanded: false,
+    canCollapse: true,
+
+    // Explicitly zero out the layout margin.
+    // This avoids us picking up a layoutMargin from the padding (which may be
+    // set to a non-zero value in the css style applied to this widget)
+    layoutMargin:0,
+
+    // Center controls and titles vertically
+    defaultLayoutAlign:"center",
+
+
+
+    // Implement setExpanded: show 'expanded' styling on the title label element
+    setExpanded : function (expanded) {
+        this.expanded = expanded;
+        this.titleLabel.setExpanded(expanded);
+    },
+
+    // Click handler
+
+
+    // call our layout on click
+    click : function () {
+        if (!this.canCollapse || !this._hasLayout()) return;
+
+
+        var target = isc.EH.mouseDownTarget();
+        if (target != this && target != this.titleLabel && target != this.controlsLayout) return;
+
+        //>EditMode
+        // To allow inline-editing of title, delay click handling until after a double-click
+        // could have started editing. EditProxy clears noDoubleClicks to allow them to
+        // trigger editing and will call _clearPendingClickTimer() when editing starts
+        // thus suppressing the click event.
+        this._clearPendingClickTimer();
+        if (((this.parentElement && this.parentElement.editingOn) || this.editingOn) && !this.noDoubleClicks) {
+            this._pendingClickTimer = this.getSectionStack().delayCall("sectionHeaderClick", [this], isc.EH.DOUBLE_CLICK_DELAY);
+            return;
+        }
+        //<EditMode
+        return this.getSectionStack().sectionHeaderClick(this);
+    },
+
+    _clearPendingClickTimer : function () {
+        if (this._pendingClickTimer) {
+            isc.Timer.clear(this._pendingClickTimer);
+            delete this._pendingClickTimer;
+        }
+    }
+
+});
+
+// Clear addAsChild on controlsLayout autoChild - we *do* want it to be a member
+isc.SectionHeaderLayout.changeDefaults("controlsLayoutDefaults",
+    {
+        addAsChild:null, snapTo:null,
+        width:1
+    });
 
 
 
@@ -20132,6 +25135,43 @@ isc._thumbProperties = {
     triggerAreaBottom: 0,
     triggerAreaLeft: 0,
 
+    _updateTriggerArea : function (scrollTarget) {
+        var vertical = this.scrollbar.vertical,
+            offset = isc.Browser.isTouch ? 8 : 0,
+            minThumbLength = isc.Browser.minDualInputThumbLength
+        ;
+        if (vertical) { // vertical thumb - expand on left (non-RTL) or right (RTL)
+            var isRTL = scrollTarget == null ? isc.Page.isRTL() : scrollTarget.isRTL();
+            this.setTriggerAreaLeft(!isRTL ? offset : 0);
+            this.setTriggerAreaRight(isRTL ? offset : 0);
+
+            // enforce minimum effective thumb height in dual input mode
+            if (minThumbLength != null && isc.Browser.hasDualInput) {
+                var height = this.getVisibleHeight();
+                offset = height < minThumbLength ? Math.ceil((minThumbLength - height) / 2) : 0;
+                this.setTriggerAreaTop(offset);
+                this.setTriggerAreaBottom(offset);
+            }
+
+        } else { // horizontal thumb - expand on top
+            this.setTriggerAreaTop(offset);
+            this.setTriggerAreaBottom(0);
+
+            // enforce minimum effective thumb width in dual input mode
+            if (minThumbLength != null && isc.Browser.hasDualInput) {
+                var width = this.getVisibleWidth();
+                offset = width < minThumbLength ? Math.ceil((minThumbLength - width) / 2) : 0;
+                this.setTriggerAreaLeft(offset);
+                this.setTriggerAreaRight(offset);
+            }
+        }
+    },
+
+    enableTouchSupport : function () {
+        this.Super("enableTouchSupport", arguments);
+        if (this.triggerArea) this._updateTriggerArea();
+    },
+
 
     showDisabled:false,
 
@@ -20155,7 +25195,7 @@ isc._thumbProperties = {
 
     // send special notifications for some events
     mouseOver : function () {return this.scrollbar.thumbOver();},
-    mouseOut : function () {return this.scrollbar.thumbOut();},
+    mouseOut : function (event) {return this.scrollbar.thumbOut(event);},
     mouseDown : function () {return this.scrollbar.thumbDown();},
     dragStart : function () {return this.scrollbar.thumbDragStart();},
     dragMove : function () {return this.scrollbar.thumbMove();},
@@ -20184,6 +25224,19 @@ isc._thumbProperties = {
         this.Super("masterMoved", arguments);
     }
 };
+
+
+if (isc.Browser.minDualInputThumbLength != null) {
+    isc._thumbProperties.triggerAreaDefaults =
+        isc.addProperties({}, isc.StatefulCanvas.getPrototype().triggerAreaDefaults, {
+            _fitToMaster : function () {
+                var master = this.masterElement;
+                master._updateTriggerArea();
+                this.setRect(master._getTriggerAreaRect());
+            }
+        });
+}
+
 isc.defineClass("ScrollThumb", "StretchImg").addProperties(isc._thumbProperties);
 isc.ScrollThumb.addProperties({
     hSrc:"[SKIN]hthumb.gif",
@@ -20355,7 +25408,7 @@ isc.Scrollbar.addProperties( {
 
     overflow:isc.Canvas.HIDDEN,
 
-    //>    @attr scrollbar.skinImgDir (URL : "images/Scrollbar/" : IRA)
+    //>    @attr scrollbar.skinImgDir (SCImgURL : "images/Scrollbar/" : IRA)
     // Where are the skin images for the Scrollbar.  This is local to the +link{Page.getSkinDir(),
     // overall skin directory}.
     // @group images
@@ -20371,7 +25424,7 @@ isc.Scrollbar.addProperties( {
     //<
     cornerSrc : "[SKIN]corner.gif",
 
-    //> @attr scrollbar.cornerSize (integer : null : IR)
+    //> @attr scrollbar.cornerSize (Integer : null : IR)
     // Allows the size of the corner segment to be set independently of the +link{btnSize}.
     // @group corner
     // @visibility external
@@ -20495,7 +25548,7 @@ isc.Scrollbar.addMethods({
 //            creates the thumb and adds it as a peer
 //            calls setScrollTarget() to set us up with the target to be scrolled
 //
-//        @param    [all arguments]    (object)    objects with properties to override from default
+//        @param    [all arguments]    (Object)    objects with properties to override from default
 //<
 initWidget : function () {
     this.invokeSuper(isc.Scrollbar,"initWidget");
@@ -20643,6 +25696,9 @@ setScrollTarget : function (newTarget) {
         delete this.scrollTarget[this.vertical ? "_vscrollbar" : "_hscrollbar"];
     }
 
+    // setScrollTarget() can be called to switch targets, so clear any previous eventParent
+    if (this.scrollTarget && this.scrollTarget.receiveScrollbarEvents) this._redirectEvents();
+
     // If a newTarget was specified, set the scrollTarget to it.
     // If a newTarget was not specified, we'll use the current scrollTarget. If the
     // current scrollTarget isn't set, we use the scrollBar itself to avoid
@@ -20654,17 +25710,18 @@ setScrollTarget : function (newTarget) {
     // We now are sure that we have a scrollTarget. If the scrollTarget has been changed
     // then we re-observe it. Otherwise, we're done.
 
-    if (this._selfManaged && this.scrollTarget != this) {
-         this.observe(this.scrollTarget, "scrollTo",        "observer.setThumb()");
-        this.observe(this.scrollTarget, "_adjustOverflow", "observer.setThumb()");
-        this._setScrollbarOnTarget(this.scrollTarget);
+    var scrollTarget = this.scrollTarget;
+    if (this._selfManaged && scrollTarget != this) {
+         this.observe(scrollTarget, "scrollTo",        "observer.setThumb()");
+        this.observe(scrollTarget, "_adjustOverflow", "observer.setThumb()");
+        this._setScrollbarOnTarget(scrollTarget);
     }
 
-    if (this.thumb != null) {
-        var scrollTargetIsRTL = newTarget == null ? isc.Page.isRTL() : newTarget.isRTL();
-        this.thumb.setTriggerAreaLeft(this.vertical && !scrollTargetIsRTL ? 8 : 0);
-        this.thumb.setTriggerAreaRight(this.vertical && scrollTargetIsRTL ? 8 : 0);
-    }
+
+    if (scrollTarget.receiveScrollbarEvents) this._redirectEvents(scrollTarget);
+
+    // update the thumb's trigger area to deal with new scroll target
+    if (this.thumb != null) this.thumb._updateTriggerArea(newTarget);
 
     // call setThumb to figure out how big and where the scrollbar thumb should be
     // note: this will enable and disable the scrollbar if autoEnable is true
@@ -20734,7 +25791,7 @@ parentVisibilityChanged : function (newState,b,c,d) {
 //>    @method    scrollbar.drawPeers()    (A)
 //            custom drawPeers routine to size the thumb before it's drawn
 //
-//        @param    document        (document)
+//        @param    document        (Document)
 //
 //        @return    ()
 //<
@@ -20762,7 +25819,11 @@ makeThumb : function () {
 
     // Note: Scrollbar sets its textDirection to "ltr", so even if running in RTL mode, `this.isRTL()'
     // will be false.
-    var scrollTargetIsRTL = this.scrollTarget == null ? isc.Page.isRTL() : this.scrollTarget.isRTL();
+
+
+    var scrollTargetIsRTL = this.scrollTarget == null ? isc.Page.isRTL() : this.scrollTarget.isRTL(),
+        triggerAreaOffset = isc.Browser.isTouch ? 8 : 0
+    ;
 
     // figure out derived attributes
     var classObject = this.vertical ? this.vThumbClass : this.hThumbClass;
@@ -20772,6 +25833,9 @@ makeThumb : function () {
         state:this.state,
         visibility:this.visibility,
 
+        autoApplyDownState:false,
+        autoApplyOverState:false,
+
         width : this.vertical ? this.getWidth() : 1,
         height : !this.vertical ? this.getHeight() : 1,
 
@@ -20779,10 +25843,10 @@ makeThumb : function () {
         // In LTR mode, the trigger area cannot extend to the right of the thumb without increasing
         // the scrollWidth of the scrollTarget. Similarly, in RTL mode the trigger area cannot
         // extend to the left of the thumb without increasing the scrollWidth.
-        triggerAreaLeft: this.vertical && !scrollTargetIsRTL ? 8 : 0,
-        triggerAreaRight: this.vertical && scrollTargetIsRTL ? 8 : 0,
+        triggerAreaLeft: this.vertical && !scrollTargetIsRTL ? triggerAreaOffset : 0,
+        triggerAreaRight: this.vertical && scrollTargetIsRTL ? triggerAreaOffset : 0,
 
-        triggerAreaTop: !this.vertical ? 8 : 0,
+        triggerAreaTop: !this.vertical ? triggerAreaOffset : 0,
 
         dragScrollDirection : this.vertical ? isc.Canvas.VERTICAL : isc.Canvas.HORIZONTAL
     });
@@ -20798,11 +25862,9 @@ makeThumb : function () {
     //   class and we'll react to them as expected.
     if (this.thumb.showRollOver) {
         this.allowThumbOverState = true
-        this.thumb.showRollOver = false;
     }
     if (this.thumb.showDown) {
         this.allowThumbDownState = true;
-        this.thumb.showDown = false;
     }
 },
 
@@ -21015,6 +26077,10 @@ directionRelativeToThumb : function () {
     return 0;
 },
 
+autoApplyDownState:false,
+autoApplyOverState:false,
+
+
 //>    @method    scrollbar.mouseDown()    (A)
 //            mouseDown handler -- figures out what was clicked on and what to do
 //        @group    event handling
@@ -21156,12 +26222,14 @@ handleMouseMove : function () {
 //            may redraw the button
 //        @group    events
 //<
-handleMouseOut : function () {
+handleMouseOut : function (event) {
     if (this.ns.EH.mouseIsDown()) return isc.EH.STOP_BUBBLING;
     if (this.showRollOver) {
         this.setState(isc.StatefulCanvas.STATE_UP);
     }
-    return isc.EH.STOP_BUBBLING;
+    if (this._shouldSuppressMouseOut(event)) {
+        return isc.EH.STOP_BUBBLING;
+    }
 },
 
 // avoid triggering drag interactions on the track (possible if any of our master's parents are
@@ -21214,9 +26282,12 @@ thumbOver : function () {
 //
 //        @return    (boolean)    false == cancel event processing
 //<
-thumbOut : function () {
+thumbOut : function (event) {
     if (!isc.EH.mouseIsDown()) {
         this.thumb.setState(isc.StatefulCanvas.STATE_UP);
+    }
+    if (this._shouldSuppressMouseOut(event)) {
+        return isc.EH.STOP_BUBBLING;
     }
 },
 
@@ -21247,8 +26318,8 @@ thumbDown : function () {
 thumbDragStart : function () {
     // set the offsetX and offsetY so the thumb moves with the mouse properly
     var EH = isc.EH;
-    EH.dragOffsetX = this.thumb.getOffsetX(EH.mouseDownEvent);
-    EH.dragOffsetY = this.thumb.getOffsetY(EH.mouseDownEvent);
+    EH.setDragOffset(this.thumb.getOffsetX(EH.mouseDownEvent),
+                     this.thumb.getOffsetY(EH.mouseDownEvent));
     this._dragScrolling = true;
     return EH.STOP_BUBBLING;
 },
@@ -21355,6 +26426,32 @@ hide : function (a,b,c,d) {
         this.moveTo(this.scrollTarget.getLeft(), this.scrollTarget.getTop());
         this.resizeTo(1,1);
     }
+},
+
+// helper to set eventParent of both this scrollbar and the thumb
+_redirectEvents : function (eventParent) {
+    var thumb = this.thumb;
+    if (!eventParent) eventParent = null;
+    this.eventParent = eventParent;
+    if (thumb != null) thumb.eventParent = eventParent;
+},
+
+
+_shouldSuppressMouseOut : function (event) {
+    var target = event.target;
+    return target && target == this.scrollTarget && target.receiveScrollbarEvents;
+},
+
+// whether canvas is one of ours (the scrollbar or thumb) that bubbles to scrollTarget
+_hasScrollTargetEventParent : function (canvas) {
+    if (this.disabled) return false;
+    return canvas == this || canvas && canvas == this.thumb;
+},
+
+
+enableTouchSupport : function () {
+    this.Super("enableTouchSupport", arguments);
+    if (isc.Browser.isChrome && this.thumb) this.thumb._updateTouchSupport();
 }
 
 });
@@ -21482,6 +26579,13 @@ isc.NativeScrollbar.addProperties({
 
         canFocus: false,
 
+        // parallels Scrollbar.thumbOut()
+        mouseOut : function (event) {
+            if (this.creator._shouldSuppressMouseOut(event)) {
+                return isc.EH.STOP_BUBBLING;
+            }
+        },
+
         // Respond to a user scrolling this scrollbar by scrolling our scroll target
         _handleCSSScroll : function (waited, fromFocus) {
             this.Super("_handleCSSScroll", arguments);
@@ -21555,6 +26659,11 @@ isc.NativeScrollbar.addProperties({
             this.ignore(this.scrollTarget, "scrollTo");
         }
 
+        // setScrollTarget() can be called to switch targets, so clear any previous eventParent
+        if (this.scrollTarget && this.scrollTarget.receiveScrollbarEvents) {
+            this._redirectEvents();
+        }
+
         // If a newTarget was specified, set the scrollTarget to it.
         // If a newTarget was not specified, we'll use the current scrollTarget. If the
         // current scrollTarget isn't set, we use the scrollBar itself to avoid
@@ -21567,12 +26676,13 @@ isc.NativeScrollbar.addProperties({
         // if we've got a scrollTarget and we weren't created by adjustOverflow in the target,
         //    we should observe the _adjustOverflow method of the target to make sure the
         //    size of the thumb matches the visible portion of the target.
-        if (this._selfManaged &&
-             this.scrollTarget != this &&
-             this.scrollTarget != newTarget) {
+        var scrollTarget = this.scrollTarget;
+        if (this._selfManaged && scrollTarget != this && scrollTarget != newTarget) {
             this.observe(this.scrollTarget, "scrollTo", "observer.setThumb()");
         }
 
+
+        if (scrollTarget.receiveScrollbarEvents) this._redirectEvents(scrollTarget);
     },
 
     //>    @method    nativeScrollbar.setThumb()    (A)
@@ -21673,10 +26783,37 @@ isc.NativeScrollbar.addProperties({
     setShowCorner : function (showCorner) {
         this.showCorner = showCorner;
         this.sizeScrollbarCanvas();
+    },
+
+    //
+    // Handle Canvas.receiveScrollbarEvents - migrated from Scrollbar class
+
+    handleMouseOut : function (event) {
+        if (this._shouldSuppressMouseOut(event)) return isc.EH.STOP_BUBBLING;
+    },
+
+    // helper to set eventParent of both this scrollbar and the thumb
+    _redirectEvents : function (eventParent) {
+        if (!eventParent) eventParent = null;
+        this.eventParent = eventParent;
+
+        var scrollbarCanvas = this.scrollbarCanvas;
+        if (scrollbarCanvas != null) {
+            scrollbarCanvas.eventParent = eventParent;
+        }
+    },
+
+
+    _shouldSuppressMouseOut : function (event) {
+        var target = event.target;
+        return target && target == this.scrollTarget && target.receiveScrollbarEvents;
+    },
+
+    // whether canvas is one of ours (the scrollbar or thumb) that bubbles to scrollTarget
+    _hasScrollTargetEventParent : function (canvas) {
+        if (this.disabled) return false;
+        return canvas == this || canvas && canvas == this.scrollbarCanvas;
     }
-
-
-
 });
 
 
@@ -21744,6 +26881,10 @@ isc.ScrollStick.addMethods({
 // <p>
 // To specify the resizeBar class for some layout, use the +link{layout.resizeBarClass}
 // property.
+// <P>
+// On mobile devices, you may find that you need to increase the breadth of the bar to make
+// interacting with it easier (e.g. dragging or tapping).  For +link{Layout} resize bars,
+// this can be done by setting +link{Layout.resizeBarSize}.
 //
 // @see class:Layout
 // @see class:ImgSplitbar
@@ -21794,12 +26935,26 @@ isc._SplitbarProperties = {
     // @visibility external
     //<
 
-    //> @attr splitbar.capSize (integer : null : IR)
+    //> @attr splitbar.capSize (Integer : null : IR)
     // @include StretchImg.capSize
     // @visibility external
     //<
 
-    //> @attr splitbar.skinImgDir (string : null : IR)
+    //> @attr splitbar.gripLength (Integer : null : IR)
+    // Grip length in pixels (the long icon axis, perpendicular to the Layout direction).
+    // <P>
+    // If unset, grip will assume the natural length of image.
+    // @visibility external
+    //<
+
+    //> @attr splitbar.gripBreadth (Integer : null : IR)
+    // Grip breadth in pixels (the short icon axis, parallel to the Layout direction).
+    // <P>
+    // If unset, grip will assume the natural breadth of image.
+    // @visibility external
+    //<
+
+    //> @attr splitbar.skinImgDir (SCImgURL : null : IR)
     // @include Canvas.skinImgDir
     // @visibility external
     //<
@@ -21809,7 +26964,7 @@ isc._SplitbarProperties = {
     // @visibility external
     //<
 
-    //> @attr splitBar.gripImgSuffix (string : "grip" : IRA)
+    //> @attr splitBar.gripImgSuffix (String : "grip" : IRA)
     // @include StretchImg.gripImgSuffix
     // @visibility external
     //<
@@ -21880,15 +27035,12 @@ isc._SplitbarProperties = {
     //<
     canCollapse:true,   // enables click-to-collapse behavior
 
-    //> @attr splitbar.canCollapseOnTap (boolean : false : IRW)
+    //> @attr splitbar.canCollapseOnTap (boolean : true : IRW)
     // If +link{Splitbar.canCollapse,canCollapse} is <code>true</code>, should a tap result in
-    // collapsing/uncollapsing the +link{Splitbar.target,target}? By default this is <code>false</code>
-    // because it can be difficult to tap a thin <code>Splitbar</code>.
-    // <p>
-    // If this property is set to <code>true</code>, it is recommended to increase the width/height
-    // of the <code>Splitbar</code> on touch devices (see, e.g., +link{Layout.resizeBarSize}).
+    // collapsing/uncollapsing the +link{Splitbar.target,target}?
     // @visibility external
     //<
+    canCollapseOnTap:true,
 
     // cursor - default to different cursors based on vertical or horizontal splitbars
     //> @attr splitbar.cursor (Cursor : "hand" : IRW)
@@ -21926,24 +27078,41 @@ isc._SplitbarProperties = {
 isc._SplitbarMethods = {
 
     initWidget : function () {
-        // vertical switch of hSrc/vSrc is handled by StretchImg, but not by Img
-        if (isc.isA.Img(this)) this.src = this.vertical ? this.vSrc : this.hSrc;
+        // setup orientation-dependent properties
 
-        if (this.vertical) {
-            this.defaultWidth = this.defaultWidth || 10;
-            this.cursor = this.hResizeCursor;
-            this.baseStyle = this.vBaseStyle || this.baseStyle;
-        } else {
-            this.defaultHeight = this.defaultHeight || 10;
-            this.cursor = this.vResizeCursor;
-            this.baseStyle = this.hBaseStyle || this.baseStyle;
-        }
+        this.setVertical(this.vertical);
 
         this.Super("initWidget", arguments);
 
 
         if (isc.Browser.isMoz) this.bringToFront();
 
+    },
+
+    setVertical : function(vertical, fromLayout) {
+        this.vertical = vertical;
+
+
+
+
+        if (fromLayout) {
+            this.setSrc(vertical ? this.vSrc : this.hSrc);
+            if (this.showGrip) this._setGripIconDirection();
+        }
+
+        if (vertical) {
+            this.setProperties({
+                cursor: this.hResizeCursor,
+                defaultWidth: this.defaultWidth || 10,
+                baseStyle: this.vBaseStyle || this.baseStyle
+            });
+        } else {
+            this.setProperties({
+                cursor: this.vResizeCursor,
+                defaultHeight: this.defaultHeight || 10,
+                baseStyle: this.hBaseStyle || this.baseStyle
+            });
+        }
     },
 
     prepareForDragging : function () {
@@ -21955,10 +27124,14 @@ isc._SplitbarMethods = {
             this._canDragWhenTargetIsHidden = false;
         }
 
-        if (this.target.visibility == isc.Canvas.HIDDEN) {
-            this.canDrag = this._canDragWhenTargetIsHidden;
+        if (this.target) {
+            if (this.target.visibility == isc.Canvas.HIDDEN) {
+                this.canDrag = this._canDragWhenTargetIsHidden;
+            } else {
+                this.canDrag = this._canDragWhenVisible;
+            }
         } else {
-            this.canDrag = this._canDragWhenVisible;
+            this.canDrag = false;
         }
         return this.Super("prepareForDragging", arguments);
     },
@@ -21971,7 +27144,7 @@ isc._SplitbarMethods = {
         this.label.addMethods({
             getCustomState : function () {
                 var bar = this.masterElement;
-                if (!bar.showClosedGrip) return
+                if (!bar.showClosedGrip) return;
 
                 var target = bar.target,
                     isHidden = target && target.visibility == isc.Canvas.HIDDEN,
@@ -21980,12 +27153,12 @@ isc._SplitbarMethods = {
                     return "closed";
                 }
             }
-        })
+        });
 
     },
 
     dragStart : function () {
-        if (this.showDown) this.setState("Down"); // note: case sensitive
+        this.setState("Down"); // note: case sensitive
         this.bringToFront(); // so we aren't occluded by what we will drag resize
     },
     dragMove : function () {
@@ -21994,7 +27167,7 @@ isc._SplitbarMethods = {
                           null, null, this.targetAfter);
     },
     dragStop : function () {
-        if (this.showDown) this.setState("");
+        this.setState("");
         this.finishTargetResize(this.target, !this.vertical, this.resizeInRealTime);
     },
 
@@ -22087,6 +27260,8 @@ isc.defineClass("ImgSplitbar","Img").addProperties({
     // @visibility external
     //<
 
+    src: null,
+
     //> @attr imgSplitbar.hSrc (String : [SKIN]hgrip.png : IR)
     // Default src to display when +link{ImgSplitbar.vertical} is false,
     // and +link{ImgSplitbar.src} is unset.
@@ -22113,10 +27288,6 @@ isc.ImgSplitbar.addMethods(isc._SplitbarProperties, isc._SplitbarMethods);
 
 isc.addGlobal("StretchImgSplitbar", isc.Splitbar);
 
-// LayoutResizeBar - for backcompat only.
-// Note that "LayoutResizeBar" was used as the default 'resizeBarClassName' for the Layout class
-// for builds up to and including 5.5.1
-isc.addGlobal("LayoutResizeBar", isc.Splitbar);
 
 
 // VSplitbar / HSplitbar
@@ -22210,6 +27381,127 @@ isc.Snapbar.addProperties({
 
 });
 
+//> @class LayoutResizeBar
+// This class exists principally to make it easier to create resize bars when using visual
+// design tools, since a <code>LayoutResizeBar</code> can be dropped into a Layout like any
+// other +link{Canvas}.  The recommended way to create a resize bar is to simply set
+// +link{canvas.showResizeBar} on the member that you want to be able to resize or collapse,
+// creating it as an +link{layout.resizeBar,autochild}.
+// <P>
+// Note that this class extends whatever class is specified as the prototype default for
+// +link{Layout.resizeBarClass} in the current skin.  So for some skins it may actually extend
+// +link{Snapbar} rather than +link{Splitbar}.
+// @see layout
+// @see canvas.resizeBarTarget
+// @treeLocation Client Reference/Layout
+// @inheritsFrom Splitbar
+// @treeLocation Client Reference/Layout
+// @visibility external
+//<
+isc.LayoutResizeBarProperties = {
+
+    dragScrollType: "parentsOnly",
+
+    showResizeBar: false,
+
+    initWidget : function () {
+        // if resizeDirection is (non-default) "after", update targetAfter to true
+        if (this.resizeDirection == isc.Splitbar.AFTER) this.targetAfter = true;
+
+        this.Super("initWidget", arguments);
+    },
+
+    //> @attr layoutResizeBar.canCollapse (boolean : true : IRW)
+    // @include splitBar.canCollapse
+    // @visibility external
+    //<
+
+    //>@type ResizeDirection
+    // @value  "before"  resize bar targets the canvas before it in the layout
+    // @value  "after"   resize bar targets the canvas after it in the layout
+    // @visibility external
+    //<
+
+    //> @attr layoutResizeBar.resizeDirection (ResizeDirection : "before" : IRW)
+    // Whether this <code>LayoutResizeBar</code> +link{Layout.members,layout member} should
+    // resize the member before or after it in the layout.  If +link{canCollapse} is true, this
+    // property also determines which member is hidden when the <code>LayoutResizeBar</code> is
+    // clicked.
+    // <P>
+    // Compare this property with the corresponding setting +link{canvas.resizeBarTarget},
+    // meaningful when an autochild resize bar is created with +link{canvas.showResizeBar}.
+    // Note that if such an autochild would be shown right before an <code>LayoutResizeBar
+    // </code> member, due to +link{canvas.showResizeBar,showResizeBar} or
+    // +link{layout.defaultResizeBars}, it will be disabled in favor of the
+    // <code>LayoutResizeBar</code>, though the +link{canvas.resizeBarTarget,resizeBarTarget}
+    // setting will be applied if this property's prototype default hasn't been overridden in
+    // the resize bar instance.
+    // @visibility external
+    //<
+    resizeDirection: "before",
+
+    //> @method layoutResizeBar.setResizeDirection()
+    // Setter for +link{resizeDirection}.
+    // @param direction (ResizeDirection) the new direction to target
+    // @visibility external
+    //<
+    setResizeDirection : function (direction, myLayoutPos) {
+
+        if (this.resizeDirection == direction) return;
+        else this.resizeDirection = direction;
+
+        this.targetAfter = direction == isc.Splitbar.AFTER;
+
+        if (!this.layout) {
+            this.target = this.hideTarget = null;
+            return;
+        }
+
+        this._updateTarget(myLayoutPos);
+    },
+
+    _updateTarget : function (selfLayoutIndex) {
+        var layout = this.layout;
+
+
+        if (selfLayoutIndex == null) {
+            selfLayoutIndex = layout.getMemberNumber(this);
+        }
+
+
+        var targetAfter = this.targetAfter,
+            next = layout.getMember(selfLayoutIndex + 1),
+            prev = layout.getMember(selfLayoutIndex - 1),
+            target = targetAfter ? (next || prev) : (prev || next)
+        ;
+
+        var destroying = this.target && this.target.destroying;
+        if (!destroying) {
+            // warn if there are no other members, or we can't comply with targetAfter override
+            if (!target) {
+                this.logWarn("no members available for the resizeBar to target");
+
+            } else if (this.hasOwnProperty("resizeDirection") &&
+                       (targetAfter ? target != next : target != prev))
+            {
+                this.logWarn("couldn't comply with targetAfter property for the " +
+                             "resizeBar at index " + selfLayoutIndex + " - no such member");
+            }
+        }
+
+        this.target = target;
+    },
+
+    setShowResizeBar : function () {
+        this.logWarn("setShowResizeBar(); showResizeBar is always false for a LayoutResizeBar");
+    }
+
+};
+
+
+isc.defineClass("LayoutResizeBar",    "Splitbar").addProperties(isc.LayoutResizeBarProperties);
+isc.defineClass("LayoutResizeSnapbar", "Snapbar").addProperties(isc.LayoutResizeBarProperties);
+
 //> @class ToolStripResizer
 // Simple subclass of ImgSplitbar with appearance appropriate for a ToolStrip resizer.
 //
@@ -22261,8 +27553,87 @@ isc.defineClass("ToolStripResizer", "ImgSplitbar").addProperties({
     _generated: true,
     // Don't write anything but constructor in Component XML
     updateEditNode : function (editContext, editNode) {
-        editContext.removeNodeProperties(editNode, ["autoDraw", "ID", "title"]);
+        editContext.removeNodeProperties(editNode, ["autoDraw", "ID", "autoID", "title"]);
     }
+});
+
+isc.Splitbar.addClassProperties({
+    //> @classAttr Splitbar.BEFORE (Constant : "before" : [R])
+    // A declared value of the enum type
+    // +link{type:Splitbar.ResizeDirection,Splitbar.ResizeDirection}.
+    // @constant
+    //<
+    BEFORE:"before",
+
+    //> @classAttr Splitbar.AFTER (Constant : "after" : [R])
+    // A declared value of the enum type
+    // +link{type:Splitbar.ResizeDirection,Splitbar.ResizeDirection}.
+    // @constant
+    //<
+    AFTER:"after"
+});
+
+
+
+
+
+
+//>    @class    IconImgButton
+// A specialized subclass of +link{ImgButton} designed to show an icon that launches a
+// +link{canvas.contextMenu,context menu} when clicked.  The icon is specified as the
+// +link{IconImgButton.src,src} property.
+//
+// @see statefulCanvas.showMenuOnClick
+// @inheritsFrom ImgButton
+// @treeLocation Client Reference/Control
+// @visibility external
+//<
+
+isc.ClassFactory.defineClass("IconImgButton", "ImgButton").addProperties({
+
+    // fallbacks if isc.Window isn't defined when class is initialized
+
+    width: 16,
+    height: 16,
+
+    //> @attr IconImgButton.showMenuOnClick (Boolean : true : IRW)
+    // @include statefulCanvas.showMenuOnClick
+    // @visibility external
+    //<
+    showMenuOnClick: true,
+
+    //> @attr IconImgButton.src (SCImgURL | SCStatefulImgConfig : {_base:"[SKIN]/actions/edit.png"} : IRW)
+    // @include ImgButton.src
+    // @visibility external
+    // @example buttonAppearance
+    //<
+    src: {_base:"[SKIN]/actions/edit.png"},
+
+
+    showFocusedAsOver:false
+
+});
+
+isc.IconImgButton.addClassMethods({
+
+
+    init : function (a, b, c) {
+        this.invokeSuper(isc.IconImgButton, "init", a, b, c);
+        if (this != isc.IconImgButton) return;
+
+
+        if (!isc.Window) {
+            this.logWarn("isc.Window not loaded, failed to pick up Window.headerIconDefaults");
+            return;
+        }
+
+        var iconDefaults = isc.Window.getInstanceProperty("headerIconDefaults");
+        this.addProperties({
+            width: iconDefaults.width,
+            height: iconDefaults.height
+        });
+    }
+
 });
 
 
@@ -22539,14 +27910,22 @@ applyNewStretchResizePolicy : function (sizes, totalSize, commonMinSize, modifyI
                     minSizes[i] = member.minWidth;
                     maxSizes[i] = member.maxWidth;
                 }
-                // add caller constraints; callerMinSizes array may be null
-                var callerMinSize = commonMinSize;
-                if (callerMinSizes && callerMinSizes[i] > callerMinSize) {
-                    callerMinSize = callerMinSizes[i];
-                }
                 // merge caller constraints into the member-specific minSizes
-                if (minSizes[i] == null || minSizes[i] < callerMinSize) {
-                    minSizes[i] = callerMinSize;
+                if (minSizes[i] == null || minSizes[i] < commonMinSize) {
+                    minSizes[i] = commonMinSize;
+                }
+            }
+
+            if (callerMinSizes) {
+                for (var i = 0; i < members.length; i++) {
+                    var callerMinSize = callerMinSizes[i];
+                    // clamp the minimum from callerMinSize to the maxSize, if appropriate
+                    if (stretchFields && maxSizes[i] != null && callerMinSize > maxSizes[i]) {
+                        callerMinSize = maxSizes[i];
+                    }
+
+                    // apply the minimum from callerMinSize to the minSize
+                    if (callerMinSize > minSizes[i]) minSizes[i] = callerMinSize;
                 }
             }
         }
@@ -22692,7 +28071,7 @@ applyNewStretchResizePolicy : function (sizes, totalSize, commonMinSize, modifyI
             }
         }
         if (i < 0) {
-            this.logWarn("stretchResize" + (propertyTarget ? " for " + propertyTarget.ID : "") +
+            this.logInfo("stretchResize" + (propertyTarget ? " for " + propertyTarget.ID : "") +
                          " with totalSize: " + totalSize + " and calculated sizes: " +
                          resultSizes + "; cannot assign remainingSpace: " + remainingSpace +
                          " due to member max size limits", "listPolicy");
@@ -22759,57 +28138,7 @@ applyNewStretchResizePolicy : function (sizes, totalSize, commonMinSize, modifyI
 isc.ClassFactory.defineClass("GroupingMessages");
 
 isc.GroupingMessages.addClassProperties({
-    //> @classAttr GroupingMessages.upcomingTodayTitle   (string : "Today" : IRW)
-    // When a +link{ListGrid} is grouped by a date field in 'Upcoming' mode,
-    // this is the group title for all records in which the grouped date field occurs today,
-    // relative to the current date.
-    //
-    // @visibility external
-    // @group i18nMessages
-    //<
-    upcomingTodayTitle: "Today",
-
-    //> @classAttr GroupingMessages.upcomingTomorrowTitle   (string : "Tomorrow" : IRW)
-    // When a +link{ListGrid} is grouped by a date field in 'Upcoming' mode,
-    // this is the group title for all records in which the grouped date field occurs tomorrow,
-    // relative to the current date.
-    //
-    // @visibility external
-    // @group i18nMessages
-    //<
-    upcomingTomorrowTitle: "Tomorrow",
-
-    //> @classAttr GroupingMessages.upcomingThisWeekTitle   (string : "This Week" : IRW)
-    // When a +link{ListGrid} is grouped by a date field in 'Upcoming' mode,
-    // this is the group title for all records in which the grouped date field occurs this week,
-    // relative to the current date.
-    //
-    // @visibility external
-    // @group i18nMessages
-    //<
-    upcomingThisWeekTitle: "This Week",
-
-    //> @classAttr GroupingMessages.upcomingNextWeekTitle   (string : "Next Week" : IRW)
-    // When a +link{ListGrid} is grouped by a date field in 'Upcoming' mode,
-    // this is the group title for all records in which the grouped date field occurs next week,
-    // relative to the current date.
-    //
-    // @visibility external
-    // @group i18nMessages
-    //<
-    upcomingNextWeekTitle: "Next Week",
-
-    //> @classAttr GroupingMessages.upcomingNextMonthTitle   (string : "Next Month" : IRW)
-    // When a +link{ListGrid} is grouped by a date field in 'Upcoming' mode,
-    // this is the group title for all records in which the grouped date field occurs next month,
-    // relative to the current date.
-    //
-    // @visibility external
-    // @group i18nMessages
-    //<
-    upcomingNextMonthTitle: "Next Month",
-
-    //> @classAttr GroupingMessages.upcomingBeforeTitle   (string : "Before" : IRW)
+    //> @classAttr GroupingMessages.upcomingBeforeTitle   (String : "Before" : IRW)
     // When a +link{ListGrid} is grouped by a date field in 'Upcoming' mode,
     // this is the group title for all records in which the grouped date field occurs before
     // the current date.
@@ -22819,10 +28148,90 @@ isc.GroupingMessages.addClassProperties({
     //<
     upcomingBeforeTitle: "Before",
 
-    //> @classAttr GroupingMessages.upcomingLaterTitle   (string : "Later" : IRW)
+    //> @classAttr GroupingMessages.upcomingTodayTitle   (String : "Today" : IRW)
     // When a +link{ListGrid} is grouped by a date field in 'Upcoming' mode,
-    // this is the group title for all records in which the grouped date field occurs later than
-    // one month after today's date.
+    // this is the group title for all records in which the grouped date field occurs today,
+    // relative to the current date.
+    //
+    // @visibility external
+    // @group i18nMessages
+    //<
+    upcomingTodayTitle: "Today",
+
+    //> @classAttr GroupingMessages.upcomingTomorrowTitle   (String : "Tomorrow" : IRW)
+    // When a +link{ListGrid} is grouped by a date field in 'Upcoming' mode,
+    // this is the group title for all records in which the grouped date field occurs tomorrow,
+    // relative to the current date.
+    //
+    // @visibility external
+    // @group i18nMessages
+    //<
+    upcomingTomorrowTitle: "Tomorrow",
+
+    //> @classAttr GroupingMessages.upcomingThisWeekTitle   (String : "This Week" : IRW)
+    // When a +link{ListGrid} is grouped by a date field in 'Upcoming' mode,
+    // this is the group title for all records in which the grouped date field occurs this week,
+    // relative to the current date.
+    //
+    // @visibility external
+    // @group i18nMessages
+    //<
+    upcomingThisWeekTitle: "This Week",
+
+    //> @classAttr GroupingMessages.upcomingNextWeekTitle   (String : "Next Week" : IRW)
+    // When a +link{ListGrid} is grouped by a date field in 'Upcoming' mode,
+    // this is the group title for all records in which the grouped date field occurs next week,
+    // relative to the current date.
+    //
+    // @visibility external
+    // @group i18nMessages
+    //<
+    upcomingNextWeekTitle: "Next Week",
+
+    //> @classAttr GroupingMessages.upcomingThisMonthTitle   (String : "This Month" : IRW)
+    // When a +link{ListGrid} is grouped by a date field in 'Upcoming' mode,
+    // this is the group title for all records in which the grouped date field occurs this
+    // month, relative to the current date.
+    //
+    // @visibility external
+    // @group i18nMessages
+    //<
+    upcomingThisMonthTitle: "This Month",
+
+    //> @classAttr GroupingMessages.upcomingNextMonthTitle   (String : "Next Month" : IRW)
+    // When a +link{ListGrid} is grouped by a date field in 'Upcoming' mode,
+    // this is the group title for all records in which the grouped date field occurs next
+    // month, relative to the current date.
+    //
+    // @visibility external
+    // @group i18nMessages
+    //<
+    upcomingNextMonthTitle: "Next Month",
+
+    //> @classAttr GroupingMessages.upcomingThisYearTitle   (String : "This Year" : IRW)
+    // When a +link{ListGrid} is grouped by a date field in 'Upcoming' mode,
+    // this is the group title for all records in which the grouped date field occurs in the
+    // same year as the current date.
+    //
+    // @visibility external
+    // @group i18nMessages
+    //<
+    upcomingThisYearTitle: "This Year",
+
+    //> @classAttr GroupingMessages.upcomingNextYearTitle   (String : "Next Year" : IRW)
+    // When a +link{ListGrid} is grouped by a date field in 'Upcoming' mode,
+    // this is the group title for all records in which the grouped date field occurs next
+    // year, relative to the current date.
+    //
+    // @visibility external
+    // @group i18nMessages
+    //<
+    upcomingNextYearTitle: "Next Year",
+
+    //> @classAttr GroupingMessages.upcomingLaterTitle   (String : "Later" : IRW)
+    // When a +link{ListGrid} is grouped by a date field in 'Upcoming' mode,
+    // this is the group title for all records in which the grouped date field occurs later
+    // than the end of next year, relative to the current date.
     //
     // @visibility external
     // @group i18nMessages
@@ -22831,7 +28240,7 @@ isc.GroupingMessages.addClassProperties({
 
     // ----------------date constants----------------------------------------------------------
 
-    //> @classAttr GroupingMessages.byDayTitle   (string : "by Day" : IRW)
+    //> @classAttr GroupingMessages.byDayTitle   (String : "by Day" : IRW)
     // Title to use for the menu option which groups a date field by day of week, across all
     // weeks and years.  For example, all values that are on any Tuesday are grouped together.
     //
@@ -22840,7 +28249,7 @@ isc.GroupingMessages.addClassProperties({
     //<
     byDayTitle: "by Day",
 
-    //> @classAttr GroupingMessages.byWeekTitle   (string : "by Week" : IRW)
+    //> @classAttr GroupingMessages.byWeekTitle   (String : "by Week" : IRW)
     // Title to use for the menu option which groups a date field by week number, across all
     // years.  For example, all values that are in Week 30 of any year are grouped together.
     //
@@ -22849,7 +28258,7 @@ isc.GroupingMessages.addClassProperties({
     //<
     byWeekTitle: "by Week",
 
-    //> @classAttr GroupingMessages.byMonthTitle   (string : "by Month" : IRW)
+    //> @classAttr GroupingMessages.byMonthTitle   (String : "by Month" : IRW)
     // Title to use for the menu option which groups a date field by month number, across all
     // years.  For example, all values that are in December of any year are grouped together.
     //
@@ -22858,7 +28267,7 @@ isc.GroupingMessages.addClassProperties({
     //<
     byMonthTitle: "by Month",
 
-    //> @classAttr GroupingMessages.byQuarterTitle   (string : "by Quarter" : IRW)
+    //> @classAttr GroupingMessages.byQuarterTitle   (String : "by Quarter" : IRW)
     // Title to use for the menu option which groups a date field by quarter, across all
     // years.  For example, all values that are in Q4 of any year are grouped together.
     //
@@ -22867,7 +28276,7 @@ isc.GroupingMessages.addClassProperties({
     //<
     byQuarterTitle: "by Quarter",
 
-    //> @classAttr GroupingMessages.byYearTitle   (string : "by Year" : IRW)
+    //> @classAttr GroupingMessages.byYearTitle   (String : "by Year" : IRW)
     // Title to use for the menu option which groups a date field by year.
     //
     // @visibility external
@@ -22875,7 +28284,7 @@ isc.GroupingMessages.addClassProperties({
     //<
     byYearTitle: "by Year",
 
-    //> @classAttr GroupingMessages.byDayOfMonthTitle   (string : "by Day of Month" : IRW)
+    //> @classAttr GroupingMessages.byDayOfMonthTitle   (String : "by Day of Month" : IRW)
     // Title to use for the menu option which groups a date field by day of month, across all
     // months and years.  For example, all values that are on day 25 of any month in any year
     // are grouped together.
@@ -22885,7 +28294,7 @@ isc.GroupingMessages.addClassProperties({
     //<
     byDayOfMonthTitle: "by Day of Month",
 
-    //> @classAttr GroupingMessages.byUpcomingTitle   (string : "by Upcoming" : IRW)
+    //> @classAttr GroupingMessages.byUpcomingTitle   (String : "by Upcoming" : IRW)
     // Title to use for the menu option which groups a date field by upcoming dates.
     //
     // @visibility external
@@ -22893,7 +28302,7 @@ isc.GroupingMessages.addClassProperties({
     //<
     byUpcomingTitle: "by Upcoming",
 
-    //> @classAttr GroupingMessages.byDateTitle   (string : "by Date" : IRW)
+    //> @classAttr GroupingMessages.byDateTitle   (String : "by Date" : IRW)
     // Title to use for the menu option which groups a date field by specific dates.  All
     // values that are within the 24 hours of a specific date in a given year are
     // grouped together.
@@ -22903,7 +28312,7 @@ isc.GroupingMessages.addClassProperties({
     //<
     byDateTitle: "by Date",
 
-    //> @classAttr GroupingMessages.byWeekAndYearTitle   (string : "by Week and Year" : IRW)
+    //> @classAttr GroupingMessages.byWeekAndYearTitle   (String : "by Week and Year" : IRW)
     // Title to use for the menu option which groups a date field by week number and year.  All
     // values that are in the same week in a given year are grouped together.
     //
@@ -22912,7 +28321,7 @@ isc.GroupingMessages.addClassProperties({
     //<
     byWeekAndYearTitle: "by Week and Year",
 
-    //> @classAttr GroupingMessages.byMonthAndYearTitle   (string : "by Month and Year" : IRW)
+    //> @classAttr GroupingMessages.byMonthAndYearTitle   (String : "by Month and Year" : IRW)
     // Title to use for the menu option which groups a date field by month number and year.
     // All values that are in the same month in a given year are grouped together.
     //
@@ -22921,7 +28330,7 @@ isc.GroupingMessages.addClassProperties({
     //<
     byMonthAndYearTitle: "by Month and Year",
 
-    //> @classAttr GroupingMessages.byQuarterAndYearTitle   (string : "by Quarter and Year" : IRW)
+    //> @classAttr GroupingMessages.byQuarterAndYearTitle   (String : "by Quarter and Year" : IRW)
     // Title to use for the menu option which groups a date field by quarter and year.  All
     // values that are in the same quarter of a given year are grouped together.
     //
@@ -22930,7 +28339,7 @@ isc.GroupingMessages.addClassProperties({
     //<
     byQuarterAndYearTitle: "by Quarter and Year",
 
-    //> @classAttr GroupingMessages.byDayOfWeekAndYearTitle   (string : "by Day of specific Week" : IRW)
+    //> @classAttr GroupingMessages.byDayOfWeekAndYearTitle   (String : "by Day of specific Week" : IRW)
     // Title to use for the menu option which groups a date field by specific day of week.  All
     // values that are in the same week and day of a given year are grouped together.
     //
@@ -22939,7 +28348,7 @@ isc.GroupingMessages.addClassProperties({
     //<
     byDayOfWeekAndYearTitle: "by Day of specific Week",
 
-    //> @classAttr GroupingMessages.byDayOfMonthAndYearTitle   (string : "by Day of specific Month" : IRW)
+    //> @classAttr GroupingMessages.byDayOfMonthAndYearTitle   (String : "by Day of specific Month" : IRW)
     // Title to use for the menu option which groups a date field by specific day of month.  All
     // values that are in the same day and month of a given year are grouped together.
     //
@@ -22950,7 +28359,7 @@ isc.GroupingMessages.addClassProperties({
 
     // -------------time contants--------------------------------------------------------------
 
-    //> @classAttr GroupingMessages.byHoursTitle   (string : "by Hours" : IRW)
+    //> @classAttr GroupingMessages.byHoursTitle   (String : "by Hours" : IRW)
     // Title to use for the menu option which groups a time field by hours.
     //
     // @visibility external
@@ -22958,7 +28367,7 @@ isc.GroupingMessages.addClassProperties({
     //<
     byHoursTitle: "by Hours",
 
-    //> @classAttr GroupingMessages.byMinutesTitle   (string : "by Minutes" : IRW)
+    //> @classAttr GroupingMessages.byMinutesTitle   (String : "by Minutes" : IRW)
     // Title to use for the menu option which groups a time field by minutes.
     //
     // @visibility external
@@ -22966,7 +28375,7 @@ isc.GroupingMessages.addClassProperties({
     //<
     byMinutesTitle: "by Minutes",
 
-    //> @classAttr GroupingMessages.bySecondsTitle   (string : "by Seconds" : IRW)
+    //> @classAttr GroupingMessages.bySecondsTitle   (String : "by Seconds" : IRW)
     // Title to use for the menu option which groups a time field by seconds.
     //
     // @visibility external
@@ -22974,7 +28383,7 @@ isc.GroupingMessages.addClassProperties({
     //<
     bySecondsTitle: "by Seconds",
 
-    //> @classAttr GroupingMessages.byMillisecondsTitle   (string : "by Milliseconds" : IRW)
+    //> @classAttr GroupingMessages.byMillisecondsTitle   (String : "by Milliseconds" : IRW)
     // Title to use for the menu option which groups a time field by milliseconds.
     //
     // @visibility external
@@ -22982,7 +28391,7 @@ isc.GroupingMessages.addClassProperties({
     //<
     byMillisecondsTitle: "by Milliseconds",
 
-    //> @classAttr GroupingMessages.weekNumberTitle   (string : "Week #" : IRW)
+    //> @classAttr GroupingMessages.weekNumberTitle   (String : "Week #" : IRW)
     // Title to use for the week number grouping mode
     //
     // @visibility external
@@ -22990,7 +28399,7 @@ isc.GroupingMessages.addClassProperties({
     //<
     weekNumberTitle: "Week #",
 
-    //> @classAttr GroupingMessages.timezoneMinutesSuffix   (string : "minutes" : IRW)
+    //> @classAttr GroupingMessages.timezoneMinutesSuffix   (String : "minutes" : IRW)
     // Suffix to append to the timezoneMinutes grouping mode
     //
     // @visibility external
@@ -22998,7 +28407,7 @@ isc.GroupingMessages.addClassProperties({
     //<
     timezoneMinutesSuffix: "minutes",
 
-    //> @classAttr GroupingMessages.timezoneSecondsSuffix   (string : "seconds" : IRW)
+    //> @classAttr GroupingMessages.timezoneSecondsSuffix   (String : "seconds" : IRW)
     // Suffix to append to the timezoneSeconds grouping mode
     //
     // @visibility external
@@ -23013,9 +28422,14 @@ isc.builtinTypes =
 
 
     //any:{},
-    text:{validators:{type:"isString", typeCastValidator:true}},
-    "boolean":{validators:{type:"isBoolean", typeCastValidator:true}},
+    text:{validators:{type:"isString", typeCastValidator:true},
+        defaultOperator: "iContains"
+    },
+    "boolean":{validators:{type:"isBoolean", typeCastValidator:true},
+        defaultOperator: "equals"
+    },
     integer:{validators:{type:"isInteger", typeCastValidator:true},
+        defaultOperator: "equals",
         normalDisplayFormatter : function (value, field) {
            if (isc.isA.Number(value)) return value.toFormattedString();
            return value;
@@ -23041,6 +28455,7 @@ isc.builtinTypes =
         }
     },
     "float":{validators:{type:"isFloat", typeCastValidator:true},
+        defaultOperator: "equals",
         normalDisplayFormatter : function (value, field) {
            if (isc.isA.Number(value)) return value.toFormattedString();
            return value;
@@ -23068,6 +28483,7 @@ isc.builtinTypes =
         }
     },
     date:{validators:{type:"isDate", typeCastValidator:true},
+        defaultOperator: "equals",
         normalDisplayFormatter : function (value, field) {
            if (isc.isA.Date(value)) return value.toNormalDate();
            return value;
@@ -23178,13 +28594,16 @@ isc.builtinTypes =
                         break;
                     case "upcoming":
                         var today = new Date();
-                        if (today.isToday(value)) return 1;
-                        else if (today.isTomorrow(value)) return 2;
-                        else if (today.isThisWeek(value)) return 3;
-                        else if (today.isNextWeek(value)) return 4;
-                        else if (today.isNextMonth(value)) return 5;
-                        else if (today.isBeforeToday(value)) return 7;
-                        else return 6;
+                        if (today.isBeforeToday(value)) return 1;
+                        else if (today.isToday(value)) return 2;
+                        else if (today.isTomorrow(value)) return 3;
+                        else if (today.isThisWeek(value)) return 4;
+                        else if (today.isNextWeek(value)) return 5;
+                        else if (today.isThisMonth(value)) return 6;
+                        else if (today.isNextMonth(value)) return 7;
+                        else if (today.getFullYear() == value.getFullYear()) return 8;
+                        else if (today.getFullYear() + 1 == value.getFullYear()) return 9;
+                        else return 10;
                         break;
                }
            }
@@ -23271,12 +28690,15 @@ isc.builtinTypes =
                         break;
                     case "upcoming":
                         var today = new Date();
-                        if (value == 1) return isc.GroupingMessages.upcomingTodayTitle;
-                        else if (value == 2) return isc.GroupingMessages.upcomingTomorrowTitle;
-                        else if (value == 3) return isc.GroupingMessages.upcomingThisWeekTitle;
-                        else if (value == 4) return isc.GroupingMessages.upcomingNextWeekTitle;
-                        else if (value == 5) return isc.GroupingMessages.upcomingNextMonthTitle;
-                        else if (value == 7) return isc.GroupingMessages.upcomingBeforeTitle;
+                        if (value == 1) return isc.GroupingMessages.upcomingBeforeTitle;
+                        else if (value == 2) return isc.GroupingMessages.upcomingTodayTitle;
+                        else if (value == 3) return isc.GroupingMessages.upcomingTomorrowTitle;
+                        else if (value == 4) return isc.GroupingMessages.upcomingThisWeekTitle;
+                        else if (value == 5) return isc.GroupingMessages.upcomingNextWeekTitle;
+                        else if (value == 6) return isc.GroupingMessages.upcomingThisMonthTitle;
+                        else if (value == 7) return isc.GroupingMessages.upcomingNextMonthTitle;
+                        else if (value == 8) return isc.GroupingMessages.upcomingThisYearTitle;
+                        else if (value == 9) return isc.GroupingMessages.upcomingNextYearTitle;
                         else return isc.GroupingMessages.upcomingLaterTitle;
                         break;
                 }
@@ -23285,6 +28707,7 @@ isc.builtinTypes =
         }
     },
     time:{validators:{type:"isTime", typeCastValidator:true},
+        defaultOperator: "equals",
         normalDisplayFormatter : function (value, field) {
            if (isc.isA.Date(value)) return isc.Time.toTime(value, null, true);
            return value;
@@ -23379,15 +28802,16 @@ isc.builtinTypes =
     },
     percent:{inheritsFrom:"integerPercent"},
     sequence:{inheritsFrom:"integer"},
-    "enum":{validators:"isOneOf"},
+    "enum":{validators:"isOneOf", defaultOperator: "equals" },
     "intEnum":{inheritsFrom:"integer",validators:"isOneOf"},
     regexp:{inheritsFrom:"text", validators:"isRegexp"},
     identifier:{inheritsFrom:"text", validators:"isIdentifier"},
     URL:{inheritsFrom:"text"},
     image:{inheritsFrom:"text"},
+    imageFile:{inheritsFrom:"binary"},
     HTML:{inheritsFrom:"text"},
-    measure:{validators:"isMeasure"},
-    integerOrAuto:{validators:"integerOrAuto"},
+    measure:{validators:"isMeasure", defaultOperator: "equals"},
+    integerOrAuto:{validators:"integerOrAuto", defaultOperator: "equals"},
     expression:{inheritsFrom:"text"},
     method:{inheritsFrom:"text"},
     "function":{inheritsFrom:"text"},
@@ -23458,12 +28882,9 @@ isc.builtinTypes =
         editFormatter : function (value, field) {
             // when editing a float, the string should include the localized decimalSymbol,
             // but not the groupingSymbols - the 4th param to this call deals with that
-            var res = isc.isA.String(value) ? value : isc.NumberUtil.floatValueToLocalizedString(
-                    value,
-                    field.decimalPrecision,
-                    field.decimalPad,
-                    true
-            );
+
+            var res = isc.isA.String(value) ? value :
+                    isc.NumberUtil.floatValueToLocalizedString(value, null, null, true);
             return res;
         },
         parseInput : function (value) {
@@ -23670,13 +29091,13 @@ isc.defineClass("SimpleType");
 
 isc.SimpleType.addClassMethods({
 
-    //> @attr simpleType.name (identifier : null : IR)
+    //> @attr simpleType.name (Identifier : null : IR)
     // Name of the type, used to refer to the type from +link{DataSourceField.type,field.type}.
     // @serverDS allowed
     // @visibility external
     //<
 
-    //> @attr simpleType.inheritsFrom (identifier : null : IR)
+    //> @attr simpleType.inheritsFrom (Identifier : null : IR)
     // Name of another SimpleType from which this type should inherit.
     // <P>
     // Validators, if any, will be combined.  All other SimpleType properties default to the
@@ -23777,11 +29198,11 @@ isc.SimpleType.addClassMethods({
     // <li>"saveLocally" Setting the value from +link{ListGrid.saveLocally()}</li>
     // </ul>
     //
-    // @param value (any) Raw data value to convert. Typically this would be a field
+    // @param value (Any) Raw data value to convert. Typically this would be a field
     //   value for some record.
     // @param reason (String) The reason your getAtomicValue() method is being
     //   called
-    // @return (any) Atomic value. This should match the underlying atomic type
+    // @return (Any) Atomic value. This should match the underlying atomic type
     //   specified by the +link{SimpleType.inheritsFrom} attribute.
     // @visibility external
     //<
@@ -23795,12 +29216,12 @@ isc.SimpleType.addClassMethods({
     // Note that if the user is editing a field which did not previously have a value, the
     // 'currentValue' will be null. This method should handle this (creating a new data value).
     //
-    // @param atomicValue (any) New atomic value. This should match the underlying
+    // @param atomicValue (Any) New atomic value. This should match the underlying
     //  atomic type specified by the +link{SimpleType.inheritsFrom} attribute.
-    // @param currentValue (any) Existing data value to be updated.
+    // @param currentValue (Any) Existing data value to be updated.
     // @param reason (String) The reason your updateAtomicValue() method is being
     //   called. See +link{getAtomicValue()} for the reason strings used by the framework
-    // @return (any) Updated data value.
+    // @return (Any) Updated data value.
     // @visibility external
     //<
 
@@ -23819,8 +29240,8 @@ isc.SimpleType.addClassMethods({
     // <li>1 if the second value is greater than the first</li>
     // </ul>
     //
-    // @param value1 (any) First value for comparison
-    // @param value2 (any) Second value for comparison
+    // @param value1 (Any) First value for comparison
+    // @param value2 (Any) Second value for comparison
     // @param field (DataSourceField | ListGridField | DetailViewerField | FormItem)
     //  Field definition from a dataSource or dataBoundComponent.
     // @return (Integer) Result of comparison, -1, 0 or 1, as described above
@@ -23831,6 +29252,7 @@ isc.SimpleType.addClassMethods({
     //> @attr simpleType.format (FormatString : null : IR)
     // +link{FormatString} for numeric or date formatting.  See +link{dataSourceField.format}.
     // @group exportFormatting
+    // @serverDS allowed
     // @visibility external
     //<
 
@@ -23852,7 +29274,7 @@ isc.SimpleType.addClassMethods({
     // may want to omit a prefix in views where it is redundant, and could check a flag
     // listGridField.omitAccountIdPrefix for this purpose.
     //
-    // @param value (any) value to be formatted
+    // @param value (Any) value to be formatted
     // @param [field] (Field) field descriptor from the component calling the formatter, if
     //                      applicable.  Depending on the calling component, this could be a
     //                      +link{ListGridField}, +link{TreeGridField}, etc
@@ -23874,7 +29296,7 @@ isc.SimpleType.addClassMethods({
     // may want to omit a prefix in views where it is redundant, and could check a flag
     // detailViewer.omitAccountIdPrefix for this purpose.
     //
-    // @param value (any) value to be formatted
+    // @param value (Any) value to be formatted
     // @param [field] (Field) field descriptor from the component calling the formatter, if
     //                      applicable.  Depending on the calling component, this could be a
     //                      +link{FormItem}, +link{DetailViewerField}, etc
@@ -23891,13 +29313,13 @@ isc.SimpleType.addClassMethods({
     // <P>
     // See also +link{simpleType.parseInput()} for parsing an edited text value back to
     // a data value.
-    // @param value (any) value to be formatted
+    // @param value (Any) value to be formatted
     // @param [field] (FormItem) Editor for this field
     // @param [form] (DynamicForm) DynamicForm containing this editor
     // @param [record] (Record) Current edit values for this record, as displayed in
     //      the edit component.
     //
-    // @return (string) formatted value
+    // @return (String) formatted value
     //
     // @visibility external
     //<
@@ -23914,22 +29336,36 @@ isc.SimpleType.addClassMethods({
     // @param [record] (Record) Current edit values for this record, as displayed in
     //      the edit component.
     //
-    // @return (any) data value derived from display string passed in.
+    // @return (Any) data value derived from display string passed in.
     //
     // @visibility external
     //<
 
     //> @classMethod SimpleType.getType()
     // Retrieve a simpleType definition by type name
-    // @param typeName (string) the <code>name</code> of the simpleType to return
+    // @param typeName (String) the <code>name</code> of the simpleType to return
     // @return (SimpleType) simple type object
     // @visibility external
     //<
     getType : function (typeName, ds) {
         // respect local types (dataSource.getType() calls us back, but without passing itself)
-        if (ds) return ds.getType(typeName);
+        var type;
+        if (ds) {
+            type = ds.getType(typeName);
+            if (type) return type;
 
-        var type = isc.builtinTypes[typeName];
+
+            while (ds.inheritsFrom) {
+                var parentDS = isc.DS.get(ds.inheritsFrom);
+                // Full schema may not be loaded...
+                if (!parentDS) break;
+                type = this.getType(typeName, parentDS);
+                if (type) return type;
+                ds = parentDS;
+            }
+        }
+
+        type = isc.builtinTypes[typeName];
         return type;
     },
 
@@ -24227,13 +29663,13 @@ isc.SimpleType.addClassMethods({
     //
     // @value max <i>Client:</i> iterates through the set of records, picking up all values
     // for the specified field and finding the maximum value. Handles numeric fields and
-    // date type fields only. Returns null to indicate invalid
+    // date/time/datetime type fields only. Returns null to indicate invalid
     // summary value if any non numeric/date field values are encountered.<br>
     // <i>Server:</i> acts exactly like SQL MAX function.
     //
     // @value min <i>Client:</i> iterates through the set of records, picking up all values
     // for the specified field and finding the minimum value.  Handles numeric fields and
-    // date type fields only. Returns null to indicate invalid summary value if
+    // date/time/datetime type fields only. Returns null to indicate invalid summary value if
     // any non numeric field values are encountered.<br>
     // <i>Server:</i> acts exactly like SQL MIN function.
     //
@@ -24283,7 +29719,7 @@ isc.SimpleType.addClassMethods({
     // @visibility external
     //<
 
-    //> @attr summaryConfiguration.invalidSummaryValue (string : "&nbsp;" : IRWA)
+    //> @attr summaryConfiguration.invalidSummaryValue (String : "&nbsp;" : IRWA)
     // The field value to treat as an invalid value from a summary row (see
     // +link{listGrid.showGridSummary} or +link{listGrid.showGroupSummary}) or as an invalid value
     // in a summary-type field (see +link{listGridFieldType,listGridFieldType:"summary"}).
@@ -24360,7 +29796,7 @@ isc.SimpleType.addClassMethods({
         max : function (records, field, config, component) {
             if (config == null) config = isc.SimpleType._getDefaultSummaryConfiguration();
 
-            var dateCompare = (field && (field.type == "date"));
+            var dateCompare = (field.type == "date" || field.type == "datetime" || field.type == "time")
             var max;
             for (var i = 0; i < records.length; i++) {
                 var value = isc.Canvas._getFieldValue(null, field, records[i], component, true, "formula");
@@ -24369,8 +29805,21 @@ isc.SimpleType.addClassMethods({
                     continue;
                 }
                 if (dateCompare) {
-                    if (!isc.isA.Date(value)) return null;
-                    if (max == null || value.getTime() > max.getTime()) max = value.duplicate();
+                    var dateVal = isc.clone(value);
+                    if (!isc.isA.Date(value)) {
+                        if (isc.isA.String(value)) {
+                            if (isc.DateUtil.isDatetimeString(value)) {
+                                dateVal = isc.DateUtil.parseInput(value);
+                            } else if (field.type == "time") {
+                                dateVal = isc.Time.parseInput(value);
+                            } else {
+                                dateVal = isc.DateUtil.parseSchemaDate(value);
+                            }
+                        } else {
+                            return null;
+                        }
+                    }
+                    if (max == null || dateVal.getTime() > max.getTime()) max = dateVal.duplicate();
                 } else {
                     var floatVal = parseFloat(value);
 
@@ -24393,17 +29842,29 @@ isc.SimpleType.addClassMethods({
         min : function (records, field, config, component) {
             if (config == null) config = isc.SimpleType._getDefaultSummaryConfiguration();
 
-            var dateCompare = (field.type == "date")
+            var dateCompare = (field.type == "date" || field.type == "datetime" || field.type == "time")
             var min;
             for (var i = 0; i < records.length; i++) {
                 var value = isc.Canvas._getFieldValue(null, field, records[i], component, true, "formula");
-
                 if (value == null || value === isc.emptyString) {
                     continue;
                 }
                 if (dateCompare) {
-                    if (!isc.isA.Date(value)) return null;
-                    if (min == null || value.getTime() < min.getTime()) min = value.duplicate();
+                    var dateVal = isc.clone(value);
+                    if (!isc.isA.Date(value)) {
+                        if (isc.isA.String(value)) {
+                            if (isc.DateUtil.isDatetimeString(value)) {
+                                dateVal = isc.DateUtil.parseInput(value);
+                            } else if (field.type == "time") {
+                                dateVal = isc.Time.parseInput(value);
+                            } else {
+                                dateVal = isc.DateUtil.parseSchemaDate(value);
+                            }
+                        } else {
+                            return null;
+                        }
+                    }
+                    if (min == null || dateVal.getTime() < min.getTime()) min = dateVal.duplicate();
                 } else {
                     var floatVal = parseFloat(value);
                     if (isc.isA.Number(floatVal) && (floatVal == value)) {
@@ -24481,8 +29942,8 @@ isc.SimpleType.addClassMethods({
     // Registers a new +link{type:SummaryFunction} by name. After calling this method,
     // developers may specify the name passed in as a standard summaryFunction
     // (for example in +link{listGridField.summaryFunction}).
-    // @param functionName (string) name for the newly registered summaryFunction
-    // @param method (function) New summary function. This function should take 2 parameters
+    // @param functionName (String) name for the newly registered summaryFunction
+    // @param method (Function) New summary function. This function should take 2 parameters
     // <ul>
     //  <li><code>records</code>: an array of records for which a summary must be generated
     //  <li><code>field</code>: a field definition
@@ -24512,7 +29973,7 @@ isc.SimpleType.addClassMethods({
     // <br>- <code>"integer"</code> defaults to <code>"sum"</code>
     // <br>- <code>"float"</code> defaults to <code>"sum"</code>.
     //
-    // @param typeName (string) type name
+    // @param typeName (String) type name
     // @param summaryFunction (SummaryFunction) summary function to set as the default for
     //   this data type.
     // @visibility external
@@ -24524,7 +29985,7 @@ isc.SimpleType.addClassMethods({
 
     //> @classMethod SimpleType.getDefaultSummaryFunction()
     // Retrieves the default summary function for some field type.
-    // @param typeName (string) type name
+    // @param typeName (String) type name
     // @return (SummaryFunction) default summary function for this data type.
     // @visibility external
     //<
@@ -24548,7 +30009,7 @@ isc.SimpleType.addClassMethods({
     //  in order to retrieve the summary value. May be specified as an explicit function
     //  or string of script to execute, or a SummaryFunction identifier
     // @param summaryConfig (SummaryConfiguration) config that affects summary calculation
-    // @return (any) summary value generated from the applied SummaryFunction
+    // @return (Any) summary value generated from the applied SummaryFunction
     // @visibility external
     //<
 
@@ -24570,6 +30031,49 @@ isc.SimpleType.addClassMethods({
         if (isc.isA.Function(summaryFunction)) {
             return summaryFunction(records, field, summaryConfig, displayComponent);
         }
+    },
+
+    //> @attr simpleType.validOperators (Array of OperatorId : null : IR)
+    // Set of search operators valid for this type.
+    // <P>
+    // If not specified, the +link{inheritsFrom,inherited} type's operators will be used, finally
+    // defaulting to the default operators for the basic types (eg, integer).
+    // @group advancedFilter
+    // @visibility external
+    //<
+
+    getValidOperators : function (typeName) {
+        typeName = typeName || "text";
+        var typeObj = this.getType(typeName);
+        if (typeObj) {
+            if (typeObj.validOperators != null) {
+                return typeObj.validOperators;
+            }
+            if (typeObj.inheritsFrom != null && typeObj.inheritsFrom != typeName) {
+                return this.getValidOperators(typeObj.inheritsFrom);
+            }
+        }
+    },
+
+    //> @attr simpleType.defaultOperator (OperatorId : null : IR)
+    // The default search-operator for this data-type.
+    // @group advancedFilter
+    // @visibility external
+    //<
+
+    getDefaultOperator : function (typeName) {
+        typeName = typeName || "text";
+        var typeObj = this.getType(typeName);
+        if (typeObj) {
+            if (typeObj.defaultOperator != null) {
+                return typeObj.defaultOperator;
+            }
+            if (typeObj.inheritsFrom != null && typeObj.inheritsFrom != typeName) {
+                return this.getDefaultOperator(typeObj.inheritsFrom);
+            }
+        }
+        // if there's no type or defaultOp, return "iContains"
+        //return "iContains";
     }
 
 });
@@ -24761,7 +30265,7 @@ isc.defineClass("MiniNavControl", "StretchImgButton");
 
 isc.MiniNavControl.addProperties({
 
-    //> @attr miniNavControl.skinImgDir (URL : "images/NavigationBar" : IR)
+    //> @attr miniNavControl.skinImgDir (SCImgURL : "images/NavigationBar" : IR)
     // @visibility external
     //<
     skinImgDir:"images/NavigationBar/",
@@ -25173,9 +30677,8 @@ isc.NavigationBar.addProperties({
     // "leftButton", "titleLabel", "rightButton" may be used to show the standard
     // navigation bar controls, as well as any Canvases (which will be embedded directly
     // in the navigation bar).
-    // @visibility internal
+    // @visibility external
     //<
-
     controls:["leftButton", "titleLabel", "rightButton"],
 
     //> @attr navigationBar.miniNavControl (AutoChild MiniNavControl : null : IR)
@@ -26092,6 +31595,16 @@ isc.NavigationBar.addProperties({
                 }
 
 
+                if (transitioningElements.isEmpty()) {
+
+                    this._leftIconButton._origStyleName     = null;
+                    this._oldLeftTitleButton._origStyleName = null;
+                    this.leftButton._origStyleName          = null;
+                    this._oldTitleLabel._origStyleName      = null;
+                    this.titleLabel._origStyleName          = null;
+                    return;
+                }
+
                 if (this._animateStateChangeTimer != null) {
                     isc.Timer.clear(this._animateStateChangeTimer);
                     this._animateStateChangeTimer = null;
@@ -26223,6 +31736,7 @@ isc.NavigationBar.addProperties({
             isc.Timer.clear(this._animateStateChangeTimer);
             this._animateStateChangeTimer = null;
         }
+        this._pendingAnimateStateChangeCall = false;
 
         var animationInfo = this._animationInfo,
             Canvas_setStyleName = isc.Canvas._instancePrototype.setStyleName,
@@ -26966,6 +32480,11 @@ isc.NavigationBar.addProperties({
         else titleLabelMeasurer.redrawIfDirty();
         titleWidth = titleLabelMeasurer.getVisibleWidth();
 
+        if (isc.Browser.isFirefox && isc.Browser.minorVersion >= 78) {
+
+            titleWidth += 1;
+        }
+
 
         if (navigator.appVersion.contains("iPhone OS 10_")) titleWidth++;
         titleLabelMeasurer.setContents(isc.nbsp);
@@ -27390,6 +32909,22 @@ isc.NavigationBar.registerStringMethods({
 // @visibility external
 //<
 
+//> @type NavigationMethod
+// Method of, or reason for, navigation between panes.
+// @value "backClick" a "back" +link{NavigationButton} has been clicked
+// @value "sideClick" a side panel +link{NavigationButton} has been clicked
+// @value "programmatic" application code called
+//                       +link{splitPane.setCurrentPane(),setCurrentPane()},
+//                       +link{splitPane.showNavigationPane(),showNavigationPane()},
+//                       +link{splitPane.showListPane(),showListPane()},
+//                       +link{splitPane.showDetailPane(),showDetailPane()}, etc.
+// @value "navigatePane" application code directly called
+//                       +link{splitPane.navigatePane(),navigatePane()}
+// @value "selectionChanged" a seletion change automatically called
+//                           +link{splitPane.navigatePane(),navigatePane()}
+// @value "historyCallback" browser navigation triggered +link{SplitPane} navigation
+// @visibility external
+//<
 
 
 isc.defineClass("SplitPanePagedPanel", "Canvas").addProperties({
@@ -27411,22 +32946,42 @@ isc.defineClass("SplitPanePagedPanel", "Canvas").addProperties({
         height: "100%",
         overflow: "visible",
 
-        getTransformCSS : function () {
+        _getTranslateX : function () {
             var creator = this.creator;
-            if (!creator.animateTransitions || !isc.Browser._supportsCSSTransitions || !creator.skinUsesCSSTransitions) {
+            if (!creator.animateTransitions || !isc.Browser._supportsCSSTransitions ||
+                !creator.skinUsesCSSTransitions)
+            {
                 return null;
             } else {
                 var currentPage = creator.currentPage,
                     left;
                 if (currentPage >= 0) {
-                    left = -(creator.isRTL() ? creator.pages.length - 1 - currentPage : currentPage) * creator.getInnerWidth();
+                    left = -(creator.isRTL() ? creator.pages.length - 1 - currentPage :
+                             currentPage) * creator.getInnerWidth();
                 } else {
                     left = 0;
                 }
-                // Android 2.x does not support 3D transforms.
-                // http://caniuse.com/transforms3d
-                return ";" + isc.Element._transformCSSName + ": translateX(" + left + "px);";
+                return left;
             }
+        },
+
+        getTransformCSS : function () {
+            var left = this._getTranslateX();
+            if (left == null) return null;
+
+            // Android 2.x does not support 3D transforms.
+            // http://caniuse.com/transforms3d
+            return ";" + isc.Element._transformCSSName + ": translateX(" + left + "px);";
+        },
+
+
+        scrollIntoView : function (x, y) {
+
+            if (x != null) {
+                var left = this._getTranslateX();
+                if (left != null) x += left;
+            }
+            return this.Super("scrollIntoView", arguments);
         },
 
         _transitionEnded : function (transitionRemoved) {
@@ -28060,6 +33615,17 @@ isc.SplitPane.addProperties({
     overflow: "hidden",
     vertical: true,
 
+    //> @attr splitPane.vertical (boolean : null : IRW)
+    // <b>Note</b>: This is a Layout property which is inapplicable on this class.
+    // @include layout.vertical
+    //<
+
+    //> @attr splitPane.reverseOrder (Boolean : null : IRW)
+    // <b>Note</b>: This is a Layout property which is inapplicable on this class. A SplitPane
+    // always works from left to right.
+    // @include layout.reverseOrder
+    //<
+
     //> @attr splitPane.addHistoryEntries (boolean : false : IRW)
     // Should default history-tracking support be enabled? If <code>true</code>, then a history
     // management scheme utilizing +link{History.addHistoryEntry()} and +link{History.registerCallback}
@@ -28134,13 +33700,37 @@ isc.SplitPane.addProperties({
     //<
     //pageOrientation: null,
 
-    //> @attr splitPane.navigationPaneWidth (int : 320 : IR)
-    // LeftLayout’s initial size
+    //> @attr splitPane.notifyAfterNavigationClick (boolean : false : IRW)
+    // Whether or not to call +link{navigationClick()}, if present, after navigation has already
+    // occurred.  This may be set to provide backcompat with legacy code, as by default the
+    // Framework will call +link{navigationClick()} before navigation to allow cancelation.
+    // <P>
+    // Note that if this property is set, +link{navigationClick()} cannot be canceled.
+    // @see paneChanged
+    // @see navigationClick
+    // @visibility external
+    //<
+
+
+    //> @attr splitPane.navigationPaneWidth (Number | String : 320 : IR)
+    // Sets a size for the navigation pane.
+    // <p>
+    // This size is active only on platforms where multiple panes are showing at once; if a
+    // single pane is showing, <code>navigationPaneWidth</code> is ignored.
+    // <p>
+    // Note that setting a <code>navigationPaneWidth</code> which creates more size in one of
+    // the panes may backfire on mobile, where all panes end up having the same width (the
+    // device width).  If you make one pane larger to accommodate more controls or content, make
+    // sure you use techniques such as showing fewer columns on mobile, or using adaptive
+    // components such as +link{AdaptiveMenu}.
+    // <p>
+    // If you simply want side-by-side display with arbitrary proportions, and don't care about
+    // tablet and mobile adaptation, use +link{HLayout} instead.
     //
+    // @see canvas.width
     // @visibility external
     //<
     navigationPaneWidth: 320,
-
 
     portraitClickMaskDefaults: {
         _constructor: "Canvas",
@@ -28192,7 +33782,19 @@ isc.SplitPane.addProperties({
     },
 
     leftLayoutDefaults: {
-        _constructor: "VLayout"
+        _constructor: "VLayout",
+        setWidth : function (newWidth) {
+            //>EditMode
+            var splitPane = this.creator;
+            if (splitPane.editingOn && splitPane.editContext) {
+                var fullWidth = splitPane.getVisibleWidth(),
+                    widthPercent = Math.round(newWidth / fullWidth * 100.0) + "%"
+                ;
+                splitPane.editContext.setNodeProperties(splitPane.editNode, { navigationPaneWidth: widthPercent });
+            }
+            //<EditMode
+            this.Super("setWidth", arguments);
+        }
     },
 
     getDynamicDefaults: function(childName) {
@@ -28361,15 +33963,21 @@ isc.SplitPane.addProperties({
             if (this.parentElement._animating) return;
 
             var creator = this.creator;
+
+            // default is to fire navigationClick handler before navigation to allow canceling
+            if (creator.navigationClick != null && !creator.notifyAfterNavigationClick) {
+                if (creator.navigationClick(this.direction) == false) return false;
+            }
+            // do the navigation, which will show and hide new and old pane, respectively
             if (creator.currentPane === "detail" && creator._hasListPane() &&
                 creator.currentUIConfig !== "landscape")
             {
-                creator.showListPane(null, null, "back");
+                creator.showListPane(null, null, "back", null, false);
             } else {
-                creator.showNavigationPane("back");
+                creator.showNavigationPane("back", null, false);
             }
-            // Always fire the navigationClick handler if defined
-            if (creator.navigationClick != null) {
+            // fire navigationClick handler now, after navigation, if legacy prop is set
+            if (creator.navigationClick != null && creator.notifyAfterNavigationClick) {
                 creator.navigationClick(this.direction);
             }
             return false;
@@ -28647,20 +34255,12 @@ isc.SplitPane.addProperties({
         if (this.navigationPane != null) {
             this.navigationPane.resizeTo("100%", this.navigationPane._userHeight != null ? null : "100%");
             this.navigationPane.splitPane = this;
-            if (this.autoNavigate && isc.isA.DataBoundComponent(this.navigationPane)) {
-                this.observe(this.navigationPane, "selectionUpdated", function () {
-                    this.navigateListPane();
-                });
-            }
+            if (this.autoNavigate) this._observePane("navigation", this.navigationPane);
         }
         if (this.listPane != null) {
             this.listPane.resizeTo("100%", this.listPane._userHeight != null ? null : "100%");
             this.listPane.splitPane = this;
-            if (this.autoNavigate && isc.isA.DataBoundComponent(this.listPane)) {
-                this.observe(this.listPane, "selectionUpdated", function () {
-                    this.navigateDetailPane();
-                });
-            }
+            if (this.autoNavigate) this._observePane("list", this.listPane);
         }
         if (this.detailPane != null) {
             this.detailPane.resizeTo("100%", this.detailPane._userHeight != null ? null : "100%");
@@ -28837,7 +34437,7 @@ isc.SplitPane.addProperties({
             var oldPane = id.substring(historyIDPrefix.length);
             if (oldPane === "navigation") {
                 this.setNavigationTitle(data.title);
-                this.showNavigationPane(true);
+                this.showNavigationPane(null, true);
             } else if (oldPane === "list") {
                 this.showListPane(data.title, data._overriddenBackButtonTitle, null, true);
             } else {
@@ -29014,12 +34614,12 @@ isc.SplitPane.addProperties({
             this.setProperty("vertical", true);
 
             this.leftLayout.removeMembers(this.leftLayout.members);
-
             this.portraitSidePanel.setPagedPanel(this._pagedPanel);
-
             this.updateDetailToolStrip();
-            this.setMembers([this.detailToolStrip]);
-            if (this.detailPane != null) this.addMember(this.detailPane);
+
+            var newMembers = [this.detailToolStrip];
+            if (this.detailPane != null) newMembers.add(this.detailPane);
+            this.setMembers(newMembers);
 
             var pages;
             if (prevConfig !== "portrait") {
@@ -29123,10 +34723,24 @@ isc.SplitPane.addProperties({
                 members.add(this.listPane);
                 this.listPane.setShowResizeBar(this.showResizeBars);
             }
+            //>EditMode
+            else if (this.editingOn && this.editProxy && this.editProxy.isTriplePane) {
+                // When showing a TriplePane in VB, always show a listPane or placeholder
+                // along with detailPane so that all 3 panes are visible during editing
+                var placeholder = isc.LayoutSpacer.create({ height: "50%", showResizeBar: true });
+                members.add(placeholder);
+            }
+            //<EditMode
             if (this.detailPane != null) {
                 if (this.detailToolStrip != null) members.add(this.detailToolStrip);
                 members.add(this.detailPane);
             }
+            //>EditMode
+            else if (this.editingOn && this.editProxy && this.editProxy.isTriplePane) {
+                var placeholder = isc.LayoutSpacer.create({ height: "*" });
+                members.add(placeholder);
+            }
+            //<EditMode
             this.rightLayout.setMembers(members);
 
             this.setMembers([this.leftLayout, this.rightLayout]);
@@ -29460,18 +35074,14 @@ isc.SplitPane.addProperties({
             if (oldNavigationPane === pane) return;
 
             delete oldNavigationPane.splitPane;
-            this.ignore(oldNavigationPane, "selectionUpdated"); // will no-op if not observing
+            this._ignorePane("navigation", oldNavigationPane); // will no-op if not observing
         }
 
         this.navigationPane = pane;
         if (pane != null) {
             pane.resizeTo("100%", pane._userHeight != null ? null : "100%");
             pane.splitPane = this;
-            if (this.autoNavigate && isc.isA.DataBoundComponent(pane)) {
-                this.observe(pane, "selectionUpdated", function () {
-                    this.navigateListPane();
-                });
-            }
+            if (this.autoNavigate) this._observePane("navigation", pane);
         }
 
         if (this.isTablet() || this.isHandset()) {
@@ -29509,8 +35119,13 @@ isc.SplitPane.addProperties({
     // is <code>true</code>, this is the direction passed to +link{NavigationBar.setViewState()}.
     // @visibility external
     //<
-    showNavigationPane : function (direction, fromHistoryCallback, forceUIRefresh) {
-        var changed = this.currentPane != null && this.currentPane !== "navigation";
+
+    showNavigationPane : function (direction, fromHistoryCallback, forceUIRefresh, autoNavigate)
+    {
+        if (!this.navigationPane || !this.navigationPane.isVisible()) forceUIRefresh = true;
+
+        var currentPane = this.currentPane,
+            changed = currentPane != null && currentPane !== "navigation";
         this.currentPane = "navigation";
         // If coming from the history callback, then we need to refresh the UI because the
         // navigation title might be different.
@@ -29521,8 +35136,18 @@ isc.SplitPane.addProperties({
                 this._maybeAddHistoryEntry();
             }
             delete this._overriddenBackButtonTitle;
-            if (this.paneChanged != null && this.isDrawn()) this.paneChanged("navigation");
+
+            if (this.isDrawn()) {
+                var method = this._getNavigationMethod(direction, fromHistoryCallback,
+                                                       forceUIRefresh, autoNavigate);
+                this._paneChanged("navigation", currentPane, method);
+            }
         }
+    },
+
+    _paneChanged : function (newPane, oldPane, method) {
+        if (this.autoNavigate) delete this._ignoreRecordClick;
+        if (this.paneChanged != null) this.paneChanged(newPane, oldPane, method);
     },
 
     _hasListPane : function () {
@@ -29535,7 +35160,7 @@ isc.SplitPane.addProperties({
             if (oldListPane === pane) return;
 
             delete oldListPane.splitPane;
-            this.ignore(oldListPane, "selectionUpdated"); // will no-op if not observing
+            this._ignorePane("list", oldListPane); // will no-op if not observing
         }
 
         this.listPane = pane;
@@ -29543,11 +35168,7 @@ isc.SplitPane.addProperties({
         if (pane != null) {
             pane.resizeTo("100%", pane._userHeight != null ? null : "100%");
             pane.splitPane = this;
-            if (this.autoNavigate && isc.isA.DataBoundComponent(pane)) {
-                this.observe(pane, "selectionUpdated", function () {
-                    this.navigateDetailPane();
-                });
-            }
+            if (this.autoNavigate) this._observePane("list", pane);
         }
 
         if (this.isTablet() || this.isHandset()) {
@@ -29587,26 +35208,42 @@ isc.SplitPane.addProperties({
     // is <code>true</code>, this is the direction passed to +link{NavigationBar.setViewState()}.
     // @visibility external
     //<
-    showListPane : function (listPaneTitle, backButtonTitle, direction, fromHistoryCallback, forceUIRefresh) {
+
+    showListPane : function (listPaneTitle, backButtonTitle, direction, fromHistoryCallback,
+                             forceUIRefresh, autoNavigate)
+    {
         if (!this._hasListPane()) {
             this.logWarn("Attempted to show the list pane, but this SplitPane does not have a list pane. Ignoring.");
             return;
         }
 
-        var changed = (this.currentPane !== "list");
-        if (listPaneTitle != null) this.listTitle = listPaneTitle;
+        if (!this.listPane || !this.listPane.isVisible()) forceUIRefresh = true;
+
+        var currentPane = this.currentPane,
+            changed = this.currentPane !== "list";
+
+        // update title from listPaneTitle unless it should come from the dynamicProperty
+        if (autoNavigate && this.hasDynamicProperty("listTitle")) forceUIRefresh = true;
+        else if (listPaneTitle != null) this.listTitle = listPaneTitle;
+
         if (backButtonTitle != null) this._overriddenBackButtonTitle = backButtonTitle;
         this.currentPane = "list";
         // If coming from the history callback, then we need to refresh the UI because the
         // list title might be different or there might be an overridden back button title.
-        this.updateUI(listPaneTitle != null || backButtonTitle != null || fromHistoryCallback || forceUIRefresh, direction);
+        this.updateUI(listPaneTitle != null || backButtonTitle != null ||
+                      fromHistoryCallback || forceUIRefresh, direction);
 
         if (changed) {
             if (!fromHistoryCallback) {
                 this._maybeAddHistoryEntry();
             }
             delete this._overriddenBackButtonTitle;
-            if (this.paneChanged != null && this.isDrawn()) this.paneChanged("list");
+
+            if (this.isDrawn()) {
+                var method = this._getNavigationMethod(direction, fromHistoryCallback,
+                                                       forceUIRefresh, autoNavigate);
+                this._paneChanged("list", currentPane, method);
+            }
         }
     },
 
@@ -29671,21 +35308,37 @@ isc.SplitPane.addProperties({
     // is <code>true</code>, this is the direction passed to +link{NavigationBar.setViewState()}.
     // @visibility external
     //<
-    showDetailPane : function (detailPaneTitle, backButtonTitle, direction, fromHistoryCallback, forceUIRefresh) {
-        var changed = (this.currentPane !== "detail");
-        if (detailPaneTitle != null) this.detailTitle = detailPaneTitle;
+
+    showDetailPane : function (detailPaneTitle, backButtonTitle, direction, fromHistoryCallback,
+                               forceUIRefresh, autoNavigate)
+    {
+        if (!this.detailPane || !this.detailPane.isVisible()) forceUIRefresh = true;
+
+        var currentPane = this.currentPane,
+            changed = this.currentPane !== "detail";
+
+        // update title from detailPaneTitle unless it should come from the dynamicProperty
+        if (autoNavigate && this.hasDynamicProperty("detailTitle")) forceUIRefresh = true;
+        else if (detailPaneTitle != null) this.detailTitle = detailPaneTitle;
+
         if (backButtonTitle != null) this._overriddenBackButtonTitle = backButtonTitle;
         this.currentPane = "detail";
         // If coming from the history callback, then we need to refresh the UI because the
         // detail title might be different or there might be an overridden back button title.
-        this.updateUI(detailPaneTitle != null || backButtonTitle != null || fromHistoryCallback || forceUIRefresh, direction);
+        this.updateUI(detailPaneTitle != null || backButtonTitle != null ||
+                      fromHistoryCallback || forceUIRefresh, direction);
 
         if (changed) {
             if (!fromHistoryCallback) {
                 this._maybeAddHistoryEntry();
             }
             delete this._overriddenBackButtonTitle;
-            if (this.paneChanged != null && this.isDrawn()) this.paneChanged("detail");
+
+            if (this.isDrawn()) {
+                var method = this._getNavigationMethod(direction, fromHistoryCallback,
+                                                       forceUIRefresh, autoNavigate);
+                this._paneChanged("detail", currentPane, method);
+            }
         }
     },
 
@@ -29725,15 +35378,18 @@ isc.SplitPane.addProperties({
         if (updateUI) this.updateUI(true);
     },
 
-    _parsePaneTitleTemplate : function(template, pane) {
-        if (!isc.isA.DataBoundComponent(pane)) return "";
+    _parsePaneTitleTemplate : function(template, paneDBC) {
+        if (!isc.isA.DataBoundComponent(paneDBC)) return "";
 
-        var selectedRecord = pane.getSelectedRecord();
-
+        var selectedRecord = paneDBC.getSelectedRecord(),
+            paneDS = paneDBC.getDataSource()
+        ;
+        // set up the available template variables before calling evalDynamicString()
         var variables = {
-            titleField: selectedRecord == null ? "" : selectedRecord[pane.getTitleField()],
-            index: selectedRecord == null ? -1 : pane.getRecordIndex(selectedRecord),
-            totalRows: pane.getTotalRows(),
+            titleField: (!selectedRecord || !paneDS) ? "" :
+                          selectedRecord[paneDS.getTitleField()],
+            index: selectedRecord == null ? -1 : paneDBC.getRecordIndex(selectedRecord),
+            totalRows: paneDBC.getTotalRows ? paneDBC.getTotalRows() : 1,
             record: selectedRecord
         };
 
@@ -29769,7 +35425,9 @@ isc.SplitPane.addProperties({
     //<
     setListPaneTitleTemplate : function (template) {
         this.listPaneTitleTemplate = template;
-        this.setListTitle(this._parsePaneTitleTemplate(this.listPaneTitleTemplate, this.navigationPane));
+        var navigationDBC = this.navigationPane ?
+            this._getNavigatePaneComponent("navigation", this.navigationPane) : null;
+        this.setListTitle(this._parsePaneTitleTemplate(template, navigationDBC));
     },
 
     //> @attr splitPane.detailPaneTitleTemplate (HTMLString : "${titleField}" : IRW)
@@ -29794,33 +35452,63 @@ isc.SplitPane.addProperties({
     //<
     setDetailPaneTitleTemplate : function (template) {
         this.detailPaneTitleTemplate = template;
-        this.setDetailTitle(this._parsePaneTitleTemplate(this.detailPaneTitleTemplate, this.listPane));
+        var listDBC = this.listPane ?
+            this._getNavigatePaneComponent("list", this.listPane) : null;
+        this.setDetailTitle(this._parsePaneTitleTemplate(template, listDBC));
     },
 
     //> @attr splitPane.autoNavigate (boolean : null : IR)
     // If set, the <code>SplitPane</code> will automatically monitor selection changes in the
-    // +link{navigationPane} or +link{listPane}, and call +link{navigateListPane()} or
+    // +link{navigationPane} and +link{listPane}, and call +link{navigateListPane()} or
     // +link{navigateDetailPane()} when selections are changed.
     // <p>
-    // If any configured panes lack DataSources or there is no DataSource relationship declared
-    // between panes, <code>autoNavigate</code> does nothing.
+    // If a pane is not a +link{DataBoundComponent}, but contains a component (selected via a
+    // breadth-first search), then that inner component will be monitored for selection changes
+    // instead.  In either case, <code>autoNavigate</code> does nothing unless the monitored
+    // component has a valid +link{DataSource} and there is a DataSource relationship declared
+    // between panes.  Note that for +link{Layout}s, the +link{layout.members,members} will be
+    // searched when looking for a component rather than the +link{canvas.children,children}.
+    // <p>
+    // The selection of the pane or pane inner component for monitoring is done only when the
+    // <code>SplitPane</code> is created, and when a new +link{navigationPane} or
+    // +link{listPane} is assigned, except when the <code>SplitPane</code> is in
+    // +link{Canvas.setEditMode,edit mode} (e.g. when using +link{visualBuilder}). where the
+    // component redetection logic gets run every time a pane's widget hierarchy changes.
     // @example layoutSplitPane
     // @visibility external
     //<
     autoNavigate: null,
 
+
+    navigationId: 0,
+
     //> @method splitPane.navigatePane()
     // Causes the target pane component to load data and update its title based on the current
-    // selection in the source pane.
+    // selection in the source pane.  Also shows the target pane if it's not already visible.
     // <p>
-    // Both the source pane and target pane must have a +link{DataSource}, and either:
+    // For the target pane to load data, both the source pane and target pane must be
+    // +link{DataBoundComponent}s or contain a component as a descendant widget, and have a
+    // +link{DataSource}, and either:
     // <ul>
-    // <li> the two DataSources must have a Many-To-One relationship declared via
+    // <li> The two DataSources must have a Many-To-One relationship declared via
     // +link{dataSourceField.foreignKey}, so that +link{listGrid.fetchRelatedData()} can be
-    // used on the target pane.
-    // <li> the two DataSources must be the same, so that the record selected in the source pane can
-    // be displayed in the target pane via simply calling +link{detailViewer.setData(),setData()}.
+    // used on the target pane.  A common example of this would be navigation from a source
+    // pane that's a +link{TreeGrid} to a +link{ListGrid} target.
+    // <li> The two DataSources must be the same, so that the record selected in the source pane
+    // can be displayed in the target pane via simply calling +link{detailViewer.setData(),
+    // setData()}.  This would apply, for example, if the source pane is a +link{ListGrid} and
+    // the target is a +link{DynamicForm}, so that +link{DynamicForm.editRecord(),editRecord()}
+    // gets called, or if the target is a +link{DetailViewer}.
     // </ul>
+    // For purposes of this check, if the pane is not itself a component, we will use the first
+    // component we can find in a breath-first search of the hierarchy underneath it.  Note that
+    // one or more records must be selected in the source component for related data to be
+    // loaded (which should be automatically true for +link{autoNavigate,auto-navigation}).
+    // <P>
+    // Even if we can't load related data into the target pane by the above rules, we'll still
+    // show the target pane if it's not already visible, except during +link{autoNavigate,
+    // auto-navigation}.
+    // <P>
     // The default <code>target</code> is
     // <smartclient>"list"</smartclient>
     // <smartgwt>{@link com.smartgwt.client.types.CurrentPane#LIST}</smartgwt>
@@ -29845,8 +35533,10 @@ isc.SplitPane.addProperties({
     // @param [source] (CurrentPane) source pane used for selection
     // @visibility external
     //<
-    navigatePane : function (target, title, source) {
-        var targetPane;
+
+    navigatePane : function (target, title, source, isAuto) {
+        var targetPane,
+            logLevel = isAuto ? isc.Log.INFO : isc.Log.WARN;
         if (isc.isA.Canvas(target)) {
             if (target === this.navigationPane) {
                 targetPane = target;
@@ -29858,7 +35548,9 @@ isc.SplitPane.addProperties({
                 targetPane = target;
                 target = "detail";
             } else {
-                this.logWarn("Unknown target pane:" + isc.echoLeaf(target) + ". Will use the default target pane.");
+
+                this.logWarn("navigatePane(): Unknown target pane:" + isc.echoLeaf(target) +
+                             ". Will use the default target pane.");
                 target = null;
             }
 
@@ -29868,7 +35560,9 @@ isc.SplitPane.addProperties({
             } else if (target === "list") {
                 targetPane = this.listPane;
                 if (targetPane == null) {
-                    this.logWarn("The listPane cannot be the target because there isn't a listPane set. Will default to the detailPane.");
+                    this.logMessage(logLevel, "navigatePane(): The listPane cannot be the " +
+                                    "target because there isn't a listPane set. Will default " +
+                                    "to the detailPane.");
                 }
             } else if (target === "detail") {
                 targetPane = this.detailPane;
@@ -29876,6 +35570,7 @@ isc.SplitPane.addProperties({
 
         }
 
+        // default targetPane; bail out if it's still not set
         if (targetPane == null) {
             if (this._hasListPane()) {
                 target = "list";
@@ -29885,8 +35580,14 @@ isc.SplitPane.addProperties({
                 targetPane = this.detailPane;
             }
         }
+        if (targetPane == null) {
+            this.logInfo("navigatePane(): unable to navigate - can't resolve the targetPane");
+            return;
+        }
 
-        if (targetPane == null) return;
+        // default the source based on currentPane
+
+        if (source == null) source = this.currentPane;
 
         var sourcePane;
         if (isc.isA.Canvas(source)) {
@@ -29900,7 +35601,9 @@ isc.SplitPane.addProperties({
                 sourcePane = source;
                 source = "detail";
             } else {
-                this.logWarn("Unknown source pane:" + isc.echoLeaf(source) + ". Will use the default source pane.");
+
+                this.logWarn("navigatePane(): Unknown source pane:" + isc.echoLeaf(source) +
+                             ". Will use the default source pane.");
                 source = null;
             }
 
@@ -29910,7 +35613,9 @@ isc.SplitPane.addProperties({
             } else if (source === "list") {
                 sourcePane = this.listPane;
                 if (sourcePane == null) {
-                    this.logWarn("The listPane cannot be the source because there isn't a listPane set. Will use the default source pane.");
+                    this.logMessage(logLevel, "navigatePane(): The listPane cannot be the " +
+                                    "source because there isn't a listPane set. Will use " +
+                                    "the default source pane.");
                 }
             } else if (source === "detail") {
                 sourcePane = this.detailPane;
@@ -29918,6 +35623,7 @@ isc.SplitPane.addProperties({
 
         }
 
+        // default sourcePane; bail out if it's still not set
         if (sourcePane == null) {
             if (target === "detail" && this._hasListPane()) {
                 source = "list";
@@ -29927,38 +35633,166 @@ isc.SplitPane.addProperties({
                 sourcePane = this.navigationPane;
             }
         }
-
-        if (sourcePane == null) return;
-
-        if (!isc.isA.DataBoundComponent(targetPane) || !targetPane.getDataSource()) {
-            this.logWarn("Can't navigate SplitPane without a DataSource on the target pane.");
+        if (sourcePane == null) {
+            this.logInfo("navigatePane(): unable to navigate - can't resolve the sourcePane");
             return;
         }
 
-        if (!isc.isA.DataBoundComponent(sourcePane) || !sourcePane.getDataSource()) {
-            this.logWarn("Can't navigate SplitPane without a DataSource on the source pane.");
-            return;
+        // retrieve sourceDBC from sourcePane; may be pane itself or descendant canvas
+        var sourceDBC = this._getNavigatePaneComponent("source", sourcePane);
+        if (!sourceDBC) {
+            this.logMessage(logLevel, "navigatePane(): source pane isn't a DataBoundComponent");
+        }
+        // retrieve targetDBC from targetPane; may be pane itself or descendant canvas
+        var targetDBC = this._getNavigatePaneComponent("target", targetPane);
+        if (!targetDBC) {
+            this.logMessage(logLevel, "navigatePane(): target pane isn't a DataBoundComponent");
         }
 
-        var splitPane = this;
-        targetPane.fetchRelatedData(sourcePane.getSelectedRecord(), sourcePane, function () {
-            var titleToSet = title;
 
-            if (target === "list") {
-                if (titleToSet == null && splitPane.listPaneTitleTemplate != null) {
-                    titleToSet = splitPane._parsePaneTitleTemplate(splitPane.listPaneTitleTemplate, sourcePane);
+        var navigateOnFetch;
+        if (sourceDBC && targetDBC && sourceDBC != targetDBC) {
+            var record = sourceDBC.getSelectedRecord();
+            if (record) {
+                if (sourceDBC.getDataSource() == targetDBC.getDataSource()) {
+                    if (targetDBC.editRecord) targetDBC.editRecord(record);
+                    else                      targetDBC.setData([record]);
+                    navigateOnFetch = false;
+                } else {
+                    var splitPane = this,
+                        id = ++this.navigationId;
+                    navigateOnFetch = targetDBC.fetchRelatedData(record, sourceDBC, function ()
+                    {
+                        splitPane._completeNavigatePane(title, target, sourceDBC, id, !!isAuto);
+                    }, null, true);
                 }
-
-                splitPane.showListPane(titleToSet, null, "forward");
-
-            } else if (target === "detail") {
-                if (titleToSet == null && splitPane.detailPaneTitleTemplate != null) {
-                    titleToSet = splitPane._parsePaneTitleTemplate(splitPane.detailPaneTitleTemplate, sourcePane);
-                }
-
-                splitPane.showDetailPane(titleToSet, null, "forward");
+            } else {
+                this.logInfo("navigatePane(): no selected record(s) found for " + sourceDBC);
             }
+        }
+        // server won't be hit so navigate immediately
+        if (!navigateOnFetch) {
+            if (navigateOnFetch == null && isAuto) {
+                this.logInfo("navigatePane(): unable to auto-navigate as proper source and " +
+                             "target panes with related DataSources were not located");
+            } else {
+                this._completeNavigatePane(title, target, sourceDBC, ++this.navigationId,
+                                           !!isAuto);
+            }
+        }
+    },
+
+    // actually perform the navigation, run as a callback if the server is hit
+    _completeNavigatePane : function (titleToSet, target, sourceDBC, id, isAuto) {
+        if (id != this.navigationId) {
+            this.logInfo("navigatePane(): skipping delayed navigation to " + target +
+                         " as another navigation has already been completed");
+            return;
+        }
+
+
+        if (sourceDBC && !sourceDBC.getSelectedRecord()) sourceDBC = null;
+
+        switch (target) {
+        case "list":
+            if (titleToSet == null && this.listPaneTitleTemplate != null && sourceDBC) {
+                titleToSet = this._parsePaneTitleTemplate(this.listPaneTitleTemplate,
+                                                          sourceDBC);
+            }
+            this.showListPane(titleToSet, null, "forward", null, null, isAuto);
+            break;
+
+        case "detail":
+            if (titleToSet == null && this.detailPaneTitleTemplate != null && sourceDBC) {
+                titleToSet = this._parsePaneTitleTemplate(this.detailPaneTitleTemplate,
+                                                          sourceDBC);
+            }
+            this.showDetailPane(titleToSet, null, "forward", null, null, isAuto);
+            break;
+
+        case "navigation":
+            this.showNavigationPane("forward", null, null, isAuto);
+            break;
+        }
+    },
+
+    _getNavigationMethod : function (direction, fromHistoryCallback, forceUIRefresh,
+                                     autoNavigate)
+    {
+        if (autoNavigate != null) {
+            return autoNavigate ? "selectionChanged" : "navigatePane";
+        } else if (forceUIRefresh != null) {
+            return direction == "back" ? "backClick" : "sideClick";
+        } else if (fromHistoryCallback) {
+            return "historyCallback";
+        }
+        return "programmatic";
+    },
+
+    // return pane canvas if it's a DBC; otherwise the first breadth-first DBC descendant
+    _getNavigatePaneComponent : function (paneName, paneCanvas) {
+        if (isc.isA.DataBoundComponent(paneCanvas)) return paneCanvas;
+
+        var children = paneCanvas.members || paneCanvas.children,
+            component = children ? this.__getNavigatePaneComponent(children) : null;
+        if (component) {
+            this.logInfo("navigatePane(): using child canvas " + component + " for the " +
+                paneName + " pane since " + paneCanvas + " isn't a DataBoundComponent");
+        }
+        return component;
+    },
+
+
+    __getNavigatePaneComponent : function (canvasSearchList) {
+        var children = [];
+        for (var i = 0; i < canvasSearchList.length; i++) {
+            var canvas = canvasSearchList[i];
+            if (isc.isA.DataBoundComponent(canvas)) {
+                return canvas;
+            }
+            children.addList(canvas.members || canvas.children);
+        }
+        return children.length ? this.__getNavigatePaneComponent(children) : null;
+    },
+
+    // start observing selectionUpdated() and recordClick() (if defined) on the navigation pane
+
+    _observePane : function (paneName, paneCanvas, paneEdit) {
+        var target = paneName == "list" ? "detail" : "list",
+            component = this._getNavigatePaneComponent(paneName, paneCanvas)
+        ;
+        // EditMode (VisualBuilder) - called when children added to/removed from pane hierarchy
+        if (paneEdit) {
+            if (paneCanvas._paneComponent == component) return;
+            this._ignorePane(paneName, paneCanvas);
+        }
+
+        //  no component found, so nothing to observe
+        if (!component) return;
+
+        // remember observed component for ignore()
+        paneCanvas._paneComponent = component;
+
+        // primarily observe selection changes to trigger navigation
+        this.observe(component, "selectionUpdated", function () {
+            this.navigatePane(target, null, paneName, true);
+            this._ignoreRecordClick = true;
         });
+        // observe recordClick() if present to pick up clicks on an already-selected record
+        if (component.recordClick) this.observe(component, "recordClick", function () {
+            if (this._ignoreRecordClick || this.currentPane != paneName) return;
+            this.navigatePane(target, null, paneName, true);
+        });
+    },
+
+    // stop observing selectionUpdated() and recordClick() (if defined) on the list pane
+    _ignorePane : function (paneName, paneCanvas) {
+        var component = paneCanvas._paneComponent;
+        delete paneCanvas._paneComponent;
+        if (!component) return;
+
+        this.ignore(component, "selectionUpdated");
+        this.ignore(component, "recordClick");
     },
 
     //> @method splitPane.navigateListPane()
@@ -29986,7 +35820,12 @@ isc.SplitPane.registerStringMethods({
     //> @method splitPane.navigationClick()
     // Notification method fired when the user clicks the default back / forward buttons
     // on the navigation bar for this <code>SplitPane</code>.
+    // <P>
+    // Note that the return value will be ignored and cancelation won't be possible if
+    // +link{notifyAfterNavigationClick} has been set true, since that forces this method to run
+    // after we've already navigated to the new pane.
     // @param direction (NavigationDirection) direction in which the user is attempting to navigate.
+    // @return (Boolean) false to cancel navigation
     // @visibility external
     //<
     navigationClick : "direction",
@@ -30001,11 +35840,13 @@ isc.SplitPane.registerStringMethods({
     // <p>
     // Never fires while the <code>SplitPane</code> is not drawn.
     //
-    // @param pane (CurrentPane) new +link{SplitPane.currentPane} value.
+    // @param newPane (CurrentPane) new +link{SplitPane.currentPane} value.
+    // @param oldPane (CurrentPane) old +link{SplitPane.currentPane} value.
+    // @param navigationMethod (NavigationMethod) reason for pane change
     // @visibility external
     //<
 
-    paneChanged : "pane",
+    paneChanged : "newPane, oldPane, navigationMethod",
 
     //> @method splitPane.upClick()
     // Notification method fired when the +link{SplitPane.showMiniNav,miniNav is showing} and the
@@ -30025,6 +35866,16 @@ isc.SplitPane.registerStringMethods({
     //<
     downClick : ""
 });
+
+//> @class TriplePane
+// This class is a synonym for SplitPane that can be used to make intent clearer.
+// It is used by some development tools for that purpose.
+//
+// @inheritsFrom SplitPane
+// @treeLocation Client Reference/Layout
+// @visibility external
+//<
+isc.defineClass("TriplePane", "SplitPane");
 
 
 isc.defineClass("NavStackPagedPanel", "SplitPanePagedPanel").addProperties({
@@ -30184,7 +36035,7 @@ isc.Deck.addProperties({
     // <p>
     // If the passed pane is not contained in this <code>Deck</code>, logs a warning and does
     // nothing.
-    // @param pane (Canvas | identifier) the pane to show, as either a <code>Canvas</code> or
+    // @param pane (Canvas | GlobalId) the pane to show, as either a <code>Canvas</code> or
     // the +link{Canvas.ID}
     // @visibility external
     //<
@@ -30223,14 +36074,39 @@ isc.Deck.addProperties({
 
     setPanes : function (panes) {
         if (panes == null) panes = [];
-        else {
-            var currentPane = this.currentPane;
-            for (var i = 0, numPanes = panes.length; i < numPanes; ++i) {
-                var pane = panes[i];
-                pane.setVisibility(pane === currentPane ? isc.Canvas.INHERIT : isc.Canvas.HIDDEN);
+
+        // Create autoChild panes or grab references to panes by ID
+        for (var i = 0, numPanes = panes.length; i < numPanes; ++i) {
+            if (panes[i] != null && !isc.isA.Canvas(panes[i])) {
+                var pane = panes[i],
+                    paneID = pane.replace("autoChild:","")
+                ;
+
+                panes[i] = pane = this.createCanvas(pane);
+                if (pane) pane._paneID = paneID;
+            }
+        }
+
+        // Update pane visibility leaving at most one pane visible (currentPane)
+        var currentPane = this.currentPane;
+        for (var i = 0, numPanes = panes.length; i < numPanes; ++i) {
+            if (panes[i] != null) {
+                var pane = panes[i],
+                    paneID = pane._paneID || pane.ID,
+                    isCurrentPane = (currentPane != null &&
+                            (isc.isA.String(currentPane) ? (paneID == currentPane) : (pane === currentPane)))
+                ;
+
+                pane.setVisibility(isCurrentPane ? isc.Canvas.INHERIT : isc.Canvas.HIDDEN);
+                if (isCurrentPane) this.currentPane = pane;
             }
         }
         this.panes = panes;
+
+        // Clear currentPane if it does not reference an existing pane
+        if (this.currentPane != null && this.panes != null && !this.panes.contains(this.currentPane)) {
+            this.currentPane = null;
+        }
 
         this.setMembers(panes);
 
@@ -30268,9 +36144,6 @@ isc.Deck.addProperties({
 
     initWidget : function () {
         this.Super("initWidget", arguments);
-        if (this.currentPane != null && this.panes != null && !this.panes.contains(this.currentPane)) {
-            this.currentPane = null;
-        }
         this.setPanes(this.panes);
     },
 
@@ -30359,8 +36232,8 @@ isc.defineClass("NavPanel", "SplitPane").addClassProperties({
 
     // Returns the ID of the given NavItem.
     _getItemId : function (item) {
-        if (item.id != null) {
-            return item.id;
+        if (item.id != null || item.autoId != null) {
+            return item.id || item.autoId;
 
         // The pane is ignored for header and separator items.
         } else if (item.isHeader || item.isSeparator) {
@@ -30534,7 +36407,7 @@ isc.NavPanel.addProperties({
     // @visibility external
     //<
 
-    //> @attr navPanel.currentItemId (identifier : null : IRW)
+    //> @attr navPanel.currentItemId (Identifier : null : IRW)
     // The ID of the current +link{NavItem} whose +link{NavItem.pane,pane} is showing in the
     // +link{NavPanel.navDeck,navDeck}.  The <code>NavItem</code> must be an item of this
     // <code>NavPanel</code> if set.
@@ -30545,6 +36418,12 @@ isc.NavPanel.addProperties({
     // @visibility external
     //<
 
+    //> @attr navPanel.defaultToFirstItem (Boolean : false : IRW)
+    // Select the first +link{NavItem} on initialization if neither +link{currentItemId} nor
+    // +link{currentItem} are provided.
+    // @visibility external
+    //<
+
     //> @object NavItem
     // Properties for a navigation item in a +link{NavPanel}.
     // @inheritsFrom TreeNode
@@ -30552,7 +36431,7 @@ isc.NavPanel.addProperties({
     // @visibility external
     //<
 
-    //> @attr navItem.id (identifier : null : IR)
+    //> @attr navItem.id (Identifier : null : IR)
     // An optional ID for this <code>NavItem</code>.  If specified, this must be unique within
     // the <code>NavPanel</code>.
     // @visibility external
@@ -30594,7 +36473,7 @@ isc.NavPanel.addProperties({
     // @visibility external
     //<
 
-    //> @attr navItem.pane (Canvas | identifier : null : IR)
+    //> @attr navItem.pane (Canvas | Identifier : null : IR)
     // Component to display in the +link{navPanel.navDeck} when this <code>NavItem</code> is
     // selected.
     // <p>
@@ -30614,6 +36493,10 @@ isc.NavPanel.addProperties({
         var currentItem = this.currentItem,
             currentItemId = this.currentItemId;
         if (currentItem == null && currentItemId) currentItem = this.currentItem = this._findItemById(currentItemId);
+        if (currentItem == null && this.defaultToFirstItem && this.navItems) {
+            currentItem = this.navItems[0];
+        }
+
         if (currentItem != null) {
             navDeckDynamicProps.currentPane = currentItem.pane;
             navDeckDynamicProps.panes = [currentItem.pane];
@@ -30653,7 +36536,47 @@ isc.NavPanel.addProperties({
     setNavItems : function (navItems) {
         this.navItems = navItems;
         this.dataChanged(navItems);
+        if (!this.currentItem && this.defaultToFirstItem && navItems && navItems.length > 0) {
+            this.setCurrentItem(navItems[0]);
+        }
     },
+
+    //>EditMode
+    getNavItem : function (id) {
+        return this._findItemById(id);
+    },
+
+    addNavItem : function (item, index) {
+        if (!this.navItems) this.navItems = [];
+        item.navPanel = this;
+        if (index == null) this.navItems.add(item);
+        else this.navItems.addAt(item, index);
+        this.refreshData();
+        if (!this.currentItem && !this._pendingInitialItem) {
+            this._pendingInitialItem = true;
+            this.delayCall("setInitialItem", [item]);
+        }
+    },
+
+    removeNavItem : function (item) {
+        if (!this.navItems) return;
+        this.navItems.remove(item);
+        if (this.editingOn && this.navItems.length == 0) {
+            var pane = this.editProxy.createInstructionPane(null, "NavPanel", "navigationPane");
+            this.setNavigationPane(pane);
+        }
+        this.refreshData();
+    },
+
+    refreshData : function () {
+        this.dataChanged(this.navItems);
+    },
+
+    setInitialItem : function (item) {
+        this.setCurrentItem(item);
+        delete this._pendingInitialItem;
+    },
+    //<EditMode
 
     //> @method navPanel.setCurrentItem()
     // Setter for +link{NavPanel.currentItem}.  Note that +link{NavPanel.currentItemId} is also
@@ -30665,7 +36588,8 @@ isc.NavPanel.addProperties({
     //<
     setCurrentItem : function (newCurrentItem) {
         if ((newCurrentItem == null && this.currentItem == null) ||
-            newCurrentItem === this.currentItem)
+            newCurrentItem === this.currentItem ||
+            this.destroying)
         {
             return;
         }
@@ -30683,12 +36607,6 @@ isc.NavPanel.addProperties({
             this.currentItemId = null;
         }
 
-        //>EditMode
-        if (this.editingOn) {
-            this.editContext.setNodeProperties(this.editNode, { currentItemId: this.currentItemId });
-        }
-        //<EditMode
-
         this._ignoreCurrentPaneChanged = true;
         if (newCurrentItem != null && newCurrentItem.pane != null) {
             this.navDeck.setCurrentPane(newCurrentItem.pane);
@@ -30697,10 +36615,21 @@ isc.NavPanel.addProperties({
         } else {
             this.navDeck.hideCurrentPane();
             this.showNavigationPane("back");
-            this.setDetailTitle(null);
-            this.navGrid.deselectAllRecords();
+            // update NavPanel's detailTitle from current navItem
+            this._setDetailTitleFromCurrentItem(newCurrentItem);
+            //>EditMode
+            if (this.editingOn && newCurrentItem) this.navGrid.selectSingleRecord(newCurrentItem);
+            //<EditMode
+            else this.navGrid.deselectAllRecords();
         }
         this._ignoreCurrentPaneChanged = false;
+    },
+
+    // set item title as detail pane's title, or clear detail pane title
+    _setDetailTitleFromCurrentItem : function (item) {
+        var showTitle = item != null && item.title &&
+            (item.pane != null || !this.hideNavItemTitleWithoutPane);
+        this.setDetailTitle(showTitle ? item.title : null);
     },
 
     _findItemById : function (itemId) {
@@ -30756,7 +36685,7 @@ isc.NavPanel.addProperties({
     // Setter for +link{NavPanel.currentItemId}.  Note that +link{NavPanel.currentItem} is also
     // updated by this setter and <code>this.currentItemId</code> may be normalized to a different
     // identifier.
-    // @param [newCurrentItemId] (identifier) the ID of the new current item, which may be either
+    // @param [newCurrentItemId] (Identifier) the ID of the new current item, which may be either
     // the item's +link{NavItem.id} or the ID of the item's +link{NavItem.pane}.  May be
     // <code>null</code> or an empty string to hide the current item.  If the item with ID
     // <code>newCurrentItemId</code> is a separator or header item, then setCurrentItemId() has no effect.
@@ -30861,8 +36790,21 @@ isc.NavPanel.addProperties({
     // This is called by NavPanelEditProxy.onFolderDrop().
     setItemPane : function (item, pane) {
         this._itemsByIdCache = null;
+        if (pane) {
+            if (item.pane && item.pane._instructionPane) {
+                item.pane.markForDestroy();
+            }
+            this.navDeck.addPane(pane);
+        } else {
+            this.navDeck.removePane(item.pane);
+            // If removing an instruction pane, don't create another. Otherwise, create
+            // an instruction pane for the now empty pane
+            if (this.editingOn && item.pane && !item.pane._instructionPane) {
+                pane = this.editProxy.createInstructionPane(null, "Components", "detailPane");
+                this.navDeck.addPane(pane);
+            }
+        }
         item.pane = pane;
-        this.navDeck.addPane(pane);
         if (this.currentItem === item) {
             this._ignoreCurrentPaneChanged = true;
             this.navDeck.setCurrentPane(pane);
@@ -30892,10 +36834,9 @@ isc.NavPanel.addProperties({
                     this.editContext.setNodeProperties(this.editNode, { currentItemId: currentItemId });
                 }
 
-                // If the item's title was changed and the item has a pane, then update the
-                // NavPanel's detailTitle.
-                if (properties.hasOwnProperty("title") && item.pane != null) {
-                    this.setDetailTitle(item.title);
+                // If the item's title was changed, then update the NavPanel's detailTitle.
+                if (properties.hasOwnProperty("title")) {
+                    this._setDetailTitleFromCurrentItem(item);
                 }
             }
         }
@@ -30914,12 +36855,51 @@ isc.NavPanel.addProperties({
     }
     //<EditMode
 });
-isc._debugModules = (isc._debugModules != null ? isc._debugModules : []);isc._debugModules.push('Foundation');isc.checkForDebugAndNonDebugModules();isc._moduleEnd=isc._Foundation_end=(isc.timestamp?isc.timestamp():new Date().getTime());if(isc.Log&&isc.Log.logIsInfoEnabled('loadTime'))isc.Log.logInfo('Foundation module init time: ' + (isc._moduleEnd-isc._moduleStart) + 'ms','loadTime');delete isc.definingFramework;if (isc.Page) isc.Page.handleEvent(null, "moduleLoaded", { moduleName: 'Foundation', loadTime: (isc._moduleEnd-isc._moduleStart)});}else{if(window.isc && isc.Log && isc.Log.logWarn)isc.Log.logWarn("Duplicate load of module 'Foundation'.");}
 
+//>EditMode
+
+isc.defineClass("NavItem").addProperties({
+    init : function () {
+        this.Super("init", arguments);
+        if (this.autoId) this.id = this.autoId;
+        isc.ClassFactory.addGlobalID(this);
+    },
+    getNavPanel : function () {
+        return this.navPanel;
+    },
+    setPane : function (pane) {
+        this.navPanel.setItemPane(this, pane);
+    },
+    selectNavItem : function () {
+        this.navPanel.setCurrentItem(this);
+    },
+    // NavItems support nested NavItems (i.e. tree) so add/remove items assigning the navPanel
+    addItem : function (item, index) {
+        if (!this.items) this.items = [];
+        item.navPanel = this.navPanel;
+        if (index == null) this.items.add(item);
+        else this.items.addAt(item, index);
+        this.navPanel.refreshData();
+    },
+    removeItem : function (item) {
+        if (!this.items) return;
+        this.items.remove(item);
+        this.navPanel.refreshData();
+    },
+    setEditableProperties : function (properties) {
+        // Used for inline edit updates
+        // Defer to the original NavPanel method that was used before NavItem was a class
+        if (this.navPanel) {
+            this.navPanel.setDescendantEditableProperties(this, properties, this.editNode);
+        }
+    }
+});
+//<EditMode
+isc._debugModules = (isc._debugModules != null ? isc._debugModules : []);isc._debugModules.push('Foundation');isc.checkForDebugAndNonDebugModules();isc._moduleEnd=isc._Foundation_end=(isc.timestamp?isc.timestamp():new Date().getTime());if(isc.Log&&isc.Log.logIsInfoEnabled('loadTime'))isc.Log.logInfo('Foundation module init time: ' + (isc._moduleEnd-isc._moduleStart) + 'ms','loadTime');delete isc.definingFramework;if (isc.Page) isc.Page.handleEvent(null, "moduleLoaded", { moduleName: 'Foundation', loadTime: (isc._moduleEnd-isc._moduleStart)});}else{if(window.isc && isc.Log && isc.Log.logWarn)isc.Log.logWarn("Duplicate load of module 'Foundation'.");}
 /*
 
   SmartClient Ajax RIA system
-  Version v11.1p_2017-06-29/LGPL Deployment (2017-06-29)
+  Version v12.1p_2022-02-22/LGPL Development Only (2022-02-22)
 
   Copyright 2000 and beyond Isomorphic Software, Inc. All rights reserved.
   "SmartClient" is a trademark of Isomorphic Software, Inc.

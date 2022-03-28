@@ -1,8 +1,7 @@
-
 /*
 
   SmartClient Ajax RIA system
-  Version v11.1p_2017-06-29/LGPL Deployment (2017-06-29)
+  Version v12.1p_2022-02-22/LGPL Development Only (2022-02-22)
 
   Copyright 2000 and beyond Isomorphic Software, Inc. All rights reserved.
   "SmartClient" is a trademark of Isomorphic Software, Inc.
@@ -42,9 +41,10 @@ else isc._preLog=[isc._pTM]}isc.definingFramework=true;
 if (!window.isc || typeof isc.Packager != "object") {
 
 
-//> @class isc
-// The <code>isc</code> object contains global methods and objects of the Isomorphic SmartClient
-// framework.
+//> @object isc
+// <code>window.isc</code> is the base object for the Isomorphic SmartClient framework.
+// Every SmartClient class is available on this object as <code>isc.<i>ClassName</i></code>.
+// The <code>isc</code> also contains a number of static utility methods.
 // <P>
 // See also +link{group:simpleNamesMode,Simple Names mode}.
 //
@@ -92,21 +92,21 @@ isc._start = new Date().getTime();
 
 // versioning - values of the form ${value} are replaced with user-provided values at build time.
 // Valid values are: version, date, project (not currently used)
-isc.version = "v11.1p_2017-06-29/LGPL Deployment";
-isc.versionNumber = "v11.1p_2017-06-29";
-isc.buildDate = "2017-06-29";
+isc.version = "v12.1p_2022-02-22/LGPL Development Only";
+isc.versionNumber = "v12.1p_2022-02-22";
+isc.buildDate = "2022-02-22";
 isc.expirationDate = "";
 
-isc.scVersion = "11.1p";
-isc.scVersionNumber = "11.1";
-isc.sgwtVersion = "6.1p";
-isc.sgwtVersionNumber = "6.1";
+isc.scVersion = "12.1p";
+isc.scVersionNumber = "12.1";
+isc.sgwtVersion = "12.1p";
+isc.sgwtVersionNumber = "12.1";
 
 // these reflect the latest stable version relative to the branch from which this build is
 // created.  So for example for 11.0d/6.0d, this will be 10.1/5.1.  But for 10.0/5.0 this will
 // be 10.0/5.0.
-isc.scParityStableVersionNumber = "11.1";
-isc.sgwtParityStableVersionNumber = "6.1";
+isc.scParityStableVersionNumber = "12.1";
+isc.sgwtParityStableVersionNumber = "12.1";
 
 // license template data
 isc.licenseType = "LGPL";
@@ -203,7 +203,7 @@ isc.getOptionalModule = function (module) {
 };
 
 
-isc.$a4b5c1c2d3 = function (moduleName) {
+isc.$P5hy05Xgj7AN = function (moduleName) {
     if (this.hasOptionalModule(moduleName)) return;
     var moduleEntry = isc._optionalModules[moduleName];
     if (moduleEntry) moduleEntry.present = !!moduleName + "";
@@ -289,9 +289,16 @@ isc.addGlobal("Browser", {
 
     ,_assert : function (b, message) {
         if (!b) {
-            isc.logWarn("assertion failed" +
-                        (message ? " with message: '" + message + "'" : "") +
-                        ". Stack trace:" + (isc.Class.getStackTrace()));
+            message = "assertion failed" + (message ? " with message: '" + message + "'" : "");
+
+            if (isc.logWarn) {
+                isc.logWarn(message + ". Stack trace:" + isc.Class.getStackTrace());
+
+            } else if (console) { // useful fallback crash info before logging loads
+                console.log(message);
+                console.trace();
+            }
+
 
         }
     }
@@ -303,6 +310,31 @@ isc.addGlobal("Browser", {
 // ----------------------------------------------------------------
 // Detecting browser type
 // ----------------------------------------------------------------
+// Bot/Crawler discriminators.  In many cases the bots will use something approximating a
+// browser engine to "run your javascript", but the UA string, which we use to determine the
+// proper rendering path, either does not reflect the engine type at all or reflects a generic
+// "Mozilla/5.0" or similar.  So first, we detect the bot type, and then this is used below to
+// also set browser type - e.g. isGoogleBot -> isChrome + specific version from docs
+
+// https://support.google.com/webmasters/answer/1061943?hl=en
+isc.Browser.isGoogleBot = navigator.userAgent.indexOf("Googlebot/") != -1;
+// https://www.bing.com/webmaster/help/which-crawlers-does-bing-use-8c184ec0
+isc.Browser.isBingBot = navigator.userAgent.indexOf("bingbot/") != -1;
+// https://perishablepress.com/list-all-user-agents-top-search-engines/
+// Note that DuckDuckGo appears to use Bing, Yahoo, and Yandex and only go out directly for
+// "answers": https://duck.co/help/results/sources
+isc.Browser.isDuckDuckBot = navigator.userAgent.indexOf("DuckDuckBot/") != -1;
+// https://help.yahoo.com/kb/SLN22600.html?guccounter=1
+isc.Browser.isYahooBot = navigator.userAgent.indexOf("Slurp;") != -1;
+// http://www.baiduguide.com/baidu-spider/
+isc.Browser.isBaiduBot = navigator.userAgent.indexOf("Baiduspider") != -1;
+// https://yandex.com/support/webmaster/robot-workings/check-yandex-robots.xml
+isc.Browser.isYandexBot = navigator.userAgent.indexOf("YandexBot/") != -1;
+
+// generic bot discriminator
+isc.Browser.isBot = isc.Browser.isGoogleBot || isc.Browser.isBingBot ||
+        isc.Browser.isDuckDuckBot || isc.Browser.isYahooBot || isc.Browser.isBaiduBot ||
+        isc.Browser.isYandexBot;
 
 //>    @classAttr    Browser.isOpera        (boolean : ? : R)
 //        Are we in Opera ?
@@ -381,22 +413,32 @@ isc.Browser.isWebKit = navigator.userAgent.indexOf("WebKit") != -1;
 // Are we in Apple's "Safari" browser? Note that this property will also be set for other
 // WebKit based browsers (such as Google Chrome).
 //<
-// As far as we know all "true" Safari implementations idenify themselves in the userAgent with
-// the string "Safari".
-// However the GWT hosted mode browser on OSX is also based on apple webkit and should be treated
-// like Safari but is not a Safari browser and doesn't identify itself as such in the useragent
+// As far as we know all "true" Safari implementations identify themselves in the userAgent with
+// the string "Safari", but so does Microsoft Edge, so that can't be used to identify "true"
+// Safari.  GWT hosted mode browser on OSX is also based on apple webkit and should be treated
+// like Safari but is not a Safari browser and doesn't identify itself as such in the userAgent.
 // Reported UserAgent:
 //  Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_5_5; en-us) AppleWebKit/525.18 (KHTML, like Gecko)
 isc.Browser.isSafari = isc.Browser.isAIR || navigator.userAgent.indexOf("Safari") != -1 ||
-                        navigator.userAgent.indexOf("AppleWebKit") != -1;
+        navigator.userAgent.indexOf("AppleWebKit") != -1 ||
+        // GoogleBot uses the Chrome engine: https://developers.google.com/search/docs/guides/rendering
+        // and isChrome implies isSafari (see below in the isChrome definition)
+        isc.Browser.isGoogleBot;
 //console.log("is Safari?:" + isc.Browser.isSafari);
 
 //> @classAttr Browser.isEdge (boolean : ? : R)
-// Are we in the Microsoft Edge browser?
+// Are we in the Microsoft Edge browser (not the version based on Chromium)?
 //<
 
 isc.Browser.isEdge = isc.Browser.isSafari && (navigator.userAgent.indexOf("Edge/") != -1);
 //console.log("is Edge?:" + isc.Browser.isEdge);
+
+
+//> @classAttr Browser.isChromiumEdge (boolean : ? : R)
+// Are we in the Microsoft Edge browser (the version based on Chromium)?
+//<
+
+isc.Browser.isChromiumEdge = isc.Browser.isSafari && (navigator.userAgent.indexOf("Edg/") != -1);
 
 
 //> @classAttr Browser.isChrome (boolean : ? : R)
@@ -404,9 +446,22 @@ isc.Browser.isEdge = isc.Browser.isSafari && (navigator.userAgent.indexOf("Edge/
 //<
 // Behaves like Safari in most ways.  Note: do not detect Edge as Chrome - causes odd scrollbar
 // misrenderings.  As of 7/30/2015 appears to work better with the isSafari codepaths
-isc.Browser.isChrome = isc.Browser.isSafari && !isc.Browser.isEdge && (navigator.userAgent.indexOf("Chrome/") != -1);
+// Note: the Google crawler does not identify itself as Chrome, even though it is in fact using
+// the Chrome engine.  This leads to us mis-detecting the render path and producing all sorts
+// of errors that result in a failure to render at all as far as the crawler is concerned.
+isc.Browser.isChrome = (isc.Browser.isSafari && !isc.Browser.isEdge &&
+                        (navigator.userAgent.indexOf("Chrome/") != -1)) ||
+        // GoogleBot uses the Chrome engine: https://developers.google.com/search/docs/guides/rendering
+        isc.Browser.isGoogleBot;
 //console.log("is Chrome?:" + isc.Browser.isChrome);
 
+//>    @classAttr    Browser.isSafariStrict (boolean : ? : R)
+// Are we in Apple's "Safari" browser? This property is only set on "true" Safari browsers.
+//<
+
+isc.Browser.isSafariStrict = isc.Browser.isSafari &&
+        !isc.Browser.isAIR && !isc.Browser.isEdge && !isc.Browser.isChrome;
+//console.log("is \"true\" Safari?:" + isc.Browser.isSafariStrict);
 
 
 if (!isc.Browser.isIE && !isc.Browser.isOpera && !isc.Browser.isMoz &&
@@ -418,6 +473,14 @@ if (!isc.Browser.isIE && !isc.Browser.isOpera && !isc.Browser.isMoz &&
 
     }
 }
+
+//>    @classAttr    Browser.isChromeoS (boolean : ? : R)
+// Is the operating system for the browser Chrome OS?
+//<
+
+//isc.Browser.isChromeOS = navigator.userAgent.match("\\([^)]*CrOS x86_64[^(]*\\)") != null;
+isc.Browser.isChromeOS = navigator.userAgent.indexOf("CrOS x86_64") != -1;
+
 
 // ----------------------------------------------------------------
 // END Detecting browser type
@@ -450,6 +513,13 @@ if (isc.Browser.isIE) {
 } else (function () {
 
 
+
+    // per https://developers.google.com/search/docs/guides/rendering, accurate as of 6/5/2018
+    // This number is not surfaced by the bot, so must hardcode
+    if (isc.Browser.isGoogleBot) {
+        isc.Browser.minorVersion = 41;
+        return;
+    }
 
     var needle, pos;
     if (navigator.appVersion) {
@@ -515,7 +585,7 @@ isc.Browser.isIE6 = isc.Browser.isIE && isc.Browser.version <= 6;
 //<
 isc.Browser.supportsHTML5Audio = (document.createElement("audio") != null) ? "play" : null;
 
-//>    @classAttr    Browser.caminoVersion (string : ? : R)
+//>    @classAttr    Browser.caminoVersion (String : ? : R)
 //        For Camino-based browsers, the Camino version number.
 //<
 if (isc.Browser.isCamino) {
@@ -525,7 +595,7 @@ if (isc.Browser.isCamino) {
 }
 
 if (isc.Browser.isFirefox) {
-//>    @classAttr    Browser.firefoxVersion (string : ? : R)
+//>    @classAttr    Browser.firefoxVersion (String : ? : R)
 //        For Firefox-based browsers, the Firefox version number.
 //          - 0.10.1    is Firefox PR 1
 //      After this the version numbers reported match those in the about dialog
@@ -540,7 +610,7 @@ if (isc.Browser.isFirefox) {
     isc.Browser.firefoxMajorMinorNumber = parseFloat(majorMinorVersion);
 }
 
-//>    @classAttr    Browser.geckoVersion (integer : ? : R)
+//>    @classAttr    Browser.geckoVersion (Integer : ? : R)
 //        For Gecko-based browsers, the Gecko version number.
 //      Looks like a datestamp:
 //          - 20011019 is Netscape 6.2
@@ -696,7 +766,7 @@ isc.Browser.isIE10 = isc.Browser.isIE && isc.Browser.version >= 10;
 
 isc.Browser.isIE11 = isc.Browser.isIE && isc.Browser.version >= 11;
 
-//> @classAttr  Browser.AIRVersion (string : ? : R)
+//> @classAttr  Browser.AIRVersion (String : ? : R)
 // If this application running in the Adobe AIR environment, what version of AIR is
 // running. Will be a string, like "1.0".
 //<
@@ -756,8 +826,19 @@ if (isc.Browser.isSafari) {
 //        Is this a Windows computer ?
 //<
 isc.Browser.isWin = navigator.platform.toLowerCase().indexOf("win") > -1;
-// NT 5.0 is Win2k, NT5.0.1 is Win2k SP1
-isc.Browser.isWin2k = navigator.userAgent.match(/NT 5.01?/) != null;
+if (isc.Browser.isWin) {
+    // install winVersion as float
+    isc.Browser.winVersion = function() {
+        var windowsMatch = navigator.userAgent.match(/Windows NT[ ]*([0-9.]+)[^0-9.]/i);
+
+        if (windowsMatch) return parseFloat(windowsMatch[1]);
+    }();
+
+}
+
+// NT 5.0 is Win2k, NT 5.0.1 is Win2k SP1
+isc.Browser.isWin2k = isc.Browser.winVersion >= 5.0 && isc.Browser.winVersion < 5.1;
+
 
 //>    @classAttr    Browser.isMac        (boolean : ? : R)
 //        Is this a Macintosh computer ?
@@ -1193,8 +1274,14 @@ isc.Browser.isUnix = (!isc.Browser.isMac &&! isc.Browser.isWin);
 // <P>
 // The following SmartClient Components are used
 // <ul>
+// <smartclient>
 // <li>isc.DataSource</li>
 // <li>isc.ListGrid</li>
+// </smartclient>
+// <smartgwt>
+// <li>DataSource</li>
+// <li>ListGrid</li>
+// </smartgwt>
 // </ul>
 // <P>
 // The following SmartClient Resources are bundled in the Titanium application
@@ -1353,6 +1440,10 @@ isc.Browser.isUnix = (!isc.Browser.isMac &&! isc.Browser.isWin);
 // real hardware. Refer to Apple's +externalLink{https://developer.apple.com/library/ios/documentation/IDEs/Conceptual/AppDistributionGuide/Introduction/Introduction.html,App Distribution Guide} for complete instructions on provisioning the app for testing devices, in particular, the section titled
 // +externalLink{https://developer.apple.com/library/ios/documentation/IDEs/Conceptual/AppDistributionGuide/TestingYouriOSApp/TestingYouriOSApp.html#//apple_ref/doc/uid/TP40012582-CH8-SW1,Beta Testing Your iOS App}.
 //
+// <p>Apple has deprecated UIWebView and we recommend switching to the officially supported
+// +externalLink{https://github.com/apache/cordova-plugin-wkwebview-engine,WKWebView} plugin to
+// resolve momentum scrolling issues and obtain more Safari-like behavior.
+//
 // <h3>Android Platform</h3>
 // To begin targeting Android devices, follow the instructions on the
 // +externalLink{http://docs.phonegap.com/en/edge/guide_platforms_android_index.md.html,Android Platform Guide}.
@@ -1444,10 +1535,40 @@ isc.Browser.isMobileWebkit = (isc.Browser.isSafari &&
     || isc.Browser.isAndroid
     || isc.Browser.isBlackBerry) && !isc.Browser.isFirefox;
 
+
+isc.Browser.isMobileWebkitDesktopMode = isc.Browser.isSafari &&
+    navigator.platform == "MacIntel" && navigator.maxTouchPoints > 0;
+if (window.isc_ignoreMobileSafariDesktopMode !== false && isc.Browser.isMobileWebkitDesktopMode) {
+    isc.Browser.isMobileWebkit = true;
+}
+
+
 // intended for general mobile changes (performance, etc)
 isc.Browser.isMobile = (isc.Browser.isMobileFirefox ||
                         isc.Browser.isMobileIE ||
                         isc.Browser.isMobileWebkit);
+
+//> @classAttr browser.supportsDualInput (boolean : varies : RW)
+// Does the browser support both mouse and touch input?
+// @visibility external
+//<
+
+isc.Browser.supportsDualInput = window.isc_useDualInput != false &&
+        (isc.Browser.isWin && isc.Browser.winVersion >= 6.2 || isc.Browser.isChromeOS) &&
+        (isc.Browser.isMoz ||
+         ((isc.Browser.isChrome || isc.Browser.isIE11 || isc.Browser.isEdge) &&
+          navigator.maxTouchPoints > 0));
+
+isc.Browser._useTouchMoveImageCSS = isc.Browser.supportsDualInput &&
+        (isc.Browser.isIE11 || isc.Browser.isEdge);
+
+isc.Browser._useTouchMoveCanvasCSS = isc.Browser._useTouchMoveImageCSS &&
+        window.isc_useNativeTouchScrolling == false;
+
+
+if (isc.Browser.supportsDualInput && isc.Browser.isChrome) {
+    isc.Browser.minDualInputThumbLength = 28;
+}
 
 //> @classAttr browser.isTouch (boolean : auto-detected based on device : RW)
 // Is the application running on a touch device (e.g. iPhone, iPad, Android device, etc.)?
@@ -1458,9 +1579,18 @@ isc.Browser.isMobile = (isc.Browser.isMobileFirefox ||
 // @visibility external
 //<
 
-isc.Browser.isTouch = (isc.Browser.isMobileFirefox ||
-                       isc.Browser.isMobileIE ||
-                       isc.Browser.isMobileWebkit);
+
+
+
+isc.Browser._mobileBrowsers = (isc.Browser.isMobileFirefox ||
+                                isc.Browser.isMobileIE || isc.Browser.isMobileWebkit);
+
+isc.Browser.isTouch = isc.Browser.isWin || isc.Browser.isChromeOS ?
+        isc.Browser._mobileBrowsers ||
+            (isc.Browser.supportsDualInput && !!window.isc_useDualInput)
+     :
+        (( 'ontouchstart' in window ) ||
+         (navigator.maxTouchPoints != null && navigator.maxTouchPoints > 0));
 
 //> @classMethod browser.setIsTouch() (A)
 // Setter for +link{Browser.isTouch} to allow this global variable to be changed at runtime.
@@ -1477,22 +1607,74 @@ isc.Browser.isTouch = (isc.Browser.isMobileFirefox ||
 // @visibility external
 //<
 isc.Browser.setIsTouch = function (isTouch) {
-    isTouch = isc.Browser.isTouch = !!isTouch;
+    var Browser = this;
 
-    if (isc.Browser.isDesktop) {
-        isc.Browser.isHandset = false;
-        isc.Browser.isTablet = false;
+    isTouch = Browser.isTouch = !!isTouch;
+
+    if (Browser.isDesktop) {
+        Browser.isHandset = false;
+        Browser.isTablet = false;
     } else {
-        isc.Browser.isHandset = isTouch && !isc.Browser.isTablet;
-        isc.Browser.isTablet = !isc.Browser.isHandset;
+        Browser.isHandset = isTouch && !Browser.isTablet;
+        Browser.isTablet = !Browser.isHandset;
     }
 
-    isc.Browser.hasNativeDrag = !isTouch && "draggable" in document.documentElement && !isc.Browser.isIE;
+    Browser.hasNativeDrag = !isTouch && "draggable" in document.documentElement &&
+        !(Browser.isIE || Browser.isEdge);
 
-    isc.Browser.nativeMouseMoveOnCanvasScroll = !isTouch && (isc.Browser.isSafari || isc.Browser.isChrome);
+    Browser.nativeMouseMoveOnCanvasScroll = !isTouch && (Browser.isSafari || Browser.isChrome);
 
 
 };
+
+//> @classAttr browser.pointerEnabled (boolean : varies : RW)
+// Does the browser support pointer events as a means of capturing both touch and mouse
+// interactions?  This simplifies event handling for capable browsers.
+//<
+
+isc.Browser.pointerEnabled = window.PointerEvent != null &&
+        navigator.pointerEnabled != false && navigator.msPointerEnabled != false &&
+        (isc.Browser.isIE || isc.Browser.isEdge) && !isc.Browser.isMobileIE;
+
+//> @classAttr browser.hasDualInput (boolean : false : RW)
+// is the browser currently sending both mouse and touch input?  For example, Microsoft Surface
+// devices are touch devices that run Windows 10 but also allow the connection of USB mice.  In
+// such an environment, we may not be able to auto-detect that touch input is present, so the
+// switch to hasDualINput: true will only happen at the moment a touch event actually arrives.
+//<
+isc.Browser.hasDualInput = !!window.isc_useDualInput;
+
+// helper called by EventHandler to switch to dual input mode if a touch event arrives
+isc.Browser.setHasDualInput = function () {
+
+    if (this.hasDualInput == true) return;
+
+
+
+    if (isc.logInfo) {
+        isc.logInfo("Switching to dual input mode to handle touch events");
+    }
+
+    this.setIsTouch(true);
+    this.hasDualInput = true;
+
+
+    if (isc.Canvas) {
+        isc.Canvas.addProperties({
+            overflowStyle: "none",
+            _browserSupportsNativeTouchScrolling: isc.Browser._getSupportsNativeTouchScrolling()
+        });
+    }
+    if (isc.ListGrid) {
+        isc.ListGrid.addProperties({
+            showRollOver: false,
+            // if a mouse event is received, switch rollover back on
+            handleMouseMove : function (event, eventInfo) {
+                return this._handleDualInputMouseMove(event, eventInfo);
+            }
+        });
+    }
+}
 
 // iPhone OS including iPad.  Search for iPad or iPhone.
 
@@ -1512,15 +1694,32 @@ if (isc.Browser.isIPhone) {
     // not contain the word "Safari".
     isc.Browser.isUIWebView = navigator.userAgent.indexOf("Safari") < 0;
 
-    isc.Browser.isMobileSafari = !isc.Browser.isUIWebView &&
-                                 // Exclude Chrome for iOS
-                                 // https://developers.google.com/chrome/mobile/docs/user-agent#chrome_for_ios_user-agent
-                                 navigator.userAgent.indexOf("CriOS/") < 0;
+    // Chrome for iOS
+    // https://developers.google.com/chrome/mobile/docs/user-agent#chrome_for_ios_user-agent
+    isc.Browser.isIOSChrome = navigator.userAgent.indexOf("CriOS/") >= 0;
+    // Firefox for iOS
+    // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/User-Agent/Firefox
+    isc.Browser.isIOSFirefox = navigator.userAgent.indexOf("FxiOS/") >= 0;
+
+    isc.Browser.isMobileSafari = !isc.Browser.isUIWebView && !isc.Browser.isIOSChrome
+                                    && !isc.Browser.isIOSFirefox;
+
 }
 
 // iPad.  Checks for "iPhone" OS + "iPad" in UA String.
 isc.Browser.isIPad = (isc.Browser.isIPhone &&
                         navigator.userAgent.indexOf("iPad") > -1);
+
+                        // Handle the mobile-safari masquerading as desktop case
+if (window.isc_ignoreMobileSafariDesktopMode !== false && isc.Browser.isMobileWebkitDesktopMode) {
+    isc.Browser.isIPhone = true;
+    isc.Browser.isMobileSafari = true;
+
+    // Assume iPad at this point rather than iPhone.
+    // When isc.Page has been created we'll look at page dimensions and set to
+    // iPhone/handset if necessary
+    isc.Browser.isIPad = true;
+}
 
 isc.Browser.isWindowsPhone = navigator.userAgent.indexOf("Windows Phone") > -1;
 
@@ -1667,7 +1866,8 @@ isc.Browser.setIsTablet = function (isTablet) {
 // @visibility external
 //<
 
-isc.Browser.isHandset = (isc.Browser.isTouch && !isc.Browser.isTablet);
+
+isc.Browser.isHandset = (isc.Browser._mobileBrowsers && !isc.Browser.isTablet);
 
 //> @classMethod browser.setIsHandset() (A)
 // Setter for +link{Browser.isHandset} to allow this global variable to be changed at runtime.
@@ -1737,18 +1937,18 @@ isc.Browser.setIsDesktop = function (isDesktop) {
 
 isc.Browser.isBorderBox = (isc.Browser.isIE && !isc.Browser.isStrict);
 
-//>    @classAttr    Browser.lineFeed    (string : ? : RA)
+//>    @classAttr    Browser.lineFeed    (String : ? : RA)
 //        Linefeed for this platform
 //<
 
 isc.Browser.lineFeed = (isc.Browser.isWin ? "\r\n" : "\n");
 
-//>    @classAttr    Browser._supportsMethodTimeout    (string : ? : RA)
+//>    @classAttr    Browser._supportsMethodTimeout    (String : ? : RA)
 //        setTimeout() requires text string parameter in MacIE or IE 4
 //<
 isc.Browser._supportsMethodTimeout = false;//!(isc.Browser.isIE && (isc.Browser.isMac || isc.Browser.version == 4));
 
-//>    @classAttr    Browser.isDOM (string : ? : RA)
+//>    @classAttr    Browser.isDOM (String : ? : RA)
 //        Whether this is a DOM-compliant browser.  Indicates general compliance with DOM standards,
 //      not perfect compliance.
 //<
@@ -1778,19 +1978,66 @@ isc.Browser.nativeMouseMoveOnCanvasScroll =
     !isc.Browser.isTouch && (isc.Browser.isSafari || isc.Browser.isChrome);
 
 //> @classAttr Browser.seleniumPresent (boolean : varies : R)
-// Whether current page has been loaded by Selenium RC/WebDriver.
+// Whether current page has been loaded by Selenium WebDriver.
 //<
 isc.Browser.seleniumPresent = (function () {
     var match = location.href.match(/[?&](?:sc_selenium)=([^&#]*)/);
     return match && match.length > 1 && "true" == match[1];
 })();
 
+
+if (isc.Browser.isSafariStrict) {
+    isc.Browser._writingModeCSS = {
+        vertical_ltr: "vertical-rl;",
+        vertical_rtl: "vertical-lr;",
+        rotate_ltr: true,
+        rotate_rtl: true,
+        horizontal: "horizontal-tb;"
+    };
+} else if (isc.Browser.isEdge) {
+    isc.Browser._writingModeCSS = {
+        vertical_ltr: "tb-rl;",
+        vertical_rtl: "tb;",
+        rotate_ltr: true,
+        rotate_rtl: true,
+        horizontal: "unset;"
+    };
+} else {
+    isc.Browser._writingModeCSS = {
+        vertical_ltr: "tb-rl;",
+        vertical_rtl: "tb;",
+        rotate_ltr: true,
+        rotate_rtl: true,
+        horizontal: "lr;"
+    };
+}
+
 //> @type Autotest
-// @value Browser.SHOWCASE autotest is targeting SmartClient or SGWT showcases
-isc.Browser.SHOWCASE = "showcase";
-// @value Browser.RUNNER autotest is targeting TestRunner-based JS tests
-isc.Browser.RUNNER = "runner";
+// @value isc.Browser.SHOWCASE autotest is targeting SmartClient or SGWT showcases
+// @value isc.Browser.SELENESE autotest is targeting a single sample with Selenese
+// @value isc.Browser.RUNNER autotest is targeting TestRunner-based JS tests
 //<
+
+//> @classAttr Browser.SHOWCASE (Constant : "showcase" : [R])
+// A declared value of the enum type
+// +link{type:Autotest,Autotest}.
+// @constant
+//<
+isc.Browser.SHOWCASE = "showcase";
+
+//> @classAttr Browser.SELENESE (Constant : "selenese" : [R])
+// A declared value of the enum type
+// +link{type:Autotest,Autotest}.
+// @constant
+//<
+isc.Browser.SELENESE = "selenese";
+
+//> @classAttr Browser.RUNNER (Constant : "runner" : [R])
+// A declared value of the enum type
+// +link{type:Autotest,Autotest}.
+// @constant
+//<
+isc.Browser.RUNNER = "runner";
 
 //> @classAttr Browser.autotest (Autotest : varies : R)
 // The current mode of the autotest system (null if not in autotest mode)
@@ -1866,6 +2113,32 @@ if (isc_spriting == "off") {
 
 isc.Browser.useInsertAdjacentHTML = !!document.documentElement.insertAdjacentHTML;
 
+//> @classAttr Browser.supportsFlatSkins (boolean : varies : IR)
+// Whether browser is capable of rendering flat skins (e.g. Tahoe).
+// @visibility sgwt
+//<
+isc.Browser.supportsFlatSkins = isc.Browser.useCSS3 && isc.Browser.useSpriting;
+
+//> @classAttr Browser.defaultSkin (String : varies : IR)
+// Preferred default skin if none is specified.
+// @visibility sgwt
+//<
+isc.Browser.defaultSkin = isc.Browser.supportsFlatSkins ? "Tahoe" : "Enterprise";
+
+//> @classAttr Browser.defaultFontIncrease (int : varies : IR)
+// Preferred font size increase if none is specified.
+// @visibility sgwt
+//<
+isc.Browser.defaultFontIncrease = isc.Browser.seleniumPresent ? 0 :
+        (isc.Browser.supportsFlatSkins ? 3 : 1);
+
+//> @classAttr Browser.defaultSizeIncrease (int : varies : IR)
+// Preferred control size increase if none is specified.
+// @visibility sgwt
+//<
+isc.Browser.defaultSizeIncrease = isc.Browser.seleniumPresent ? 0 :
+        (isc.Browser.supportsFlatSkins ? 10 : 2);
+
 
 isc.Browser.useInsertAdjacentHTMLForSVG = (function () {
     if (!!document.createElementNS) {
@@ -1928,9 +2201,10 @@ isc.Browser._hasElementPointerEvents = ("pointerEvents" in document.documentElem
 // http://caniuse.com/#feat=dragndrop
 // http://www.whatwg.org/specs/web-apps/current-work/multipage/dnd.html#dnd
 //
-// This is set to false in IE because cross-window drags are not possible.
+// This is set to false in IE and Edge because cross-window drags are not possible.
 
-isc.Browser.hasNativeDrag = !isc.Browser.isTouch && "draggable" in document.documentElement && !isc.Browser.isIE;
+isc.Browser.hasNativeDrag = !isc.Browser.isTouch && "draggable" in document.documentElement &&
+        !(isc.Browser.isIE || isc.Browser.isEdge);
 
 // http://dom.spec.whatwg.org/#ranges
 isc.Browser._hasDOMRanges = !!(window.getSelection && document.createRange && window.Range);
@@ -1970,12 +2244,14 @@ isc.Browser._transitionEndEventType = ("WebkitTransition" in document.documentEl
 // This is a classMethod rather than a classAttr because it depends on isTouch, which is settable
 // by the application any time up to creation of the first widget. See setIsTouch().
 isc.Browser._getSupportsNativeTouchScrolling = function () {
-    return (this.isTouch &&
-            (!(this.isIPhone || this.isIPad) || this.iOSVersion >= 6));
+    if (window.isc_useNativeTouchScrolling == false) return false;
+    return this.isTouch && (!this.isMoz || !this.isWin) &&
+        (!(this.isIPhone || this.isIPad) || this.iOSVersion >= 6);
 };
 
-isc.Browser._supportsWebkitOverflowScrolling = ("WebkitOverflowScrolling" in document.documentElement.style &&
-                                                isc.Browser.iOSVersion >= 6);
+isc.Browser._supportsWebkitOverflowScrolling = isc.Browser.iOSVersion >= 6 &&
+                   ("webkitOverflowScrolling" in document.documentElement.style)
+;
 
 // Does the browser support CanvasRenderingContext2D.isPointInStroke()?
 isc.Browser._supportsCanvasIsPointInStroke = (function () {
@@ -2097,6 +2373,10 @@ isc.Browser.canUseAggressiveGridTimings = !isc.Browser.isAndroid;
 isc.Browser.useHighPerformanceGridTimings = window.isc_useHighPerformanceGridTimings == null ?
     isc.Browser.canUseAggressiveGridTimings : window.isc_useHighPerformanceGridTimings && isc.Browser.canUseAggressiveGridTimings;
 
+
+isc.Browser._usePointerCursorForHand =
+        isc.Browser.isMoz || (isc.Browser.isSafari && isc.Browser.isStrict) ||
+        (isc.Browser.isIE && isc.Browser.version >= 9 && isc.Browser.isStrict);
 
 }
 
@@ -2302,7 +2582,7 @@ if (!isc.SA_Page.isLoaded()) {
 
 
 
-//> @class History
+//> @object History
 //
 // This class provides synthetic history support.  Using this class, you can create history
 // entries at any point and be called back when the user next navigates to any of these history
@@ -2340,7 +2620,7 @@ if (!isc.SA_Page.isLoaded()) {
 //--------------------------------------------------------------------------------------------------
 isc.defineStandaloneClass("History", {
 
-//> @classMethod history.registerCallback()
+//> @staticMethod History.registerCallback()
 // Registers a callback to be called when the user navigates to a synthetic history entry.
 // <p>
 // <b>NOTE:</b> Only one primary callback can be registered at a time. Unless <code>isAdditional</code>
@@ -2435,7 +2715,7 @@ registerCallback : function (callback, requiresData, isAdditional) {
     return historyId;
 },
 
-//> @classMethod history.unregisterCallback()
+//> @staticMethod History.unregisterCallback()
 // Unregisters a callback so that it will no longer be called when the user navigates to a synthetic
 // history entry.
 //
@@ -2463,7 +2743,7 @@ unregisterCallback : function (historyId) {
     return true;
 },
 
-//> @classMethod History.getCurrentHistoryId()
+//> @staticMethod History.getCurrentHistoryId()
 //
 // Returns the current history id as reflected by the current URL.
 //
@@ -2477,12 +2757,12 @@ getCurrentHistoryId : function () {
 },
 
 
-//> @classMethod History.getHistoryData()
+//> @staticMethod History.getHistoryData()
 //
 // Returns the data associated with the specified history id.
 //
 // @param id (String) The id for which to fetch history data.
-// @return (any) The data associated with the specified history id.
+// @return (Any) The data associated with the specified history id.
 // @visibility external
 //<
 getHistoryData : function (historyId) {
@@ -2490,7 +2770,7 @@ getHistoryData : function (historyId) {
 },
 
 
-//> @classMethod History.setHistoryTitle()
+//> @staticMethod History.setHistoryTitle()
 //
 // Sets the title associated with all history entries.  This is the string that appears in the
 // history drop-down.  If left unset, this default to the history id that is passed into
@@ -2506,7 +2786,7 @@ setHistoryTitle : function (title) {
     this.historyTitle = title;
 },
 
-//> @classMethod History.addHistoryEntry()
+//> @staticMethod History.addHistoryEntry()
 //
 // Call this method to add a synthetic history entry.  The new history entry is added in the
 // history stack after the currently visible page - in exactly the same way as the browser
@@ -2562,19 +2842,19 @@ setHistoryTitle : function (title) {
 // to +link{History.registerCallback()} you can suppress the callback from firing unless the stored
 // data object is actually available.
 //
-// @param id (string) The id you want to associate with this history entry.  This value will
+// @param id (String) The id you want to associate with this history entry.  This value will
 // appear as an anchor reference at the end of the URL string.  For example, if you pass in
 // "foo" as the id, the URL will then have a #foo tacked on the end of it.  This id will be
 // passed back to the callback you specified in +link{History.registerCallback} when the user
 // navigates to this history entry in the future.
 //
-// @param [title] (string) The title to show in the history drop-down for this history entry.  If
+// @param [title] (String) The title to show in the history drop-down for this history entry.  If
 // not specified, the <code>id</code> is used, unless you've set an explicit history title via
 // +link{History.setHistoryTitle}.  Note: this currently works in IE only.  You may pass a
 // title in any other browser, but it will not change what's displayed in the history
 // drop-down.
 //
-// @param [data] (any) Arbitrary data to associate with this history entry.  When the user next
+// @param [data] (Any) Arbitrary data to associate with this history entry.  When the user next
 // navigates to this history entry, this data will be provided as an argument to your callback
 // function.  Note that the SmartClient Core module is also required to be loaded on the page
 // for this particular feature to work.
@@ -2656,6 +2936,10 @@ addHistoryEntry : function (historyId, title, data) {
     this._saveHistoryState();
 
     if (this.usePushState) {
+
+        if (this.pushStateMode == "queryParam" && this._handleHashChange && location.hash) {
+            window.history.replaceState({historyId: decodeURI(location.hash.substring(1))}, '');
+        }
         window.history.pushState({historyId: historyId}, '', this._addHistory(location.href, historyId));
     } else {
         if (isc.Browser.isIE) {
@@ -2703,7 +2987,7 @@ _finishAddingHistoryEntry : function () {
     }
 },
 
-//> @classMethod history.readyForAnotherHistoryEntry()
+//> @staticMethod History.readyForAnotherHistoryEntry()
 //
 // Can another history entry be added to the browser's history stack in the current thread?
 // <p>
@@ -2811,17 +3095,22 @@ _init : function () {
             if (!event.state) return;
             isc.History._fireHistoryCallback(event.state.historyId);
         }
-        if (this.pushStateMode == "hashFragment") {
+
+        if (this.pushStateMode == "hashFragment" && !isc.Browser.isIE) {
             // also support firing callbacks on location.hash changes in this mode
+
             window.onhashchange = function (event) {
                 if (event.newURL && event.newURL.indexOf("#") != -1) {
-                    var historyId = decodeURIComponent(event.newURL.substring(event.newURL.indexOf("#")+1));
+                    var historyId = decodeURIComponent(event.newURL.substring(
+                                                           event.newURL.indexOf("#") + 1));
                     isc.History._fireHistoryCallback(historyId);
                 } else {
-                    this.logWarn("Unable to fire history callback onhashchange from: "
-                                 +event.oldURL+" to: " + event.newURL + "  - reason: no hash in newURL");
+                    isc.History.logWarn("Unable to fire history callback onhashchange from: " +
+                        event.oldURL + " to: " + event.newURL + "  - reason: no hash in newURL");
                 }
             }
+            // explicit flag since onhashchange() might have been set elsewhere
+            this._handleHashChange = true;
         }
     }
 },
@@ -3116,11 +3405,10 @@ _fireHistoryCallback : function (historyId) {
 // mandatory pre-page load init
 isc.History._init();
 isc._debugModules = (isc._debugModules != null ? isc._debugModules : []);isc._debugModules.push('History');isc.checkForDebugAndNonDebugModules();isc._moduleEnd=isc._History_end=(isc.timestamp?isc.timestamp():new Date().getTime());if(isc.Log&&isc.Log.logIsInfoEnabled('loadTime'))isc.Log.logInfo('History module init time: ' + (isc._moduleEnd-isc._moduleStart) + 'ms','loadTime');delete isc.definingFramework;if (isc.Page) isc.Page.handleEvent(null, "moduleLoaded", { moduleName: 'History', loadTime: (isc._moduleEnd-isc._moduleStart)});}else{if(window.isc && isc.Log && isc.Log.logWarn)isc.Log.logWarn("Duplicate load of module 'History'.");}
-
 /*
 
   SmartClient Ajax RIA system
-  Version v11.1p_2017-06-29/LGPL Deployment (2017-06-29)
+  Version v12.1p_2022-02-22/LGPL Development Only (2022-02-22)
 
   Copyright 2000 and beyond Isomorphic Software, Inc. All rights reserved.
   "SmartClient" is a trademark of Isomorphic Software, Inc.

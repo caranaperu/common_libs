@@ -11,6 +11,9 @@
         <valuesClause type="string"/>
         <whereClause type="string"/>
 
+        <apidoc type="boolean" />
+        <requiredCriterion type="string" />
+
         <dataFormat type="string" title="DataFormat">
             <valueMap iscServer="ISC Java Server" 
                       xml="XML / WSDL Web Service" 
@@ -100,7 +103,7 @@
         <script type="Object" idAllowed="true"/>
 
         <summaryFunctions type="SummaryFunction" strictValidation="false" />
-        <groupBy type="string" />
+        <groupBy type="string" multiple="true" fallbackToSingle="true" />
         <allowClientRequestedSummaries type="boolean" />
         
         <skipRowCount type="boolean"/>
@@ -116,6 +119,7 @@
         <qualifyColumnNames type="boolean" />
         <customFields type="string" />
         <skipAudit type="boolean" />
+        <includeAnsiJoinsInTableClause type="boolean" />
     </fields>
     
     <types>

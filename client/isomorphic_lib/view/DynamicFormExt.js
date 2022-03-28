@@ -39,7 +39,7 @@ isc.DynamicFormExt.addProperties({
     errorOrientation: "left",
     validateOnExit: true,
     synchronousValidation: true,
-    autoFocus: true,
+    autoFocus: false,
     selectOnFocus: true,
     selectOnClick: true,
     /**
@@ -332,7 +332,7 @@ isc.DynamicFormExt.addProperties({
      */
     setEditMode: function (mode) {
         this.formMode = mode;
-        this._setFields();
+
         //console.log(this.saveButton)
         if (this.saveButton !== undefined) {
             this.saveButton.disable();
@@ -344,6 +344,7 @@ isc.DynamicFormExt.addProperties({
                 this.deleteButton.enable();
             }
         }
+        this._setFields();
     },
     _disableProtectedFields: function () {
         if (this.keyFields.size() > 0) {
@@ -359,29 +360,60 @@ isc.DynamicFormExt.addProperties({
         if (this.keyFields.size() > 0) {
             var size = this.keyFields.size();
             for (i = 0; i < size; i++) {
-                this.getItem(this.keyFields[i]).enable();
                 this.getItem(this.keyFields[i]).canFocus = true;
-
+                this.getItem(this.keyFields[i]).enable();
             }
         }
-    }
-    ,
+    },
+    // sleep time expects milliseconds
+    __sleep: function (time) {
+        return new Promise((resolve) => setTimeout(resolve, time));
+    },
     _setFields: function () {
-        this.clearErrors();
+        let item;
+        this.clearErrors(true);
         if (this.formMode === 'edit') {
             this._disableProtectedFields();
-            this.focusInItem(this.getItem(this.focusInEditFld));
+            item = this.getItem(this.focusInEditFld);
         } else {
             this._enableProtectedFields();
             this.editNewRecord();
             if (this.keyFields.size() > 0) {
-                this.focusInItem(this.keyFields[0]);
-
+                item = this.getItem(this.keyFields[0]);
             } else {
-                this.focusInItem(this.getItem(0));
+                item = this.getItem(0);
+            }
+
+            // Si esta en hidden buscare el primer campo en la forma visible.
+            // Eso puede suceder solo cuando el keyfield de la forma es un id y
+            // no un codigo y por lo tanto no se muestra , por ende buscaremos
+            // el primer campo visible en la forma.
+            // En el caso que no haya keyfields tambien se verifica si el primer campo
+            // esta visiblke de no ser asi buscamos el primero visible.
+            // Ademas se verifica que no este disabled y pueda editarse.
+            if (item.hidden === true || item.disabled === true || item.canEdit === false) {
+
+                let items = this.getFields();
+                for (i=0 ; i < items.length; i++) {
+                    item = items[i];
+                    // NOTA: Si canEdit es undefined es tratado como si fuera true.
+                    if ((!item.hidden && !item.disabled && (item.canEdit === true || item.canEdit === undefined) && item.type != 'header')) {
+                        break;
+                    }
+                }
+                items = null;
             }
 
         }
+        // Dado a que por el asincronismo se ha visto que en algunos casos (pase de edit -> add)
+        // el foco no se presentaba dado que al ser llamado focusItem aun el campo estab como
+        // disabled a pesar que _enableProtectedFields() es llamado antes, con este delay es suficiente
+        // para que el cursor se posicione correctamente.
+        this.__sleep(200).then(() => {
+            this.focusInItem(item);
+            item = null;
+        });
+
     }
     ,
     handleHiddenValidationErrors: function (errors) {

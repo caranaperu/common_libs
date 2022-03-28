@@ -6,7 +6,7 @@
         <field name="fileType" type="text" />
         <field name="fileFormat" type="text" />
         
-        <field name="fileContents" type="text" length="10485760"/>
+        <field name="fileContents" type="text" length="10485760" audit="change"/>
         <field name="fileLastModified" type="datetime" storeMilliseconds="true"/>
         <field name="fileSize" type="integer" />
     </fields>

@@ -1,8 +1,8 @@
 <DataSource	ID="Slider" inheritsFrom="Canvas" Constructor="Slider">
 	<fields>
-		<field name="title" type="string"/>
+		<field name="title" type="string" basic="true"/>
 		<field name="length" type="positiveInteger"/>
-		<field name="vertical" type="boolean"/>
+		<field name="vertical" type="boolean" basic="true"/>
 		<field name="thumbThickWidth" type="positiveInteger"/>
 		<field name="thumbThinWidth" type="positiveInteger"/>
 		<field name="trackWidth" type="positiveInteger"/>
@@ -22,12 +22,15 @@
 		<field name="labelWidth" type="positiveInteger"/>
 		<field name="labelHeight" type="positiveInteger"/>
 		<field name="labelSpacing" type="positiveInteger"/>
+		<field name="hLabelSpacing" type="positiveInteger"/>
+		<field name="vLabelSpacing" type="positiveInteger"/>
+		<field name="titleSpacing" type="positiveInteger"/>
 		<field name="value" type="float"/>
-		<field name="minValue" type="float"/>
+		<field name="minValue" type="float" basic="true"/>
 		<field name="minValueLabel" type="string"/>
-		<field name="maxValue" type="float"/>
+		<field name="maxValue" type="float" basic="true"/>
 		<field name="maxValueLabel" type="string"/>
-		<field name="numValues" type="positiveInteger"/>
+		<field name="numValues" type="positiveInteger" basic="true"/>
         <field name="roundValues" type="boolean"/>
         <field name="roundPrecision" type="positiveInteger"/>
         <field name="flipValues" type="boolean"/>
@@ -37,6 +40,10 @@
         <field name="animateThumb" type="boolean"/>
         <field name="animateThumbTime" type="positiveInteger"/>
         <field name="animateThumbInit" type="boolean"/>
+
+        <!-- mark superclass fields as not relevant -->
+        <field name="children" inapplicable="true"/>
+        <field name="peers" inapplicable="true"/>
 	</fields>
 </DataSource>
 

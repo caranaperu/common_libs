@@ -14,14 +14,15 @@ isc.loadSkin = function (theWindow) {
 if (theWindow == null) theWindow = window;
 with (theWindow) {
 	//
-	//	Step 1:  Set the Isomorphic SmartClient skinDir to point to this directory
-	//
-	//			 NOTE: The path provided here MUST be relative to your application
-	//					file or the already set up Isomorphic dir.
-	//
-	//			 ** If you move this skin, you must change the skinDir below!***
-	//
-	isc.Page.setSkinDir("[ISOMORPHIC]/skins/Cupertino/");
+	//	Step 1:
+    //----------------------------------------
+    // Register skin
+    //----------------------------------------
+    var currentSkin = isc.setCurrentSkin({
+        // name is autoderived to be the containing folder
+        name: "autoDetect"
+    });
+
 
 
 	//
@@ -30,6 +31,23 @@ with (theWindow) {
 	isc.Page.loadStyleSheet("[SKIN]/skin_styles.css", theWindow);
 
     isc.Class.modifyFrameworkStart();
+
+    // Standard Framework icons - changes specific to this skin 
+    var aIcons = isc.Canvas.standardActionIcons;
+    aIcons.find('name', 'Add').states = null;    // default [Disabled]
+    aIcons.find('name', 'Back').states = null;    // default [Disabled]
+    aIcons.find('name', 'Edit').states = null;    // default [Disabled]
+    aIcons.find('name', 'Forward').states = null;    // default [Disabled]
+    aIcons.remove(aIcons.find('name', 'Accept'));
+    aIcons.remove(aIcons.find('name', 'Close'));
+    aIcons.remove(aIcons.find('name', 'Color_swatch'));
+    aIcons.remove(aIcons.find('name', 'Exclamation'));
+    aIcons.remove(aIcons.find('name', 'Plus'));
+    aIcons.remove(aIcons.find('name', 'Print'));
+    aIcons.remove(aIcons.find('name', 'Text_linespacing'));
+
+    // This skin doesn't have a headerIcons directory
+    isc.Window.standardHeaderIcons = [];
 
 	//
 	//	Step 3: Customize the SmartClient client framework below
@@ -192,8 +210,6 @@ with (theWindow) {
         });
     }
 
-    // remember the current skin so we can detect multiple skins being loaded
-    if (isc.setCurrentSkin) isc.setCurrentSkin("Cupertino");
 
 	//
 	//  Step 4: Specify where the browser should redirect if the browser is

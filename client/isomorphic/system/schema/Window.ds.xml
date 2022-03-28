@@ -41,7 +41,7 @@
         <field name="headerControls" type="Canvas" idAllowed="true" multiple="true"/>
 
            <!-- title (a label in the header with the Window's title) -->
-		   <field name="showTitle" type="boolean"/>
+		   <field name="showTitle" type="boolean" basic="true"/>
 		   <field name="title" type="HTMLString"/>
            <field name="headerLabelConstructor" type="className" visibility="internal"/>
 		   <field name="headerLabelTextStyle" type="cssClass"/>
@@ -49,7 +49,7 @@
            <field name="headerLabelDefaults" type="Canvas" propertiesOnly="true"/>
 
            <!-- headerIcon (icon, typically on left of headerBar, with various windows controls) -->
-		   <field name="showHeaderIcon" type="boolean"/>
+		   <field name="showHeaderIcon" type="boolean" basic="true"/>
            <field name="headerIconConstructor" type="className" visibility="internal"/>
            <field name="headerIconDefaults" type="Canvas" propertiesOnly="true"/>
          
@@ -59,7 +59,7 @@
 		   <field name="closeButtonDefaults" type="Canvas" propertiesOnly="true"/>
 
            <!-- minimize button --> 
-		   <field name="showMinimizeButton" type="boolean"/>
+		   <field name="showMinimizeButton" type="boolean" basic="true"/>
 		   <field name="minimizeButtonConstructor" type="className" visibility="internal"/>
 		   <field name="minimizeButtonDefaults" type="Canvas" propertiesOnly="true"/>
 		   <field name="minimized" type="boolean"/>
@@ -83,7 +83,7 @@
 		   <field name="maximizeButtonDefaults" type="Canvas" propertiesOnly="true"/>
 
         <!-- footer -->
-		<field name="showFooter" type="boolean"/>
+		<field name="showFooter" type="boolean" basic="true"/>
 		<field name="footerHeight" type="positiveInteger"/>
         <field name="footerControls" type="Canvas" idAllowed="true" multiple="true"/>
            
@@ -115,9 +115,11 @@
         <!-- Leave this field at the end of the list for Visual ISC D&D -->
 		<field name="items" type="Canvas" multiple="true"/>
         
-        <field name="showModalMask" type="boolean"/>
+        <field name="showModalMask" type="boolean" basic="true"/>
         <field name="modalMaskOpacity" type="number"/>
-        
+
+        <field name="enableWhen" inapplicable="true"/>
+
     </fields>
 </DataSource>
         

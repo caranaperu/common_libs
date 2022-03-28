@@ -1,8 +1,7 @@
 <DataSource ID="XORGateway" inheritsFrom="ProcessElement" Constructor="XORGateway">
-	<fields>
-        <criteria type="Criterion" />
-        <nextElement type="string" />
-        <failureElement type="string" />
-	</fields>
+    <fields>
+        <field name="criteria" type="Criterion" />
+        <field name="failureElement" type="string" xmlAttribute="true" />
+    </fields>
 </DataSource>
 

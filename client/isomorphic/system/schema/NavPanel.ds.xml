@@ -3,7 +3,10 @@
         <field name="headerStyle" type="CSSStyleName" />
         <field name="isTree" type="boolean" />
         <field name="navItems" type="NavItem" multiple="true" />
-        <field name="currentItemId" type="string" basic="true" />
+        <field name="defaultToFirstItem" type="boolean" basic="true"/>
+
+        <field name="currentItemId" type="string" basic="true" hidden="true"/>
+        <field name="currentItem" type="NavItem" skipSerialization="true" hidden="true"/>
 
         <field name="detailPane" type="Canvas" inapplicable="true" />
         <field name="detailTitle" inapplicable="true" />

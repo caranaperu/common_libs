@@ -5,8 +5,8 @@
     MxServerComponent  svr = MxServerComponent.getDefaultInstance(application);
 
     MxChartDescription myChart = svr.newImageSpec();
-    myChart.width = new Integer(request.getParameter("width")).intValue();
-    myChart.height = new Integer(request.getParameter("height")).intValue();
+    myChart.width = Integer.valueOf(request.getParameter("width")).intValue();
+    myChart.height = Integer.valueOf(request.getParameter("height")).intValue();
     myChart.type = request.getParameter("type");
     myChart.style = request.getParameter("style");
     myChart.model = request.getParameter("model");

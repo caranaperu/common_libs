@@ -30,13 +30,19 @@ Validator.ds.xml
         </dataFormat>
         <useStrictJSON type="boolean" xmlAttribute="true"/>
 
+        <apidoc type="boolean" />
+        <isSampleDS type="boolean" xmlAttribute="true"/>
+
         <!-- special attribute used by VisualBuilder to suppress autoFetch -->
         <noAutoFetch type="boolean" xmlAttribute="true"/>
         <serverType type="string" title="Server Type" xmlAttribute="true">
             <valueMap sql="ISC Server SQL Connectors" 
                       hibernate="ISC Server Hibernate Connectors" 
                       jpa="Use SmartClient's built-in JPA 2.0 connector" 
-                      jpa1="Use SmartClient's built-in JPA 1.0 connector" 
+                      jpa1="Use SmartClient's built-in JPA 1.0 connector"
+                      rest="Server-side REST implementation"
+                      exec="executes a command external to the JVM"
+                      stream="DataSource connected to a messaging broker"
                       generic="Requests will be delivered to the server and you are expected to write Java code to create a valid response"
                       />
         </serverType>
@@ -61,10 +67,13 @@ Validator.ds.xml
         <tableCode type="string" xmlAttribute="true"/>
         <strictSQLFiltering type="boolean" xmlAttribute="true" />
 
+	    <realtimeUpdates type="boolean" title="Stream realtime updates for changes to this datasource?" xmlAttribute="true"/>
         <!-- serverObject definition that applies as a default to all operationBindings -->
         <serverObject type="ServerObject"/>
 
         <serverConstructor type="string"/>
+
+        <serverConfig type="Object"/>
 
         <!-- operationBindings for each operation type -->
         <operationBindings multiple="true" type="OperationBinding"/>
@@ -118,6 +127,11 @@ Validator.ds.xml
 	    <cacheAllData type="boolean" xmlAttribute="true"/>
 	    <cacheAcrossOperationIds type="boolean" xmlAttribute="true"/>
 
+        <!-- mockMode -->
+        <mockMode type="boolean" xmlAttribute="true"/>
+        <mockDataRows type="integer" xmlAttribute="true"/>
+        <mockDataCriteria type="Criterion" multiple="true"/>
+              
         <!-- for declaring inline types -->
 	    <types type="DataSourceField" multiple="true" propertiesOnly="true" 
                uniqueProperty="ID" visibility="internal"/>
@@ -169,6 +183,7 @@ Validator.ds.xml
 	<autoConvertRelativeDates type="boolean" />
 
         <allowAdvancedCriteria type="boolean" xmlAttribute="true" />
+        <dropUnknownCriteria type="boolean" xmlAttribute="true" />
         
         <scriptImport type="string"/>
         <script type="Object" idAllowed="true"/>
@@ -186,7 +201,7 @@ Validator.ds.xml
         <supportTransactions type="boolean" />
         <creatorOverrides type="boolean" />
         <loadParents type="boolean" xmlAttribute="true" />
-        <loadID type="string" />
+        <loadID type="string" xmlAttribute="true" />
 
         <!-- audit -->
         <audit type="boolean" />
@@ -196,6 +211,8 @@ Validator.ds.xml
         <auditTimeStampFieldName type="string" />
         <auditTypeFieldName type="string" />
         <auditUserFieldName type="string" />
+        <compareMetadataForAuditChangeStatus type="boolean" />
+        <auditChangedFieldsFieldLength type="integer" />
 
         <autoCreateAuditTable type="boolean" />
         <inheritanceMode type="string" >
@@ -242,6 +259,9 @@ Validator.ds.xml
         
         <requiredMessage type="string" title="Required Message" xmlAttribute="true"/>
 
+        <implicitCriteria type="AdvancedCriteria" xmlAttribute="true"/>
+
+	    <immutableAcrossSandboxes type="boolean" visibility="internal" xmlAttribute="true"/>
     </fields>
 </Object>
 

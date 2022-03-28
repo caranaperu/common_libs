@@ -9,10 +9,12 @@ with (theWindow) {
 
 
 //----------------------------------------
-// Specify skin directory
+// Register skin
 //----------------------------------------
-    // must be relative to your application file or isomorphicDir
-    isc.Page.setSkinDir("[ISOMORPHIC]/skins/Graphite/")
+    var currentSkin = isc.setCurrentSkin({
+        // name is autoderived to be the containing folder
+        name: "autoDetect"
+    });
 
 
 //----------------------------------------
@@ -22,8 +24,48 @@ with (theWindow) {
 
     isc.Class.modifyFrameworkStart();
 
+    // Standard Framework icons - changes specific to this skin
+    var hIcons = isc.Window.standardHeaderIcons;
+    hIcons.find('name', 'Arrow_down').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Arrow_left').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Arrow_right').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Arrow_up').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Calculator').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Cart').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Clipboard').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Clock').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Close').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Comment').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Double_arrow_down').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Double_arrow_left').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Double_arrow_right').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Double_arrow_up').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Favourite').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Find').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Help').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Home').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Mail').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Maximize').states = ["Over", "Disabled"];    // default [Down, Over]
+    hIcons.find('name', 'Minus').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Person').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Pin_down').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Pin_left').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Plus').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Print').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Refresh').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Refresh_thin').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Save').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Settings').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Transfer').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Trash').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Zoom').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.remove(hIcons.find('name', 'Maximize_new'));
+    hIcons.remove(hIcons.find('name', 'Maximize_old'));
+    
     var useCSS3 = isc.Browser.useCSS3,
         useSpriting = isc.Browser.useSpriting;
+
+        
 // --------------------------------------
 // isc.minimalistTextControlAppearance (new property, consulted below) 
 // - Show minimalist drop down controls by default?
@@ -69,7 +111,7 @@ with (theWindow) {
 
         isc.Scrollbar.addProperties({
             baseStyle:"scrollbar",
-            btnSize:18,
+            btnSize:16,
             hSrc:"[SKIN]hscroll.png",
             hThumbClass:isc.HSimpleScrollThumb,
             showRollOver:true,
@@ -237,7 +279,8 @@ with (theWindow) {
             showDown:false,
             showDownGrip:false,
             showRollOver:false,
-            vSrc:"[SKIN]vsplit.png"
+            vSrc:"[SKIN]vsplit.png",
+            showRollOverGrip:false
         });
 
         if (isc.ListGrid) {
@@ -437,6 +480,7 @@ with (theWindow) {
 
             isc.Window.changeDefaults("maximizeButtonDefaults", {
                 height:15,
+                showDown:false,
                 showRollOver:true,
                 src:"[SKIN]/headerIcons/maximize.png",
                 width:15
@@ -507,7 +551,6 @@ with (theWindow) {
                 isc.addProperties(isc.Dialog.Prompt, {
                     showHeader:true,
                     showTitle:false,
-                    showTitleAsHeaderContents:false,
                     showCloseButton:false,
                     bodyStyle:"windowBody"
 
@@ -629,7 +672,7 @@ with (theWindow) {
 			}
 		}
 
-        // used by SelectItem and ComboBoxItem for picklist
+        // used by SelectItem and ComboBoxItem for flat list data
         if (isc.ScrollingMenu) {
             isc.ScrollingMenu.addProperties({
             shadowDepth:5,
@@ -643,6 +686,19 @@ with (theWindow) {
             });
         }
 
+        // used by SelectItem and ComboBoxItem for tree data
+        if (isc.ScrollingTreeMenu) {
+            isc.ScrollingTreeMenu.addProperties({
+            shadowDepth:5,
+            showShadow:false
+            });
+        }
+
+        if (isc.PickTreeMenu) {
+            isc.PickTreeMenu.addProperties({
+                skinUsesCSSTransitions: true
+            });
+        }
         if (isc.DateItem) {
             isc.DateItem.addProperties({
                 height:22,
@@ -654,6 +710,21 @@ with (theWindow) {
 				isc.DateItem.addProperties({
 					textBoxStyle:"textItemLite"
 				});
+                if (isc.NativeDateItem) {
+                    isc.NativeDateItem.addProperties({
+                        textBoxStyle:"textItemLite"
+                    });
+                }
+                if (isc.NativeTimeItem) {
+                    isc.NativeTimeItem.addProperties({
+                        textBoxStyle:"textItemLite"
+                    });
+                }
+                if (isc.NativeDatetimeItem) {
+                    isc.NativeDatetimeItem.addProperties({
+                        textBoxStyle:"textItemLite"
+                    });
+                }
 			}
         }
 
@@ -710,7 +781,7 @@ with (theWindow) {
         if (isc.ToolbarItem && isc.IAutoFitButton) {
             isc.ToolbarItem.addProperties({
                 buttonConstructor:isc.IAutoFitButton,
-                buttonProperties:{ autoFitDirection:isc.Canvas.BOTH }
+                buttonProperties:{ autoFitDirection:isc.Canvas.HORIZONTAL}
             });
         }
 
@@ -819,7 +890,8 @@ with (theWindow) {
                 titleSpacing: 15,
                 vTitleSpacing: 7,
                 showActiveTrack: true,
-                labelHeight: 22
+                labelHeight: 22,
+                padding: 1
             });
             isc.Slider.changeDefaults("thumbDefaults", {
                 getCustomState : function () {
@@ -848,12 +920,16 @@ with (theWindow) {
                 layoutBottomMargin:10
             });
 
-            isc.EventWindow.changeDefaults("resizerDefaults", {
-                src:"[SKIN]/Window/v_resizer.png"
-            });
-            isc.TimelineWindow.changeDefaults("resizerDefaults", {
-                src:"[SKIN]/Window/h_resizer.png"
-            })
+            if (isc.EventWindow) {
+                isc.EventWindow.changeDefaults("resizerDefaults", {
+                    src:"[SKIN]/Window/v_resizer.png"
+                });
+            }
+            if (isc.TimelineWindow) {
+                isc.TimelineWindow.changeDefaults("resizerDefaults", {
+                    src:"[SKIN]/Window/h_resizer.png"
+                });
+            }
 
         }
 
@@ -878,7 +954,7 @@ with (theWindow) {
         isc.Page.checkBrowserAndRedirect("[SKIN]/unsupported_browser.html");
 
 
-        // Properties specific to the Graphite skin:
+        // Properties specific to the this skin:
         if (isc.SectionStack) {
             isc.SectionStack.addProperties({
                 headerHeight:23
@@ -969,7 +1045,7 @@ with (theWindow) {
         backgroundColor:"transparent"
     })
     isc.Scrollbar.addProperties({
-        btnSize:18,
+        btnSize:16,
         showRollOver:true,
         //showDown: true,
         thumbMinSize:20,
@@ -1799,6 +1875,21 @@ with (theWindow) {
 			isc.DateItem.addProperties({
 				textBoxStyle:"textItemLite"
 			});
+            if (isc.NativeDateItem) {
+                isc.NativeDateItem.addProperties({
+                    textBoxStyle:"textItemLite"
+                });
+            }
+            if (isc.NativeTimeItem) {
+                isc.NativeTimeItem.addProperties({
+                    textBoxStyle:"textItemLite"
+                });
+            }
+            if (isc.NativeDatetimeItem) {
+                isc.NativeDatetimeItem.addProperties({
+                    textBoxStyle:"textItemLite"
+                });
+            }
 		}                
     }
     if (isc.SpinnerItem) {
@@ -1958,13 +2049,16 @@ with (theWindow) {
             src:"[SKINIMG]actions/plus.png"
         });
 
-        isc.EventWindow.changeDefaults("resizerDefaults", {
-            src:"[SKIN]/Window/v_resizer.png"
-        });
-
-        isc.TimelineWindow.changeDefaults("resizerDefaults", {
-            src:"[SKIN]/Window/h_resizer.png"
-        })
+        if (isc.EventWindow) {
+            isc.EventWindow.changeDefaults("resizerDefaults", {
+                src:"[SKIN]/Window/v_resizer.png"
+            });
+        }
+        if (isc.TimelineWindow) {
+            isc.TimelineWindow.changeDefaults("resizerDefaults", {
+                src:"[SKIN]/Window/h_resizer.png"
+            });
+        }
     }
 
 // -------------------------------------------
@@ -1992,8 +2086,6 @@ with (theWindow) {
 
     } // end useCSS3 else block
 
-    // remember the current skin so we can detect multiple skins being loaded
-    if (isc.setCurrentSkin) isc.setCurrentSkin("Graphite");
 
 
 
@@ -2043,6 +2135,7 @@ with (theWindow) {
         resizeBarSize: 5,
         resizeBarClass: "Snapbar"
     });
+    isc.overwriteClass("LayoutResizeBar", "LayoutResizeSnapbar");
 
 //----------------------------------------
 // 4) Sections & NavigationBar

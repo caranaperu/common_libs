@@ -11,10 +11,13 @@ with (theWindow) {
 
 
 //----------------------------------------
-// Specify skin directory
+// Register skin
 //----------------------------------------
-    // must be relative to your application file or isomorphicDir
-    isc.Page.setSkinDir("[ISOMORPHIC]/skins/TreeFrog/")
+    var currentSkin = isc.setCurrentSkin({
+        // name is autoderived to be the containing folder
+        name: "autoDetect"
+    });
+
 
 
 //----------------------------------------
@@ -25,6 +28,24 @@ with (theWindow) {
 
     isc.Class.modifyFrameworkStart();
 
+    isc.Canvas.standardHeaderIconExtension = "gif";
+
+    // Standard Framework icons - changes specific to this skin 
+    var aIcons = isc.Canvas.standardActionIcons;
+    aIcons.find('name', 'Add').states = null;    // default [Disabled]
+    aIcons.find('name', 'Back').states = null;    // default [Disabled]
+    aIcons.find('name', 'Close').states = ["Over", "Down"];    // default [Disabled, Down, Over]
+    aIcons.find('name', 'Edit').states = null;    // default [Disabled]
+    aIcons.find('name', 'Forward').states = null;    // default [Disabled]
+    aIcons.remove(aIcons.find('name', 'Accept'));
+    aIcons.remove(aIcons.find('name', 'Color_swatch'));
+    aIcons.remove(aIcons.find('name', 'Exclamation'));
+    aIcons.remove(aIcons.find('name', 'Plus'));
+    aIcons.remove(aIcons.find('name', 'Text_linespacing'));
+
+    // This skin doesn't have a headerIcons directory
+    isc.Window.standardHeaderIcons = [];
+    
 //============================================================
 //  Component Skinning
 //============================================================
@@ -125,6 +146,12 @@ with (theWindow) {
         showFocusedAsOver:false
     });
 
+    if (isc.ToolStripButton) {
+        isc.ToolStripButton.addProperties({
+            title:null
+        });
+    }            
+
     isc.defineClass("IAutoFitButton", "IButton").addProperties({
         autoFit: true,
         autoFitDirection: isc.Canvas.HORIZONTAL
@@ -173,7 +200,8 @@ with (theWindow) {
         // shows interactive (closed/open) grip images
         // Other options include the Splitbar, StretchImgSplitbar or ImgSplitbar
         resizeBarClass:"Snapbar"
-    })
+    });
+    isc.overwriteClass("LayoutResizeBar", "LayoutResizeSnapbar");
 
 
 //----------------------------------------
@@ -292,6 +320,10 @@ with (theWindow) {
             labelLengthPad:8,
             showRollOver:true,
             showDown:false,
+            showFocus: false,
+            showFocused: false,
+            showFocusedAsOver: true,
+            showFocusOutline: false,
             titleStyle:"tabTitle"
         })
     }
@@ -370,6 +402,7 @@ with (theWindow) {
         isc.Window.changeDefaults("maximizeButtonDefaults", {
              src:"[SKIN]/Window/maximize.png",
              showRollOver:true,
+             showDown:false,
              width:18,
              height:18
         })
@@ -855,8 +888,6 @@ with (theWindow) {
     }
 
 
-    // remember the current skin so we can detect multiple skins being loaded
-    if (isc.setCurrentSkin) isc.setCurrentSkin("TreeFrog");
 
     // specify where the browser should redirect if not supported
     isc.Page.checkBrowserAndRedirect("[SKIN]/unsupported_browser.html");

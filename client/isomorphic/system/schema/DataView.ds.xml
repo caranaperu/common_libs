@@ -3,6 +3,10 @@
         <field name="operations" type="ServiceOperation" multiple="true"/>
     </fields>
     <methods>
-        <method action="true" title="DataView Loaded" name="dataViewLoaded" />
+        <method name="drawn" title="Drawn" action="event" basic="true" />
+        <!--not active - was intended to allow taking action after DataView 
+            loaded WSDL and XML Schema
+        <method title="DataView Loaded" name="dataViewLoaded" />
+        -->
     </methods>
 </DataSource>

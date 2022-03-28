@@ -1056,6 +1056,7 @@ disabled TextItems. Use the CSS2 system color keyword 'GrayText'.
 .iconButtonDown,
 .iconButtonSelected,
 .iconButtonSelectedOver,
+.iconButtonFocused,
 .iconButtonFocusedOver,
 .iconButtonSelectedFocusedOver {
     background: #CCCCCC;
@@ -1837,6 +1838,10 @@ a.calMonthEventLink:active {color:blue; text-decoration:none}
   bottom: 0;
 }
 
+.eventDragCanvas {
+    border: 1px dashed red;
+}
+
 /* --- IndicatorCanvas --- */
 
 .indicatorCanvas {
@@ -2033,3 +2038,17 @@ a.calMonthEventLink:active {color:blue; text-decoration:none}
 }
 
 
+/* dark hover for Reify */
+.darkHover {
+  background-color: #3a4a53;
+  color: #ffffff;
+  font-family: Arial,sans-serif;
+  font-size: 14px;
+  padding: 10px;
+  -moz-border-radius: 8px;
+  -webkit-border-radius: 8px;
+  border-radius: 8px;
+  -moz-box-shadow: 0 0 5px #3a4a53;
+  -webkit-box-shadow: 0 0 5px #3a4a53;
+  box-shadow: 0 0 5px #3a4a53;
+}

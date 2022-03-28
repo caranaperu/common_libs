@@ -1,8 +1,7 @@
-
 /*
 
   SmartClient Ajax RIA system
-  Version v11.1p_2017-06-29/LGPL Deployment (2017-06-29)
+  Version v12.1p_2022-02-22/LGPL Development Only (2022-02-22)
 
   Copyright 2000 and beyond Isomorphic Software, Inc. All rights reserved.
   "SmartClient" is a trademark of Isomorphic Software, Inc.
@@ -39,9 +38,9 @@ else if(isc._preLog)isc._preLog[isc._preLog.length]=isc._pTM;
 else isc._preLog=[isc._pTM]}isc.definingFramework=true;
 
 
-if (window.isc && isc.version != "v11.1p_2017-06-29/LGPL Deployment" && !isc.DevUtil) {
+if (window.isc && isc.version != "v12.1p_2022-02-22/LGPL Development Only" && !isc.DevUtil) {
     isc.logWarn("SmartClient module version mismatch detected: This application is loading the core module from "
-        + "SmartClient version '" + isc.version + "' and additional modules from 'v11.1p_2017-06-29/LGPL Deployment'. Mixing resources from different "
+        + "SmartClient version '" + isc.version + "' and additional modules from 'v12.1p_2022-02-22/LGPL Development Only'. Mixing resources from different "
         + "SmartClient packages is not supported and may lead to unpredictable behavior. If you are deploying resources "
         + "from a single package you may need to clear your browser cache, or restart your browser."
         + (isc.Browser.isSGWT ? " SmartGWT developers may also need to clear the gwt-unitCache and run a GWT Compile." : ""));
@@ -104,8 +103,10 @@ isc.defineClass("ListPropertiesSampleTile", "StatefulCanvas").addProperties({
 isc.ListPropertiesSampleTile.addMethods({
     initWidget : function () {
         this.Super("initWidget", arguments);
-        this._canonicalProperties = isc.ListPropertiesPane.getCanonicalListProperties(this.listProperties);
-        this._itemTextPlaceholder = this.imgHTML(isc.Canvas._blankImgURL, 40, 3, "' style='background-color:#999;vertical-align:middle");
+        this._canonicalProperties = isc.ListPropertiesPane.
+            getCanonicalListProperties(this.listProperties);
+        this._itemTextPlaceholder = this.imgHTML({src: isc.Canvas._blankImgURL, width: 40,
+            height: 3, extraCSSText: "background-color:#999;vertical-align:middle;"});
     },
 
     getInnerHTML : function () {
@@ -390,7 +391,7 @@ isc.ListPropertiesPane.addProperties({
     startNumberFormDefaults: {
         _constructor: "DynamicForm",
         width: "100%",
-        colWidths: [ 90, "*" ],
+        colWidths: [ 60, "*" ],
         numCols: 2
     },
 
@@ -715,6 +716,13 @@ initWidget : function () {
     var listPropertiesPane = this.addAutoChild("listPropertiesPane"),
         bottomLayout = this.addAutoChild("bottomLayout");
 
+
+    if (this.showStartNumberInFooter) {
+        var startNumberForm = listPropertiesPane.startNumberForm;
+        listPropertiesPane.removeMember(startNumberForm);
+        this.bottomLayout.addMember(startNumberForm);
+    }
+
     this.addAutoChild("applyButton", {
         title: this.applyButtonTitle
     });
@@ -776,7 +784,7 @@ isc.RichTextCanvas.addClassProperties({
     //RIGHT:"right",
     FULL:"full",
 
-    //>@classAttr   RichTextCanvas.unsupportedErrorMessage  (string : "Rich text editing not supported in this browser" : [IRW])
+    //>@classAttr   RichTextCanvas.unsupportedErrorMessage  (String : "Rich text editing not supported in this browser" : [IRW])
     // Message to display to the user if they attempt to access the page in a browser which
     // does not support rich-text-editing
     //<
@@ -820,6 +828,17 @@ isc.RichTextCanvas.addProperties({
 
     // Don't show a non-breaking space by default
     contents : ""
+
+
+    //> @attr richTextCanvas.styleName    (CSSStyleName : "normal" : [IRW])
+    // The CSS class applied to this widget as a whole. The editable HTML within this widget
+    // will appear with this styling applied to it, but it should be noted that this css class
+    // is not part of that HTML, so applying the generated content to other components will not
+    // pick up styling attributes defined in this class automatically.
+    //
+    // @setter setStyleName()
+    // @visibility external
+    //<
 
     // even when hidden the rich text area picks up the bitmap of the area behind it and drags it
     // along as it is scrolled.
@@ -918,12 +937,22 @@ isc.RichTextCanvas.addMethods({
     // _useDesignMode: Should we achieve our rich text canvas via an IFrame with DesignMode "On",
     // or via a contentEdtiable DIV.
 
+
+    //> @attr richTextCanvas.useDesignMode (Boolean : null : IRA)
+    // Should this editor use a separate IFRAME with special cross-browser support for editing
+    // HTML content?  By default, the value is auto-detected according to browser details.  If
+    // set to false, the editor falls back to normal browser contentEditable behavior, which
+    // may differ between browsers.
+    // @visibility external
+    //<
+    //useDesignMode: null,
     _useDesignMode : function () {
-        return ((isc.Browser.isChrome ||
+        // if code set this.useDesignMode, use it
+        if (this.useDesignMode != null) return this.useDesignMode;
+        return (isc.Browser.isChrome ||
                  isc.Browser.isSafari ||
                  isc.Browser.isOpera ||
-                 isc.Browser.isMoz) ||
-                isc.screenReader);
+                 isc.Browser.isMoz);
     },
 
     // ---------- Design Mode / IFRAME handling ------------------
@@ -1088,7 +1117,7 @@ isc.RichTextCanvas.addMethods({
     },
 
     getContentFrameHeight : function () {
-       return this.getHeight() - this.getHMarginBorderPad();
+       return this.getHeight() - this.getVMarginBorderPad();
     },
 
     // Override _setHandleRect() to always size the IFRAME to match the size of the
@@ -1228,7 +1257,8 @@ isc.RichTextCanvas.addMethods({
             // If no  previous selection, just bail
             if (!this._savedSelection) return;
 
-            var newSelectionText = isc.Browser._hasDOMRanges ? String(this._savedSelection) : this._savedSelection.text;
+            var newSelectionText = isc.Browser._hasDOMRanges ?
+                String(this._savedSelection) : this._savedSelection.text;
 
             // If the content of the range has changed since it was selected, avoid selecting
             // the modified text
@@ -1248,7 +1278,27 @@ isc.RichTextCanvas.addMethods({
             }
             delete isc.EH._allowTextSelection;
 
-        //} else {    //Currently only supported on IE
+
+        } else if (isc.Browser.isEdge) {
+
+            var event = isc.EH.lastEvent;
+            if (event && event.target != this) {
+
+
+                var rtc = this;
+                isc.Timer.setTimeout(function () {
+                    isc.EH._allowTextSelection = true;
+                    var doc = rtc.getContentDocument(),
+                    sel = doc.getSelection();
+                    if (sel) {
+                        var range = sel.getRangeAt(0);
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                    }
+                    delete isc.EH._allowTextSelection;
+                }, 0);
+            }
+
         }
     },
 
@@ -1278,14 +1328,28 @@ isc.RichTextCanvas.addMethods({
 
         } else {
 
-            if (hasFocus) {
-                this._resetSelection();
 
-            }
+            //if (hasFocus) {
+            //    this._resetSelection();
+            //}
+
 
             //else this._rememberSelection();
         }
 
+    },
+
+
+    focusChanged : function (hasFocus) {
+        if (hasFocus) {
+            this._resetSelection();
+            this._focussing = false;
+        } else {
+            this._focussing = true;
+        }
+        if (this.parentElement && this.parentElement.editAreaFocusChanged) {
+            this.parentElement.editAreaFocusChanged();
+        }
     },
 
     // ------------------- Editor init ------------------
@@ -1327,6 +1391,11 @@ isc.RichTextCanvas.addMethods({
         if (reinitRequired) this._drawingFrame = true;
     },
 
+    //> @attr richTextCanvas.styleWithCSS (Boolean : null : IRA)
+    // When true, applies style attributes in markup instead of presentation elements.
+    // @visibility external
+    //<
+    //styleWithCSS: null,
     // _setupEditArea:  Fired when the RichTextCanvas is written into the DOM.
     // This will ensure the appropriate contents and edit state are applied to this widget.
 
@@ -1335,8 +1404,10 @@ isc.RichTextCanvas.addMethods({
 
         
 
-        var designMode = this._useDesignMode();
+        // apply styling via css
+        if (this.styleWithCSS != null) this._execCommand("styleWithCSS", this.styleWithCSS);
 
+        var designMode = this._useDesignMode();
         // When using an IFRAME written out in design mode we need to add some custom event
         // handlers.
         if (designMode) {
@@ -1365,6 +1436,24 @@ isc.RichTextCanvas.addMethods({
                                                  "var returnValue=" + thisAccessPath + this.getID() + "._iFrameKeyPress(event);" +
                                                  "if(returnValue==false && event.preventDefault)event.preventDefault();" +
                                                  "else event.returnValue=(returnValue!=false)"
+                                                );
+            }
+            if (!this._editClickHandler) {
+                this._editClickHandler = isc._makeFunction(
+                                                 "event",
+                                                 "event=event||" + this.getID() + ".getContentWindow().event;" +
+                                                 "var returnValue=" + thisAccessPath + this.getID() + "._iFrameClick(event);" +
+                                                 "/*if(returnValue==false && event.preventDefault)event.preventDefault();" +
+                                                 "else*/ event.returnValue=(returnValue!=false)"
+                                                );
+            }
+            if (!this._editDoubleClickHandler) {
+                this._editDoubleClickHandler = isc._makeFunction(
+                                                 "event",
+                                                 "event=event||" + this.getID() + ".getContentWindow().event;" +
+                                                 "var returnValue=" + thisAccessPath + this.getID() + "._iFrameClick(event,true);" +
+                                                 "/*if(returnValue==false && event.preventDefault)event.preventDefault();" +
+                                                 "else*/ event.returnValue=(returnValue!=false)"
                                                 );
             }
             if (!this._editKeyDownHandler) {
@@ -1431,31 +1520,74 @@ isc.RichTextCanvas.addMethods({
                 keyboardListenersReceiver.addEventListener("keydown", this._editKeyDownHandler, false);
                 keyboardListenersReceiver.addEventListener("keyup", this._editKeyUpHandler, false);
 
+                keyboardListenersReceiver.addEventListener("click", this._editClickHandler, false);
+                keyboardListenersReceiver.addEventListener("dblclick", this._editDoubleClickHandler, false);
+
                 win.addEventListener("scroll", this._editScrollHandler, false);
                 win.addEventListener("focus", this._editFocusHandler, false);
                 win.addEventListener("blur", this._editBlurHandler, false);
             }
-            if (addKeyboardListenersToContentDoc) {
-                contentDoc.body.handleNativeEvents = "false";
 
-                contentDoc.documentElement.handleNativeEvents = "false";
-            }
+
+            contentDoc.body.handleNativeEvents = "false";
+
+
+            contentDoc.documentElement.handleNativeEvents = "false";
 
             var bodyStyle = this.getContentBody().style;
             // Suppress the default margin
             bodyStyle.margin = "0px";
 
+            // We want our specified css style to apply to the iframe content.
+
+            var linkElementsHTML="",
+                styleElementHTML = "<style>",
+                writeLinkElements = false,
+                writeStyleElement = false,
+                styleSheets = document.styleSheets;
+
+            for (var i = 0; i < styleSheets.length; i++) {
+                // document.styleSheets includes entries for both stylesheets loaded remotely
+                // via <link...> tags and inline <style> tags within our bootstrap
+
+                if (styleSheets[i].href != null) {
+                    writeLinkElements = true;
+                    linkElementsHTML += "<link href='" + styleSheets[i].href +
+                        "' rel='stylesheet' type='text/css'>\n";
+                } else {
+                    writeStyleElement = true;
+                    var rules = styleSheets[i].cssRules;
+                    for (var ii = 0; ii < rules.length; ii++) {
+                        styleElementHTML += "\n" + rules[ii].cssText + "\n";
+                    }
+                }
+            }
+
+            var headInnerHTML = "";
+            if (writeLinkElements) headInnerHTML += linkElementsHTML;
+            if (writeStyleElement) headInnerHTML += styleElementHTML + "\n</style>";
+            win.document.head.innerHTML = headInnerHTML;
+
             // Apply text-properties from our specified CSS class to the content of the
             // IFRAME.
 
-            var classStyle = isc.Element.getStyleDeclaration(this.className);
-            if (classStyle != null) {
-                var textStyleAttrs = isc.Canvas.textStyleAttributes;
 
+            var classStyles = isc.Element.getStyleDeclaration(this.className, true);
+            if (classStyles != null && classStyles.length > 0) {
+                var textStyleAttrs = isc.Canvas.textStyleAttributes;
                 for (var i = 0; i < textStyleAttrs.length; i++) {
                     var attr = textStyleAttrs[i];
-                    bodyStyle[attr] = classStyle[attr];
+                    for (var ii = 0; ii < classStyles.length; ii++) {
+                        //this.logWarn("ii:" + ii + ", attr:" + attr);
+                        if (classStyles[ii][attr] != null &&
+                            classStyles[ii][attr] != "")
+                        {
+                            bodyStyle[attr] = classStyles[ii][attr];
+                            break;
+                        }
+                    }
                 }
+
             }
         }
 
@@ -1491,6 +1623,15 @@ isc.RichTextCanvas.addMethods({
             this.formattedOnce = true;
             this.contents = this.hiliteAndCount(this.contents);
         }
+
+        // if using designMode, set the background-color of the iframe document-body and the HTML
+        // element (the documentElement) to transparent, so that RichTextEditor.editAreaBackgroundColor
+        // correctly shows through
+        if (designMode) {
+            this.getContentDocument().body.style.backgroundColor = "transparent";
+            this.getContentDocument().documentElement.style.backgroundColor = "transparent";
+        }
+
         this._setContents(this.contents);
     },
 
@@ -1508,14 +1649,33 @@ isc.RichTextCanvas.addMethods({
         this._queueContentsChanged();
     },
 
+    parentResized : function () {
+        //this.logWarn("parentResized");
+        this.setWidth(this.creator.getInnerContentWidth())
+        this.setHeight(this.creator.getInnerContentHeight());
+
+        //var win = this.getContentWindow(),
+        //    doc = win ? win.document : null;
+        //if (doc == null) return;
+        //doc.body.style.overflow = "auto";
+        //this.adjustForContent();
+    },
+
+    _iFrameClick : function (event, doubleClick) {
+        if (doubleClick) {
+            return this.handleDoubleClick({ target: this });
+        } else {
+            return this.handleClick({ target: this });
+        }
+    },
+
     // If using designMode, we need a handler for the native keypress event on our IFRAME
     _iFrameKeyPress : function (event) {
-
         // apply the properties (keyName, etc.) to EH.lastEvent
         isc.EH.getKeyEventProperties(event);
         // Fall through to standard handling, making sure this widget is logged as the
         // keyTarget
-       return isc.EH.handleKeyPress(event, {keyTarget:this});
+        return isc.EH.handleKeyPress(event, {keyTarget:this});
 
     },
     _iFrameKeyDown : function (event) {
@@ -1524,7 +1684,6 @@ isc.RichTextCanvas.addMethods({
         return isc.EH.handleKeyDown(event, {keyTarget:this});
     },
     _iFrameKeyUp : function (event) {
-
         // apply the properties (keyName, etc.) to EH.lastEvent
         isc.EH.getKeyEventProperties(event);
         return isc.EH.handleKeyUp(event, {keyTarget:this});
@@ -2364,8 +2523,11 @@ isc.RichTextCanvas.addMethods({
             var handle = this.getHandle();
             if (handle != null) {
 
+
                 if (isc.Browser.isIE) {
-                    handle.className = "richTextEditor";
+                    if (!handle.className.contains("richTextEditor")) {
+                        handle.className += " richTextEditor";
+                    }
                 }
 
                 handle.contentEditable = (editable ? true : "inherit");
@@ -2468,7 +2630,7 @@ isc.RichTextCanvas.addMethods({
 
     //>    @method    RichTextCanvas.getContents()    ([])
     // Returns the current HTML contents of the RichTextCanvas.
-    // @return (string) (possibly edited) contents
+    // @return (String) (possibly edited) contents
     // @see RichTextCanvas.setContents()
     //<
     getContents : function (dontRemoveMarkup) {
@@ -2483,10 +2645,10 @@ isc.RichTextCanvas.addMethods({
         }
     },
 
-    //>    @method    RichTextCanvas.setContents()    ([])
-    //      Changes the contents of a widget to newContents, an HTML string.
-    //  @param    newContents    (string)    an HTML string to be set as the contents of this widget
-    //  @see RichTextCanvas.getContents()
+    //> @method RichTextCanvas.setContents() ([])
+    // Changes the contents of a widget to newContents, an HTML string.
+    // @param newContents (String) an HTML string to be set as the contents of this widget
+    // @see RichTextCanvas.getContents()
     //<
     setContents : function (contents, force, selectionMarkerIndex, selectionMarkerHTML) {
         // setContents in effect gets called twice in FF because the iframe takes a while
@@ -2556,7 +2718,7 @@ isc.RichTextCanvas.addMethods({
     // We currently use the native 'document.execCommand()' method to perform most of our
     // actions on the text of the RTC, so most of our Rich Text APIs fall through to this
     // wrapper method.
-    // Will return explicitly return 'false' if the command is not supported.
+    // Will explicitly return 'false' if the command is not supported.
 
     _execCommand : function (command, valueString) {
         if (!this.isDrawn() || !this.editable) return;
@@ -2789,7 +2951,7 @@ isc.RichTextCanvas.addMethods({
     //  Applies the alignment / justification passed in to the selected paragraph.
     //  Options are "right", "left", "center" (for alignment), and "full" for fully justified
     //  text.
-    // @param justification (string)    What justification should be applied to the text.
+    // @param justification (String)    What justification should be applied to the text.
     //<
     justifySelection : function (justification) {
         if (justification == isc.RichTextCanvas.CENTER) {
@@ -2815,7 +2977,7 @@ isc.RichTextCanvas.addMethods({
 
     //>@method  RichTextCanvas.setSelectionColor
     //  Set the font color for the selected text.   Takes the desired color as a parameter.
-    // @param color (string)    Color to apply to the text.
+    // @param color (String)    Color to apply to the text.
     //<
     setSelectionColor : function (color) {
         this._execCommand("forecolor", color);
@@ -2823,7 +2985,7 @@ isc.RichTextCanvas.addMethods({
 
     //>@method  RichTextCanvas.setSelectionBackgroundColor
     //  Set the background color for the selected text.   Takes the desired color as a parameter.
-    // @param color (string)    Color to apply to the text background.
+    // @param color (String)    Color to apply to the text background.
     //<
     setSelectionBackgroundColor : function (color) {
         // In Moz "backcolor" will style the entire containing IFRAME - while 'hilitecolor'
@@ -2834,7 +2996,7 @@ isc.RichTextCanvas.addMethods({
 
     //>@method  RichTextCanvas.setSelectionFont
     //  Set the font for the selected text.   Takes the name of a font as a parameter.
-    // @param font (string)    Font to apply to the selection
+    // @param font (String)    Font to apply to the selection
     //<
     setSelectionFont : function (font) {
         this._execCommand("fontname", font);
@@ -3111,6 +3273,21 @@ isc.RichTextEditor.addProperties({
     //<
     editAreaClassName: "normal",
 
+    //> @attr richTextEditor.useDesignMode (Boolean : null : IRA)
+    // Should this editor use a separate IFRAME with special cross-browser support for editing
+    // HTML content?  By default, the value is auto-detected according to browser details.  If
+    // set to false, the editor falls back to normal browser contentEditable behavior, which
+    // may differ between browsers.
+    // @visibility external
+    //<
+    //useDesignMode: null,
+
+    //> @attr richTextEditor.styleWithCSS (Boolean : null : IRA)
+    // When true, applies style attributes in markup instead of presentation elements.
+    // @visibility external
+    //<
+    //styleWithCSS: null,
+
     //> @attr richTextEditor.value (String : "" : IRW)
     // Initial value for the edit area.    Use <code>getValue()</code> and
     // <code>setValue()</code> to update at runtime.
@@ -3149,7 +3326,7 @@ isc.RichTextEditor.addProperties({
 
     toolbarHeight: 24, // should be less but figure this out later!
 
-    //> @attr RichTextEditor.toolbarBackgroundColor  (string : "#CCCCCC" : [IR])
+    //> @attr RichTextEditor.toolbarBackgroundColor  (String : "#CCCCCC" : [IR])
     //  The background color for the toolbar.
     // @visibility external
     //<
@@ -3269,14 +3446,12 @@ isc.RichTextEditor.addProperties({
     //> @attr richTextEditor.fontSelectorItem (AutoChild SelectItem : null : IR)
     // The +link{type:AutoChild} +link{class:SelectItem} used for choosing the font to apply
     // to the current selection.
-    // @group i18nMessages
     // @visibility external
     //<
 
     //> @attr richTextEditor.fontSizeSelectorItem (AutoChild SelectItem : null : IR)
     // The +link{type:AutoChild} +link{class:SelectItem} used for choosing the font-size to
     // apply to the current selection.
-    // @group i18nMessages
     // @visibility external
     //<
 
@@ -3296,7 +3471,7 @@ isc.RichTextEditor.addProperties({
     //> @attr richTextEditor.linkUrlTitle (String : "Hyperlink URL:" : IRW)
     // The prompt displayed when editing a hyperlink.
     // @group i18nMessages
-    // @visibility external
+    // @visibility internal
     //<
     linkUrlTitle: "Hyperlink URL:",
 
@@ -3310,21 +3485,21 @@ isc.RichTextEditor.addProperties({
     // @visibility external
     //<
     boldSelectionPrompt: "Make selection bold",
-    boldSelectionDefaults: { title: "<b>B</b>" },
+    boldSelectionDefaults: { title: "<b>B</b>", showIcon: false },
     //> @attr richTextEditor.italicSelectionPrompt (String : "Make selection italic" : IRW)
     // The prompt for the built-in +link{type:ControlName, italicSelection} control.
     // @group i18nMessages
     // @visibility external
     //<
     italicSelectionPrompt: "Make selection italic",
-    italicSelectionDefaults: { title: "<i>I</i>" },
+    italicSelectionDefaults: { title: "<i>I</i>", showIcon: false },
     //> @attr richTextEditor.underlineSelectionPrompt (String : "Make selection underlined" : IRW)
     // The prompt for the built-in +link{type:ControlName, underlineSelection} control.
     // @group i18nMessages
     // @visibility external
     //<
     underlineSelectionPrompt: "Make selection underlined",
-    underlineSelectionDefaults: { title: "<u>U</u>" },
+    underlineSelectionDefaults: { title: "<u>U</u>", showIcon: false },
     //> @attr richTextEditor.strikethroughSelectionPrompt (String : "Strike through selection" : IRW)
     // The prompt for the built-in +link{type:ControlName, strikethroughSelection} control.
     // @group i18nMessages
@@ -3421,19 +3596,19 @@ isc.RichTextEditor.addProperties({
     ],
 
     // Defaults for the cut/copy/paste buttons
-    //> @attr richTextEditor.copySelectionPrompt (String : "Copy selection" : IRW)
+    //> @attr richTextEditor.copySelectionPrompt (String : "Copy Selection" : IRW)
     // The prompt for the built-in +link{type:ControlName, copySelection} control.
     // @group i18nMessages
     // @visibility external
     //<
-    copySelectionPrompt: "Copy selection",
+    copySelectionPrompt: "Copy Selection",
     copySelectionDefaults: { icon: "[SKIN]/RichTextEditor/copy.png" },
-    //> @attr richTextEditor.cutSelectionPrompt (String : "Cut selection" : IRW)
+    //> @attr richTextEditor.cutSelectionPrompt (String : "Cut Selection" : IRW)
     // The prompt for the built-in +link{type:ControlName, cutSelection} control.
     // @group i18nMessages
     // @visibility external
     //<
-    cutSelectionPrompt: "Cut selection",
+    cutSelectionPrompt: "Cut Selection",
     cutSelectionDefaults: { icon: "[SKIN]/RichTextEditor/cut.png" },
     //> @attr richTextEditor.pasteSelectionPrompt (String : "Paste" : IRW)
     // The prompt for the built-in +link{type:ControlName, pasteSelection} control.
@@ -3560,7 +3735,7 @@ isc.RichTextEditor.addProperties({
     //> @attr richTextEditor.linkPrompt (String : "Edit Hyperlink" : IRW)
     // The prompt for the built-in +link{type:ControlName, hyperlink} control.
     // @group i18nMessages
-    // @visibility external
+    // @visibility internal
     //<
     linkPrompt: "Edit Hyperlink",
     linkDefaults: {
@@ -3581,26 +3756,28 @@ isc.RichTextEditor.addProperties({
         "indent", "outdent", "orderedList", "unorderedList", "listProperties"
     ],
 
-    //> @attr richTextEditor.indentPrompt (String : "Increase indent" : IRW)
+    //> @attr richTextEditor.indentPrompt (String : "Increase Indent" : IRW)
     // The prompt for the built-in +link{type:ControlName, indent} control.
     // @group i18nMessages
     // @visibility external
     //<
-    indentPrompt: "Increase indent",
+    indentPrompt: "Increase Indent",
     indentDefaults: {
         showButtonTitle: false,
+        showDownIcon: false,
         icon: "[SKIN]/RichTextEditor/indent.png",
         click : "this.creator.indentSelection()"
     },
 
-    //> @attr richTextEditor.outdentPrompt (String : "Decrease indent" : IRW)
+    //> @attr richTextEditor.outdentPrompt (String : "Decrease Indent" : IRW)
     // The prompt for the built-in +link{type:ControlName, outdent} control.
     // @group i18nMessages
     // @visibility external
     //<
-    outdentPrompt: "Decrease indent",
+    outdentPrompt: "Decrease Indent",
     outdentDefaults: {
         showButtonTitle: false,
+        showDownIcon: false,
         icon: "[SKIN]/RichTextEditor/outdent.png",
         click : "this.creator.outdentSelection()"
     },
@@ -3613,6 +3790,7 @@ isc.RichTextEditor.addProperties({
     orderedListPrompt: "Convert to a numbered list",
     orderedListDefaults: {
         showButtonTitle: false,
+        showDownIcon: false,
         icon: "[SKIN]/RichTextEditor/text_list_numbers.png",
         click : "this.creator.convertToOrderedList()"
     },
@@ -3625,6 +3803,7 @@ isc.RichTextEditor.addProperties({
     unorderedListPrompt: "Convert to a bullet list",
     unorderedListDefaults: {
         showButtonTitle: false,
+        showDownIcon: false,
         icon: "[SKIN]/RichTextEditor/text_list_bullets.png",
         click : "this.creator.convertToUnorderedList()"
     },
@@ -3637,6 +3816,7 @@ isc.RichTextEditor.addProperties({
     listPropertiesPrompt: "Configure the list",
     listPropertiesDefaults: {
         showButtonTitle: false,
+        showDownIcon: false,
         icon: "[SKIN]/RichTextEditor/text_list_edit.png",
         click : "this.creator.editListProperties()"
     },
@@ -3707,26 +3887,31 @@ isc.RichTextEditor.addProperties({
         if (this.toolbarHeight > 0) this._createToolArea();
 
         var props = isc.addProperties({ backgroundColor:this.editAreaBackgroundColor },
-                this.editAreaProperties,
-                {  top:this.toolbarHeight, className:this.editAreaClassName,
-                  left:0, width:"100%", height:"*",
-                  contents:this.value,
-                  moveFocusOnTab:this.moveFocusOnTab,
+            // pass these two settings to the editArea
+            { useDesignMode: this.useDesignMode, styleWithCSS: this.styleWithCSS },
+            this.editAreaProperties,
+            {
+                top:this.toolbarHeight, className:this.editAreaClassName,
+                left:0, width:"100%", height:"*",
+                contents:this.value,
+                moveFocusOnTab:this.moveFocusOnTab,
 
-                  changed : isc.RichTextEditor._canvasContentsChanged,
-
-                  focusChanged : function (hasFocus) {
-                    if (hasFocus) {
-                        this._resetSelection();
-                        this._focussing = false;
-                    } else {
-                        this._focussing = true;
-                    }
-                    if (this.parentElement != null) this.parentElement.editAreaFocusChanged();
-                },
+                changed : isc.RichTextEditor._canvasContentsChanged,
 
                 getBrowserSpellCheck : function () {
                     return this.parentElement.getBrowserSpellCheck()
+                },
+                handleClick : function () {
+                    // if the canvas doesn't cancel bubbling, fire on the editor
+                    var result = this.Super("handleClick", arguments);
+                    if (result != false) result = this.parentElement.handleClick(arguments);
+                    return result;
+                },
+                handleDoubleClick : function () {
+                    // if the canvas doesn't cancel bubbling, fire on the editor
+                    var result = this.Super("handleDoubleClick", arguments);
+                    if (result != false) result = this.creator.handleDoubleClick(arguments);
+                    return result;
                 }
             }
         );
@@ -4221,7 +4406,7 @@ isc.RichTextItem.addProperties({
     //<
     endRow:true,
 
-    //>@attr RichTextItem.colSpan (number | string : "*": IRW)
+    //>@attr RichTextItem.colSpan (int | String : "*": IRW)
     // By default RichTextItems take up an entire row
     // @visibility external
     //<
@@ -4368,11 +4553,10 @@ isc.RichTextItem.addMethods({
     }
 });
 isc._debugModules = (isc._debugModules != null ? isc._debugModules : []);isc._debugModules.push('RichTextEditor');isc.checkForDebugAndNonDebugModules();isc._moduleEnd=isc._RichTextEditor_end=(isc.timestamp?isc.timestamp():new Date().getTime());if(isc.Log&&isc.Log.logIsInfoEnabled('loadTime'))isc.Log.logInfo('RichTextEditor module init time: ' + (isc._moduleEnd-isc._moduleStart) + 'ms','loadTime');delete isc.definingFramework;if (isc.Page) isc.Page.handleEvent(null, "moduleLoaded", { moduleName: 'RichTextEditor', loadTime: (isc._moduleEnd-isc._moduleStart)});}else{if(window.isc && isc.Log && isc.Log.logWarn)isc.Log.logWarn("Duplicate load of module 'RichTextEditor'.");}
-
 /*
 
   SmartClient Ajax RIA system
-  Version v11.1p_2017-06-29/LGPL Deployment (2017-06-29)
+  Version v12.1p_2022-02-22/LGPL Development Only (2022-02-22)
 
   Copyright 2000 and beyond Isomorphic Software, Inc. All rights reserved.
   "SmartClient" is a trademark of Isomorphic Software, Inc.

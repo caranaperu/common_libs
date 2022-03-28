@@ -1,8 +1,7 @@
-
 /*
 
   SmartClient Ajax RIA system
-  Version v11.1p_2017-06-29/LGPL Development Only (2017-06-29)
+  Version v12.1p_2022-02-22/LGPL Development Only (2022-02-22)
 
   Copyright 2000 and beyond Isomorphic Software, Inc. All rights reserved.
   "SmartClient" is a trademark of Isomorphic Software, Inc.
@@ -37,7 +36,7 @@ if(window.isc&&window.isc.module_Core&&!window.isc.module_SyntaxHiliter){isc.mod
 var _13=_9.exec(_12);if(_13==null){_11++;_22+=_12.length;continue}
 if(_13.length-1!=_10.length){this.logWarn("regexp: "+_9+" matched "+(_13.length-1)+" groups, but only "+_10.length+" cssStyles are defined - skipping this regexp.");_11=_6.length;continue}
 var _14=_13[0];var _15=_13.index;_22+=_15;var _16=_12.substring(0,_15);var _17=_12.substring(_15+_14.length);if(_16.length>0){_6.splice(_11++,1,_16,_17)}else{_6[_11]=_17}
-for(var _18=1;_18<_13.length;_18++){var _19=_13[_18]||isc.emptyString;var _20=_10[_18-1];_20=_20||this.defaultStyle;if(_20==null){_6.splice(_11++,0,_19);continue}
+for(var _18=1;_18<_13.length;_18++){var _19=_13[_18]||isc.emptyString;var _20=_10[_18-1];_20=(_20||this.defaultStyle)+(this.darkMode?"$191p":"");if(_20==null){_6.splice(_11++,0,_19);continue}
 var _21=isc.Element.getStyleText(_20)||isc.emptyString;_6.splice(_11,0,null,this.spanStart,_21,this.spanStartClose,_19,this.spanEnd);_11+=6}}}
 var _22=0;var _23=_3!=null;for(var i=0;i<_6.length;i++){var _12=_6[i];var _25;if(_12==null){_12=_6[i+4];_25=_12.asHTML(!this.autoWrap);if(_23&&_3>_22){if(_3<(_22+_12.length)){var _26=_3-_22;_27=_12.slice(0,_26);_3+=_27.asHTML(!this.autoWrap).length-_27.length;_3-=this.spanEndLength}else{_3+=_25.length-_12.length}
 _3+=this.fixedSpanLengths+_6[i+2].length;_22+=_25.length+this.fixedSpanLengths+_6[i+2].length}else{_23=false}

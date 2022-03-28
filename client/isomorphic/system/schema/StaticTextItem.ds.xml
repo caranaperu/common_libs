@@ -14,4 +14,7 @@
 	
     <substituteClasses>BlurbItem, TextItem, TextAreaItem</substituteClasses>
 	
+    <methods>
+        <method action="event" name="click" basic="true" />
+    </methods>
 </DataSource>

@@ -7,10 +7,13 @@ if (theWindow == null) theWindow = window;
 with (theWindow) {
 
 //----------------------------------------
-// Specify skin directory
+// Register skin
 //----------------------------------------
-    // must be relative to your application file or isomorphicDir
-    isc.Page.setSkinDir("[ISOMORPHIC]/skins/Enterprise/");
+    var currentSkin = isc.setCurrentSkin({
+        // name is autoderived to be the containing folder
+        name: "autoDetect"
+    });
+
 
 
 //----------------------------------------
@@ -23,6 +26,49 @@ with (theWindow) {
     var useCSS3 = isc.Browser.useCSS3,
         useSpriting = isc.Browser.useSpriting;
 
+        
+    // Standard Framework icons - changes specific to this skin
+    var aIcons = isc.Canvas.standardActionIcons;
+    aIcons.remove(aIcons.find('name', 'Drag'));
+
+    var hIcons = isc.Window.standardHeaderIcons;
+    hIcons.find('name', 'Arrow_down').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Arrow_left').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Arrow_right').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Arrow_up').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Calculator').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Cart').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Clipboard').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Clock').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Close').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Comment').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Double_arrow_down').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Double_arrow_left').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Double_arrow_right').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Double_arrow_up').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Favourite').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Find').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Help').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Home').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Mail').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Maximize').states = ["Over", "Disabled"];    // default [Down, Over]
+    hIcons.find('name', 'Minus').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Person').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Pin_down').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Pin_left').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Plus').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Print').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Refresh').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Refresh_thin').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Save').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Settings').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Transfer').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.find('name', 'Trash').states = ["Over", "Disabled"];    // default [Over]
+    hIcons.find('name', 'Zoom').states = ["Disabled", "Over"];    // default [Over]
+    hIcons.remove(hIcons.find('name', 'Maximize_new'));
+    hIcons.remove(hIcons.find('name', 'Maximize_old'));
+
+        
 // --------------------------------------
 // isc.minimalistTextControlAppearance (new property, consulted below) 
 // - Show minimalist drop down controls by default?
@@ -67,7 +113,7 @@ with (theWindow) {
 
         isc.Scrollbar.addProperties({
             baseStyle:"scrollbar",
-            btnSize:18,
+            btnSize:16,
             hSrc:"[SKIN]hscroll.png",
             hThumbClass:isc.HSimpleScrollThumb,
             thumbInset:0,
@@ -234,7 +280,8 @@ with (theWindow) {
             showDown:false,
             showDownGrip:false,
             showRollOver:false,
-            vSrc:"[SKIN]vsplit.png"
+            vSrc:"[SKIN]vsplit.png",
+            showRollOverGrip:false
         });
 
         if (isc.SectionItem) {
@@ -509,7 +556,6 @@ with (theWindow) {
                 isc.addProperties(isc.Dialog.Prompt, {
                     showHeader:true,
                     showTitle:false,
-                    showTitleAsHeaderContents:false,
                     showCloseButton:false,
                     bodyStyle:"windowBody"
                 });
@@ -631,7 +677,7 @@ with (theWindow) {
 			}
         }
 
-        // used by SelectItem and ComboBoxItem for picklist
+        // used by SelectItem and ComboBoxItem for flat list data
         if (isc.ScrollingMenu) {
             isc.ScrollingMenu.addProperties({
             shadowDepth:5,
@@ -641,6 +687,20 @@ with (theWindow) {
 
         if (isc.PickListMenu) {
             isc.PickListMenu.addProperties({
+                skinUsesCSSTransitions: true
+            });
+        }
+
+        // used by SelectItem and ComboBoxItem for tree data
+        if (isc.ScrollingTreeMenu) {
+            isc.ScrollingTreeMenu.addProperties({
+            shadowDepth:5,
+            showShadow:false
+            });
+        }
+
+        if (isc.PickTreeTreeMenu) {
+            isc.PickTreeMenu.addProperties({
                 skinUsesCSSTransitions: true
             });
         }
@@ -656,9 +716,23 @@ with (theWindow) {
             	isc.DateItem.addProperties({
             		textBoxStyle:"textItemLite"
             	});
+                if (isc.NativeDateItem) {
+                    isc.NativeDateItem.addProperties({
+                        textBoxStyle:"textItemLite"
+                    });
+                }
+                if (isc.NativeTimeItem) {
+                    isc.NativeTimeItem.addProperties({
+                        textBoxStyle:"textItemLite"
+                    });
+                }
+                if (isc.NativeDatetimeItem) {
+                    isc.NativeDatetimeItem.addProperties({
+                        textBoxStyle:"textItemLite"
+                    });
+                }
             }
         }
-
         if (isc.SpinnerItem) {
 			if (isc.minimalistTextControlAppearance) {
 				isc.SpinnerItem.addProperties({
@@ -712,7 +786,7 @@ with (theWindow) {
         if (isc.ToolbarItem && isc.IAutoFitButton) {
             isc.ToolbarItem.addProperties({
                 buttonConstructor:isc.IAutoFitButton,
-                buttonProperties:{ autoFitDirection:isc.Canvas.BOTH }
+                buttonProperties:{ autoFitDirection:isc.Canvas.HORIZONTAL }
             });
         }
 
@@ -818,7 +892,8 @@ with (theWindow) {
                 titleSpacing: 15,
                 vTitleSpacing: 7,
                 showActiveTrack: true,
-                labelHeight: 22
+                labelHeight: 18,
+                padding: 1
             });
             isc.Slider.changeDefaults("thumbDefaults", {
                 getCustomState : function () {
@@ -847,13 +922,16 @@ with (theWindow) {
                 layoutBottomMargin:10
             });
 
-            isc.EventWindow.changeDefaults("resizerDefaults", {
-                src:"[SKIN]/Window/v_resizer.png"
-            });
-            isc.TimelineWindow.changeDefaults("resizerDefaults", {
-                src:"[SKIN]/Window/h_resizer.png"
-            })
-
+            if (isc.EventWindow) {
+                isc.EventWindow.changeDefaults("resizerDefaults", {
+                    src:"[SKIN]/Window/v_resizer.png"
+                });
+            }
+            if (isc.TimelineWindow) {
+                isc.TimelineWindow.changeDefaults("resizerDefaults", {
+                    src:"[SKIN]/Window/h_resizer.png"
+                });
+            }
 
         }
         
@@ -944,7 +1022,7 @@ with (theWindow) {
     });
 
     isc.Scrollbar.addProperties({
-        btnSize:18,
+        btnSize:16,
         //showDown: true,
         thumbMinSize:20,
         thumbInset:0,
@@ -1600,6 +1678,7 @@ with (theWindow) {
 			tallBaseStyle: "tallCell"
         });
 
+        isc.ListGrid.changeDefaults("operatorIconDefaults", { hspace: 2, width: 18 });
         isc.ListGrid.changeDefaults("sorterDefaults", {
             baseStyle:"sorterButton",
             showRollOver:false
@@ -1780,6 +1859,21 @@ with (theWindow) {
 			isc.DateItem.addProperties({
 				textBoxStyle:"textItemLite"
 			});
+            if (isc.NativeDateItem) {
+                isc.NativeDateItem.addProperties({
+                    textBoxStyle:"textItemLite"
+                });
+            }
+            if (isc.NativeTimeItem) {
+                isc.NativeTimeItem.addProperties({
+                    textBoxStyle:"textItemLite"
+                });
+            }
+            if (isc.NativeDatetimeItem) {
+                isc.NativeDatetimeItem.addProperties({
+                    textBoxStyle:"textItemLite"
+                });
+            }
 		}
     }
     if (isc.SpinnerItem) {
@@ -1938,13 +2032,16 @@ with (theWindow) {
             src:"[SKINIMG]actions/plus.png"
         });
 
-        isc.EventWindow.changeDefaults("resizerDefaults", {
-            src:"[SKIN]/Window/v_resizer.png"
-        });
-
-        isc.TimelineWindow.changeDefaults("resizerDefaults", {
-            src:"[SKIN]/Window/h_resizer.png"
-        })
+        if (isc.EventWindow) {
+            isc.EventWindow.changeDefaults("resizerDefaults", {
+                src:"[SKIN]/Window/v_resizer.png"
+            });
+        }
+        if (isc.TimelineWindow) {
+            isc.TimelineWindow.changeDefaults("resizerDefaults", {
+                src:"[SKIN]/Window/h_resizer.png"
+            });
+        }
     }
 
 // -------------------------------------------
@@ -2024,6 +2121,7 @@ with (theWindow) {
         resizeBarSize: 5,
         resizeBarClass: "Snapbar"
     });
+    isc.overwriteClass("LayoutResizeBar", "LayoutResizeSnapbar");
 
     //----------------------------------------
     // 4) Sections & NavigationBar
@@ -2417,8 +2515,6 @@ with (theWindow) {
         });
     }
 
-    // remember the current skin so we can detect multiple skins being loaded
-    if (isc.setCurrentSkin) isc.setCurrentSkin("Enterprise");
 
     isc.Class.modifyFrameworkDone();
 }   // end with()

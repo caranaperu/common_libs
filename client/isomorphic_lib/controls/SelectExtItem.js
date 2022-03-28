@@ -34,20 +34,22 @@ isc.SelectExtItem.addProperties({
     },
     // Agregamos el icono
     icons: [{
-            src: "[SKIN]/actions/refresh.png",
-            showOver: true,
-            hspace: 1,
-            click: function(form, item) {
-                // Forzamos la relectura indicando no usa cache (solo pase)
-                if (item.optionDataSource) {
-                    var cacheAllDataCopy = item.optionDataSource.cacheAllData;
-                    console.log(cacheAllDataCopy);
-                    item.optionDataSource.setCacheAllData(false);
-                    item.fetchData(function(it, r, d, r) {
-                        // restauramos
-                        item.optionDataSource.setCacheAllData(cacheAllDataCopy);
-                    });
-                }
+        src: "[SKIN]/actions/refresh.png",
+        showOver: true,
+        hspace: 1,
+        inline: true,
+
+        click: function(form, item) {
+            // Forzamos la relectura indicando no usa cache (solo pase)
+            if (item.optionDataSource) {
+                var cacheAllDataCopy = item.optionDataSource.cacheAllData;
+                console.log(cacheAllDataCopy);
+                item.optionDataSource.setCacheAllData(false);
+                item.fetchData(function(it, r, d, r) {
+                    // restauramos
+                    item.optionDataSource.setCacheAllData(cacheAllDataCopy);
+                });
             }
-        }]
+        }
+    }]
 });

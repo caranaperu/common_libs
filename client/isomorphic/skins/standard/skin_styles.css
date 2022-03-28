@@ -1103,6 +1103,7 @@ ul {
 .iconButtonDown,
 .iconButtonSelected,
 .iconButtonSelectedOver,
+.iconButtonFocused,
 .iconButtonFocusedOver,
 .iconButtonSelectedFocusedOver {
     background: #CCCCCC;
@@ -1927,6 +1928,10 @@ a.calMonthEventLink:active {color:blue; text-decoration:none}
   bottom: 0;
 }
 
+.eventDragCanvas {
+    border: 1px dashed red;
+}
+
 /* --- IndicatorCanvas --- */
 
 .indicatorCanvas {
@@ -2118,4 +2123,93 @@ a.calMonthEventLink:active {color:blue; text-decoration:none}
     background-color:#CCCCCC; 
     border-left:1px solid #CCCCCC; border-top:1px solid #CCCCCC;	
     border-right:1px solid #CCCCCC; border-bottom:1px solid #CCCCCC;
+}
+
+
+/*============================================================
+    Notifications
+============================================================*/
+.notifyWarn,
+.notifyError,
+.notifyMessage,
+.notifyWarnRTL,
+.notifyErrorRTL,
+.notifyMessageRTL {
+  color: #ffffff;
+  font-family: Arial, Verdana, sans-serif;
+  font-size: 14px;
+}
+
+.notifyWarn,
+.notifyError,
+.notifyMessage {
+  padding: 10px 45px 10px 10px;
+}
+
+.notifyWarnRTL,
+.notifyErrorRTL,
+.notifyMessageRTL {
+  padding: 10px 10px 10px 45px;
+}
+
+.notifyWarn,
+.notifyWarnRTL {
+  background-color: #ea9039;
+  -moz-box-shadow: 0px 0px 5px #ea9039;
+  -webkit-box-shadow: 0px 0px 5px #ea9039;
+  box-shadow: 0px 0px 5px #ea9039;
+}
+
+.notifyError,
+.notifyErrorRTL {
+  background-color: #e34e42;
+  -moz-box-shadow: 0px 0px 5px #e34e42;
+  -webkit-box-shadow: 0px 0px 5px #e34e42;
+  box-shadow: 0px 0px 5px #e34e42;
+}
+
+.notifyMessage,
+.notifyMessageRTL {
+  background-color: #28ac97;
+  -moz-box-shadow: 0px 0px 5px #28ac97;
+  -webkit-box-shadow: 0px 0px 5px #28ac97;
+  box-shadow: 0px 0px 5px #28ac97;
+}
+
+.notifyWarnActionLink,
+.notifyErrorActionLink,
+.notifyMessageActionLink {
+  padding: 0;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  background: none;
+}
+
+.notifyWarnActionLink {
+  color: #4F140E;
+}
+
+.notifyErrorActionLink {
+  color: #F39C12;
+}
+
+.notifyMessageActionLink {
+  color: #22FF34;
+}
+
+
+/* dark hover for Reify */
+.darkHover {
+  background-color: #3a4a53;
+  color: #ffffff;
+  font-family: Arial,sans-serif;
+  font-size: 14px;
+  padding: 10px;
+  -moz-border-radius: 8px;
+  -webkit-border-radius: 8px;
+  border-radius: 8px;
+  -moz-box-shadow: 0 0 5px #3a4a53;
+  -webkit-box-shadow: 0 0 5px #3a4a53;
+  box-shadow: 0 0 5px #3a4a53;
 }

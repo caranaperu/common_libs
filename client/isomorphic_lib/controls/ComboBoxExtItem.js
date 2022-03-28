@@ -29,36 +29,38 @@
  * $Rev: 360 $
  */
 isc.defineClass("ComboBoxExtItem", isc.ComboBoxItem);
-        isc.ComboBoxExtItem.addProperties({
-        addUnknownValues: false,
-        minimumSearchLength: 3,
-        searchStringTooShortMessage: 'Ingrese al menos 3 caracteres....',
-        initWidget: function () {
-                this.Super("initWidget", arguments);
-        },
-        forceRefresh: function () {
-            // Forzamos la relectura indicando no usa cache (solo pase)
-            if (this.optionDataSource) {
-                var cacheAllDataCopy = this.optionDataSource.cacheAllData;
-                        this.optionDataSource.setCacheAllData(false);
-                        this.fetchData(function (it, r, d, r) {
-                        // restauramos
-                        this.optionDataSource.setCacheAllData(cacheAllDataCopy);
-                        });
-                }
-        },
-        // Agregamos el icono
-        icons: [{
-                src: "[SKIN]/actions/refresh.png",
-                showOver: false,
-                hspace: 1,
-                tabIndex: - 1,
-                inline: true,
-              //  inlineIconAlign: 'right',
-                width: 12,
-                height: 12,
-                click: function (form, item) {
-                    item.forceRefresh();
-                }
-        }]
+isc.ComboBoxExtItem.addProperties({
+    addUnknownValues: false,
+    // A partir de la V12 al usar este campo el picklist no funciona , antes: this.filterWithValue = false;
+    // ahora: this.filterWithValue = this.minimumSearchLength; en ISC_Forms.js
+    //minimumSearchLength: 3,
+    searchStringTooShortMessage: 'Ingrese al menos 3 caracteres....',
+    initWidget: function() {
+        this.Super("initWidget", arguments);
+    },
+    forceRefresh: function() {
+        // Forzamos la relectura indicando no usa cache (solo pase)
+        if (this.optionDataSource) {
+            var cacheAllDataCopy = this.optionDataSource.cacheAllData;
+            this.optionDataSource.setCacheAllData(false);
+            this.fetchData(function(it, r, d, r) {
+                // restauramos
+                this.optionDataSource.setCacheAllData(cacheAllDataCopy);
+            });
+        }
+    },
+    // Agregamos el icono
+    icons: [{
+        src: "[SKIN]/actions/refresh.png",
+        showOver: false,
+        hspace: 1,
+        tabIndex: -1,
+        inline: true,
+        //  inlineIconAlign: 'right',
+        width: 12,
+        height: 12,
+        click: function(form, item) {
+            item.forceRefresh();
+        }
+    }]
 });

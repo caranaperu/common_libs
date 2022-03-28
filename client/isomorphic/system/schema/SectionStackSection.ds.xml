@@ -9,7 +9,7 @@
         <field name="canCollapse"    type="boolean" basic="true"/>
         <field name="resizeable"     type="boolean" basic="true"/>
         <field name="showHeader"     type="boolean"/>
-        <field name="showLabel" type="boolean"  defaultValue="true"/>
+        <field name="showClippedTitleOnHover" type="boolean"/>
         <field name="controls"  type="Canvas" multiple="true" propertiesOnly="true"/>
 		<field name="items"     type="Canvas" multiple="true" propertiesOnly="true"/>
     </fields>

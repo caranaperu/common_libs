@@ -37,6 +37,8 @@
         <mustQualify type="boolean" visibility="internal"/>
         <!-- whether this field (and children) shoud include explicit xsi type in XML -->
         <xmlExplicitTypes type="boolean" visibility="internal"/>
+        <!-- whether this field is represented as an attribute in XML when found in rule criteria -->
+        <xmlAttributeInRuleCriteria type="boolean" visibility="internal"/>
 
         <!-- XML binding -->
         <valueXPath type="XPath" title="Value XPath" xmlAttribute="true"/>
@@ -72,6 +74,8 @@
 
         <!-- applied to AdvancedCriteria fields to enable createRuleCriteria mode on FilterBuilder -->
         <isRuleCriteria type="boolean" xmlAttribute="true" />
+        <!-- applied to Record fields to enable serializing formula field value on non-typed fields -->
+        <fieldsCanBeFormula type="boolean" xmlAttribute="true" />
 
         <!-- unique constraints / relations -->
 		<primaryKey type="boolean" title="Is Primary Key" xmlAttribute="true"/>
@@ -83,6 +87,7 @@
 
         <displayField type="string" xmlAttribute="true"/>        
         <useLocalDisplayFieldValue type="boolean" xmlAttribute="true"/>
+        <foreignDisplayField type="string" xmlAttribute="true"/>        
         
         <!-- for tree relations -->
 	    <rootValue type="string" title="Tree Root Value" xmlAttribute="true"/> 
@@ -146,8 +151,12 @@
         
         <frozen type="boolean" title="Frozen" xmlAttribute="true"/>
 
+        <format type="string" xmlAttribute="true" />
+        <precision type="integer" xmlAttribute="true" />
+
         <canExport type="boolean" xmlAttribute="true" />
         <exportTitle type="string" xmlAttribute="true" />
+        <exportFormat type="string" xmlAttribute="true" />
 
         <sqlStorageStrategy type="string" xmlAttribute="true" />
 
@@ -221,6 +230,12 @@
         <validOperators type="string" />
         <fieldTypeProperty type="string" />
         <moveTo type="string" />
+
+        <uploadFieldName type="string" />
+        <batchUploadOperationId type="string" />
+        <batchUploadCaseSensitive type="boolean" />
+
+        <importStrategyFailedErrorMessage type="string" />
 
 	</fields>
 </Object>

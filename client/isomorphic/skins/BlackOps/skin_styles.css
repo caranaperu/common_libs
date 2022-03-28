@@ -65,6 +65,11 @@
     background:rgb(27,25,26) url(./images/Backgrounds/bkgd_blue_arc.jpg) no-repeat scroll;
 }
 
+body {
+    background-color: #000000;
+}
+
+
 /* default text */
 .normal, 
 .normalFocused{
@@ -1512,6 +1517,7 @@
 .iconButtonDown,
 .iconButtonSelected,
 .iconButtonSelectedOver,
+.iconButtonFocused,
 .iconButtonFocusedOver,
 .iconButtonSelectedFocusedOver {
     background: url("./images/controls/text_input.gif") repeat-x scroll 0 0 #404040;
@@ -2443,6 +2449,10 @@ a.calMonthEventLink:active {color:blue; text-decoration:none}
   bottom: 0;
 }
 
+.eventDragCanvas {
+    border: 1px dashed red;
+}
+
 /* --- IndicatorCanvas --- */
 
 .indicatorCanvas {
@@ -2548,4 +2558,162 @@ a.calMonthEventLink:active {color:blue; text-decoration:none}
 
 .propSheetSectionItemCell,
 .propSheetSectionItemDisabled {
+}
+
+
+/*============================================================
+    Notifications
+============================================================*/
+.notifyWarn,
+.notifyError,
+.notifyMessage,
+.notifyWarnRTL,
+.notifyErrorRTL,
+.notifyMessageRTL {
+  color: #ffffff;
+  font-family: Arial, Verdana, sans-serif;
+  font-size: 14px;
+}
+
+.notifyWarn,
+.notifyError,
+.notifyMessage {
+  padding: 10px 45px 10px 10px;
+}
+
+.notifyWarnRTL,
+.notifyErrorRTL,
+.notifyMessageRTL {
+  padding: 10px 10px 10px 45px;
+}
+
+.notifyWarn,
+.notifyWarnRTL {
+  background-color: #ea9039;
+  -moz-box-shadow: 0px 0px 5px #ea9039;
+  -webkit-box-shadow: 0px 0px 5px #ea9039;
+  box-shadow: 0px 0px 5px #ea9039;
+}
+
+.notifyError,
+.notifyErrorRTL {
+  background-color: #e34e42;
+  -moz-box-shadow: 0px 0px 5px #e34e42;
+  -webkit-box-shadow: 0px 0px 5px #e34e42;
+  box-shadow: 0px 0px 5px #e34e42;
+}
+
+.notifyMessage,
+.notifyMessageRTL {
+  background-color: #28ac97;
+  -moz-box-shadow: 0px 0px 5px #28ac97;
+  -webkit-box-shadow: 0px 0px 5px #28ac97;
+  box-shadow: 0px 0px 5px #28ac97;
+}
+
+.notifyWarnActionLink,
+.notifyErrorActionLink,
+.notifyMessageActionLink {
+  padding: 0;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  background: none;
+}
+
+.notifyWarnActionLink {
+  color: #4F140E;
+}
+
+.notifyErrorActionLink {
+  color: #F39C12;
+}
+
+.notifyMessageActionLink {
+  color: #22FF34;
+}
+
+
+/*============================================================
+	PropertySheet
+	internal, used by Visual SmartClient tools
+        propertySheet.autoChildDefaults.cellStyle - propSheetValue
+        propertySheet.autoChildDefaults.titleStyle - propSheetTitle
+        propertySheet.TextItemDefaults.textBoxStyle - propSheetField
+        propertySheet.SelectItemDefaults.controlStyle - propSheetSelectControl
+        propertySheet.ColorItemDefaults.textBoxStyle - propSheetField
+        propertySheet.HeaderItemDefaults.textBoxStyle - propSheetHeading
+        propertySheet.SectionHeaderItemDefaults.cellStyle - propSheetSectionItemCell
+============================================================*/
+.propSheetValue,
+.propSheetValueFocused,
+.propSheetValueDisabled {
+  border-bottom: 1px solid #7e7e7e;
+  border-right: 1px solid #7e7e7e;
+  font-family: Arial,sans-serif;
+  font-size: 11px;
+  margin: 0px;
+  padding: 0px;
+}
+
+.propSheetTitle,
+.propSheetTitleFocused,
+.propSheetTitleDisabled {
+  background-color: #7e7e7e;
+  border-bottom: 1px solid #7e7e7e;
+  border-right: 1px solid #7e7e7e;
+  font-family: Arial,sans-serif;
+  font-size: 11px;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.propSheetTitleError,
+.propSheetValueError {
+  background-color: #cfd9f2;
+  color: #204269;
+  font-family: Arial,sans-serif;
+  font-size: 11px;
+}
+
+.propSheetField,
+.propSheetFieldDisabled {
+  background-color: #000000;
+  border: 0px;
+  font-family: Arial,sans-serif;
+  font-size: 11px;
+  margin-top: 3px;
+  padding: 4px 0px 4px 0px;
+}
+
+.propSheetHeading,
+.propSheetHeadingDisabled {
+  background-color: #7e7e7e;
+  border-bottom: 1px solid #7e7e7e;
+  color: #ffffff;
+  font-family: Arial,sans-serif;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 4px;
+}
+
+.propSheetSelectControl,
+.propSheetSelectControlFocused,
+.propSheetSelectControlDisabled {
+  padding-left: 3px;
+  padding-right: 3px;
+}
+
+.darkHover {
+  background-color: #3a4a53;
+  color: #ffffff;
+  font-family: Arial,sans-serif;
+  font-size: 14px;
+  padding: 10px;
+  -moz-border-radius: 8px;
+  -webkit-border-radius: 8px;
+  border-radius: 8px;
+  -moz-box-shadow: 0 0 5px #3a4a53;
+  -webkit-box-shadow: 0 0 5px #3a4a53;
+  box-shadow: 0 0 5px #3a4a53;
 }

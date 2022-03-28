@@ -7,11 +7,67 @@ isc.loadSkin = function (theWindow) {
     if (theWindow == null) theWindow = window;
     with (theWindow) {
 
-        isc.Page.setSkinDir("[ISOMORPHIC]/skins/Simplicity/");
+        // Register skin
+        //----------------------------------------
+        var currentSkin = isc.setCurrentSkin({
+            // name is autoderived to be the containing folder
+            name: "autoDetect"
+        });
         isc.Page.loadStyleSheet("[SKIN]/skin_styles.css", theWindow);
 
         isc.Class.modifyFrameworkStart();
 
+        isc.Canvas.standardHeaderIconExtension = "gif";
+
+        // Standard Framework icons - changes specific to this skin
+        var aIcons = isc.Canvas.standardActionIcons;
+        aIcons.find('name', 'Add').states = null;    // default [Disabled]
+        aIcons.find('name', 'Back').states = null;    // default [Disabled]
+        aIcons.find('name', 'Edit').states = null;    // default [Disabled]
+        aIcons.find('name', 'Forward').states = null;    // default [Disabled]
+        aIcons.remove(aIcons.find('name', 'Accept'));
+        aIcons.remove(aIcons.find('name', 'Color_swatch'));
+        aIcons.remove(aIcons.find('name', 'Plus'));
+        aIcons.remove(aIcons.find('name', 'Print'));
+        aIcons.remove(aIcons.find('name', 'Text_linespacing'));
+
+        var hIcons = isc.Window.standardHeaderIcons;
+        hIcons.find('name', 'Arrow_down').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Arrow_left').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Arrow_right').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Arrow_up').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Calculator').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Cart').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Clipboard').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Clock').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Close').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Comment').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Double_arrow_down').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Double_arrow_left').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Double_arrow_right').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Double_arrow_up').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Favourite').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Find').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Help').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Home').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Mail').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Maximize').states = ["Disabled", "Over"];    // default [Down, Over]
+        hIcons.find('name', 'Minus').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Person').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Pin_down').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Pin_left').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Plus').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Print').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Refresh').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Refresh_thin').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Save').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Settings').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Transfer').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Trash').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Zoom').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.remove(hIcons.find('name', 'Maximize_new'));
+        hIcons.remove(hIcons.find('name', 'Maximize_old'));
+    
         isc.Canvas.setProperties({
             // use synthetic scrollbars 
             // in mobile 
@@ -89,7 +145,7 @@ isc.loadSkin = function (theWindow) {
 
         isc.Scrollbar.addProperties({
             baseStyle:"scrollbar",
-            btnSize:18,
+            btnSize:16,
             hSrc:"[SKIN]hscroll.png",
             hThumbClass:isc.HSimpleScrollThumb,
             showRollOver:true,
@@ -125,7 +181,8 @@ isc.loadSkin = function (theWindow) {
             gripLength:35,
             capSize:0,
             showRollOver : false,
-            showDown : false
+            showDown : false,
+            showRollOverGrip:false
         });
 
         isc.Layout.addProperties({
@@ -135,6 +192,7 @@ isc.loadSkin = function (theWindow) {
             // Other options include the Splitbar, StretchImgSplitbar or ImgSplitbar
             resizeBarClass:"Snapbar"
         })
+        isc.overwriteClass("LayoutResizeBar", "LayoutResizeSnapbar");
 
         if (isc.SectionItem) {
             isc.SectionItem.addProperties({
@@ -332,6 +390,7 @@ isc.loadSkin = function (theWindow) {
             isc.Window.changeDefaults("maximizeButtonDefaults", {
                 src:"[SKIN]/headerIcons/maximize.gif",
                 showRollOver:true,
+                showDown:false,
                 width:15,
                 height:15
             });
@@ -474,7 +533,7 @@ isc.loadSkin = function (theWindow) {
             isc.ToolbarItem.addProperties({
                 buttonConstructor:isc.IAutoFitButton,
                 buttonProperties: {
-                    autoFitDirection: isc.Canvas.BOTH
+                    autoFitDirection: isc.Canvas.HORIZONTAL
                 }
             });
         }
@@ -643,8 +702,6 @@ isc.loadSkin = function (theWindow) {
             }
         }
 
-        // remember the current skin so we can detect multiple skins being loaded
-        if (isc.setCurrentSkin) isc.setCurrentSkin("Simplicity");
 
         isc.Page.checkBrowserAndRedirect("[SKIN]/unsupported_browser.html");
 

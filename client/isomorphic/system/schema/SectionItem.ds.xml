@@ -18,4 +18,8 @@
 
 		<field name="canvas" inapplicable="true"/>
     </fields>
+
+    <methods>
+        <method action="event" name="click" basic="true" />
+    </methods>
 </DataSource>

@@ -9,10 +9,67 @@ isc.loadSkin = function (theWindow) {
     if (theWindow == null) theWindow = window;
     with (theWindow) {
 
-        isc.Page.setSkinDir("[ISOMORPHIC]/skins/Mobile/");
+        // Register skin
+        //----------------------------------------
+        var currentSkin = isc.setCurrentSkin({
+            // name is autoderived to be the containing folder
+            name: "autoDetect"
+        });
         isc.Page.loadStyleSheet("[SKIN]/skin_styles.css", theWindow);
 
         isc.Class.modifyFrameworkStart();
+
+        isc.Canvas.standardHeaderIconExtension = "gif";
+        
+        // Standard Framework icons - changes specific to this skin
+        var aIcons = isc.Canvas.standardActionIcons;
+        aIcons.find('name', 'Add').states = null;    // default [Disabled]
+        aIcons.find('name', 'Back').states = null;    // default [Disabled]
+        aIcons.find('name', 'Edit').states = null;    // default [Disabled]
+        aIcons.find('name', 'Forward').states = null;    // default [Disabled]
+        aIcons.remove(aIcons.find('name', 'Accept'));
+        aIcons.remove(aIcons.find('name', 'Close'));
+        aIcons.remove(aIcons.find('name', 'Color_swatch'));
+        aIcons.remove(aIcons.find('name', 'Plus'));
+        aIcons.remove(aIcons.find('name', 'Print'));
+        aIcons.remove(aIcons.find('name', 'Text_linespacing'));
+
+        var hIcons = isc.Window.standardHeaderIcons;
+        hIcons.find('name', 'Arrow_down').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Arrow_left').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Arrow_right').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Arrow_up').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Calculator').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Cart').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Clipboard').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Clock').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Close').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Comment').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Double_arrow_down').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Double_arrow_left').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Double_arrow_right').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Double_arrow_up').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Favourite').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Find').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Help').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Home').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Mail').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Maximize').states = ["Over", "Disabled"];    // default [Down, Over]
+        hIcons.find('name', 'Minus').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Person').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Pin_down').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Pin_left').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Plus').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Print').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Refresh').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Refresh_thin').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Save').states = ["Over", "Disabled"];    // default [Over]
+        hIcons.find('name', 'Settings').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Transfer').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Trash').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.find('name', 'Zoom').states = ["Disabled", "Over"];    // default [Over]
+        hIcons.remove(hIcons.find('name', 'Maximize_new'));
+        hIcons.remove(hIcons.find('name', 'Maximize_old'));
 
         isc.Canvas.setProperties({
             // this skin uses custom scrollbars
@@ -119,6 +176,7 @@ isc.loadSkin = function (theWindow) {
             // Other options include the Splitbar, StretchImgSplitbar or ImgSplitbar
             resizeBarClass:"Snapbar"
         });
+        isc.overwriteClass("LayoutResizeBar", "LayoutResizeSnapbar");
 
         if (isc.SectionItem) {
             isc.SectionItem.addProperties({
@@ -611,9 +669,6 @@ isc.loadSkin = function (theWindow) {
         isc.pickerImgType = "gif";
         isc.transferImgType = "gif";
         isc.headerImgType = "gif";
-
-        // remember the current skin so we can detect multiple skins being loaded
-        if (isc.setCurrentSkin) isc.setCurrentSkin("Mobile");
 
         isc.Page.checkBrowserAndRedirect("[SKIN]/unsupported_browser.html");
 
