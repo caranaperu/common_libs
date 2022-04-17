@@ -185,7 +185,7 @@ class CI_DB_result {
 		}
 		elseif ( ! $this->result_id OR $this->num_rows === 0)
 		{
-			return array();
+			return [];
 		}
 
 		// Don't fetch the result set again if we already have it

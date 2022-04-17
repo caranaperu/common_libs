@@ -247,7 +247,7 @@ abstract class TSLAppDefaultCRUDController extends TSLAppDefaultController {
                         $this->executeCrudOperation($op);
                     } else {
                         if ($op == 'add') {
-                            $this->DTO->setOperation(\ TSLIDataTransferObj::OP_ADD);
+                            $this->DTO->setOperation(\TSLIDataTransferObj::OP_ADD);
                             $this->executeCrudOperation($op);
                         } else {
                             $outMessage = &$this->DTO->getOutMessage();

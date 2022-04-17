@@ -17,13 +17,13 @@ class TSLTrxFactoryManager {
      * 
      * @var TSLTrxFactoryManager $instance
      */
-    private static $instance;
+    private static TSLTrxFactoryManager $instance;
 
     /**
      * Arreglo que contiene todos los transaccion managers en uso.
      * @var array  $m_trxManagers
      */
-    private $m_trxManagers = array();
+    private array $m_trxManagers = array();
 
     // The singleton method
     public static function instance() : TSLTrxFactoryManager {
