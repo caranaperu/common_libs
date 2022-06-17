@@ -199,13 +199,16 @@ abstract class TSLBasicRecordDAO implements TSLIBasicRecordDAO {
                 $ret = DB_ERR_CANTEXECUTE;
                 // echo $DB->_error_message();
             } else {
-                if ($query->num_rows() > 0) {
+                // Better option get te results directly and no loop aND COPY
+                // again the result array.
+                $results = $query->result_array();
+                /*if ($query->num_rows() > 0) {
                     foreach ($query->result_array() as $row) {
                         //Seteamos los valores de la base en el modelo.
                         $results[] = $row;
                         $row = null;
                     }
-                }
+                }*/
                 $query->free_result();
                 unset($query);
             }
