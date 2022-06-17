@@ -1,0 +1,1 @@
+Ver que todas las llamadas internas a un query dentro del driver liberen los recursos.

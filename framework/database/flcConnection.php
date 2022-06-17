@@ -38,12 +38,26 @@ namespace framework\database;
  * @since    Version 1.0.0
  * @filesource
  */
+
+/**
+ * Database Connection Class
+ *
+ * This is the platform-independent connection class.
+ * This class need to be overloaded for specific databases..
+ *
+ * Important : This class contains part from codeigniter
+ * all credits for his authors.
+ *
+ * @category    Database
+ * @author       Carlos Arana Reategui
+ * @link        https://flabscorpprods.com
+ */
 abstract class flcConnection {
     /**
      * Represents an connection id , this a resource that depends on each database.
      * @var resource|null
      */
-    protected $connId;
+    protected $_connId;
 
 
     /**
@@ -51,19 +65,26 @@ abstract class flcConnection {
      *
      * @var    string
      */
-    protected string $collation = 'utf8_general_ci';
+    protected string $_collation = 'utf8_general_ci';
 
     /**
-     * charset , if defined usaed on open connection.
+     * charset , if defined used on open connection.
      *
      * @var    string
      */
-    protected string $charset = 'utf8';
+    protected string $_charset = 'utf8';
 
     /**
      * @var string
      */
-    protected string $dsn;
+    protected string $_dsn;
+
+    /**
+     * Encryption flag/data
+     *
+     * @var    bool | array
+     */
+    public $encrypt = FALSE;
 
 
     /**
@@ -74,19 +95,21 @@ abstract class flcConnection {
      *
      * If no dsn is specified all others need to be.
      *
-     * @param string | null $dsn Then dsn of the connection
-     * @param string | null $host The hostname or ip address of the server.
-     * @param int | null    $port The por number
-     * @param string | null $database The database name to connect
-     * @param string | null $user The user name
-     * @param string | null $password The password
-     * @param string        $charset The default charset to be used by the connection , default utf8
-     * @param string        $collation The default collation for the connection , default utf8_general_ci
+     * @param string | null $p_dsn Then dsn of the connection
+     * @param string | null $p_host The hostname or ip address of the server.
+     * @param int | null    $p_port The por number
+     * @param string | null $p_database The database name to connect
+     * @param string | null $p_user The user name
+     * @param string | null $p_password The password
+     * @param string        $p_charset The default charset to be used by the connection , default utf8
+     * @param string        $p_collation The default collation for the connection , default utf8_general_ci
      *
      *
      * @return bool FALSE if not enough parameter data to create a correct dsn.
      */
-    public abstract function initialize(?string $dsn, ?string $host, ?int $port, ?string $database, ?string $user, ?string $password, string $charset = 'utf8', string $collation = 'utf8_general_ci'): bool;
+    public abstract function initialize(?string $p_dsn, ?string $p_host, ?int $p_port, ?string $p_database, ?string $p_user, ?string $p_password, string $p_charset = 'utf8', string $p_collation = 'utf8_general_ci'): bool;
+
+    // --------------------------------------------------------------------
 
     /**
      * Extract the host from the dsn , if dsn is not initialized or host
@@ -94,13 +117,15 @@ abstract class flcConnection {
      *
      * @return string|null The host value
      */
-    public function getHost(): ?string {
-        if ($this->dsn) {
-            return parse_url($this->dsn, PHP_URL_HOST);
+    public function get_host(): ?string {
+        if (isset($this->_dsn) && $this->_dsn) {
+            return parse_url($this->_dsn, PHP_URL_HOST);
         }
 
         return null;
     }
+
+    // --------------------------------------------------------------------
 
     /**
      * Extract the port from the dsn , if dsn is not initialized or port
@@ -108,9 +133,9 @@ abstract class flcConnection {
      *
      * @return string|null The port value
      */
-    public function getPort(): ?string {
-        if ($this->dsn) {
-            $port = parse_url($this->dsn, PHP_URL_PORT);
+    public function get_port(): ?string {
+        if (isset($this->_dsn) && $this->_dsn) {
+            $port = parse_url($this->_dsn, PHP_URL_PORT);
             if ($port) {
                 return strval($port);
             }
@@ -119,19 +144,23 @@ abstract class flcConnection {
         return null;
     }
 
+    // --------------------------------------------------------------------
+
     /**
      * Extract the user name  from the dsn , if dsn is not initialized or user
      * is not defined return null.
      *
      * @return string|null The user name  value
      */
-    public function getUser(): ?string {
-        if ($this->dsn) {
-            return parse_url($this->dsn, PHP_URL_USER);
+    public function get_user(): ?string {
+        if (isset($this->_dsn) && $this->_dsn) {
+            return parse_url($this->_dsn, PHP_URL_USER);
         }
 
         return null;
     }
+
+    // --------------------------------------------------------------------
 
     /**
      * Extract the database name from the dsn , if dsn is not initialized or database
@@ -140,59 +169,80 @@ abstract class flcConnection {
      *
      * @return string|null The database name value
      */
-    public function getDatabase(): ?string {
-        if ($this->dsn) {
-            return parse_url($this->dsn, PHP_URL_PATH);
+    public function get_database(): ?string {
+        if (isset($this->_dsn) && $this->_dsn) {
+            $database = parse_url($this->_dsn, PHP_URL_PATH);
+            // in database url the path is the database then remove the trailing
+            // slash.
+            if ($database !== null) {
+                return str_replace('/', '', $database);
+            }
         }
 
         return null;
     }
 
+    // --------------------------------------------------------------------
+
     /**
-     * @return resource|null
+     * Set the database name in the dsn , if dsn is not initialized or database
+     * is not defined return false.
+     * The database for a db dsn is on the path of the url.
+     *
+     * IMPORTANT: For internal use only.
+     *
+     * @param string $p_database the database name
+     *
+     * @return bool false if can set the database name
      */
-    public function get_connection_id()  {
-        return $this->connId;
+    public function _set_database(string $p_database): bool {
+        if (isset($this->_dsn) && $this->_dsn) {
+            $database = '/'.$this->get_database();
+            // in database url the path is the database
+            if ($database !== '/') {
+                str_replace($database, $p_database, $this->_dsn);
+                return true;
+            }
+        }
+        return false;
     }
 
-    /**
-     * Set client character set
-     *
-     * @param string $charset see database docs for accepted charsets.
-     *
-     * @return    bool false if cant set the character encoding
-     */
-    protected abstract function _set_charset(string $charset): bool;
+    // --------------------------------------------------------------------
 
     /**
      * @return resource|null
      */
-    protected abstract function _open();
+    public function get_connection_id() {
+        return $this->_connId;
+    }
+
+    // --------------------------------------------------------------------
 
     /**
-     * Open the conecction used by this instance, if is already
-     * a live conection the current one will be used, if this is not
-     * the desired action call close methos first.
+     * Open the connection used by this instance, if is already
+     * a live connection the current one will be used, if this is not
+     * the desired action call close method first.
      *
      * @return bool true if can get connection or already one open , false otherwise
      */
     public function open(): bool {
-        if (!isset($this->connId) || !$this->connId) {
+        if (!isset($this->_connId) || !$this->_connId) {
 
             $conn = $this->_open();
 
             if (!$conn) {
                 return false;
             }
-            $this->connId = $conn;
+            $this->_connId = $conn;
         }
 
 
-        $this->_set_charset($this->charset);
+        $this->_set_charset($this->_charset);
+
         return true;
     }
 
-    protected abstract function _close(): void;
+    // --------------------------------------------------------------------
 
     /**
      * Close the connection, put in null the connection id.
@@ -200,10 +250,42 @@ abstract class flcConnection {
      * @return void
      */
     public function close(): void {
-        if ($this->connId) {
+        if ($this->_connId) {
             $this->_close();
-            $this->connId = null;
+            $this->_connId = null;
         }
     }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * The following methods need to be overloaded by the identically named
+     * methods in the platform-specific connection driver .
+     */
+
+    /**
+     * Set client character set
+     *
+     * @param string $p_charset see database docs for accepted charsets.
+     *
+     * @return    bool false if cant set the character encoding
+     */
+    protected abstract function _set_charset(string $p_charset): bool;
+
+    // --------------------------------------------------------------------
+
+    /**
+     * @return object|null basically a resource from the db
+     */
+    protected abstract function _open();
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Close the database connection.
+     *
+     * @return void
+     */
+    protected abstract function _close(): void;
 
 }

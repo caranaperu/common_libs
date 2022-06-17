@@ -2,8 +2,6 @@
 
 namespace framework\database;
 
-use framework\database\driver\flcDriver;
-
 /**
  * FLabsCode
  *
@@ -39,6 +37,8 @@ use framework\database\driver\flcDriver;
  * @since    Version 1.0.0
  * @filesource
  */
+
+use framework\database\driver\flcDriver;
 
 /**
  * Database Result Class
@@ -110,19 +110,19 @@ class flcDbResult {
     /**
      * Constructor
      *
-     * @param flcDriver $db_driver the flcDriver instance handling the results
-     * @param resource  $result_id the result_id resource returned after execute a query on database
+     * @param flcDriver $p_db_driver the flcDriver instance handling the results
+     * @param resource  $p_result_id the result_id resource returned after execute a query on database
      */
-    public function __construct(flcDriver $db_driver, $result_id) {
-        $this->conn_id = $db_driver->get_connection()->get_connection_id();
-        $this->result_id = $result_id;
+    public function __construct(flcDriver $p_db_driver, $p_result_id) {
+        $this->conn_id = $p_db_driver->get_connection()->get_connection_id();
+        $this->result_id = $p_result_id;
     }
 
     // --------------------------------------------------------------------
 
     /**
      * Number of rows in the result set, if num_rows is already defined return
-     * immediately otherwise search which array has answers.
+     * immediately otherwise search which array has answers, otherwise go to the db
      *
      * @return    int
      */
@@ -144,17 +144,17 @@ class flcDbResult {
      * Query result. Acts as a wrapper function for result_array,result_object or
      * custom_result_object depending of parameter.
      *
-     * @param string $type 'object', 'array' or a custom class name
+     * @param string $p_type 'object', 'array' or a custom class name
      *
      * @return    array
      */
-    public function result(string $type = 'object'): array {
-        if ($type === 'array') {
+    public function result(string $p_type = 'object'): array {
+        if ($p_type === 'array') {
             return $this->result_array();
-        } elseif ($type === 'object') {
+        } elseif ($p_type === 'object') {
             return $this->result_object();
         } else {
-            return $this->custom_result_object($type);
+            return $this->custom_result_object($p_type);
         }
     }
 
@@ -162,14 +162,15 @@ class flcDbResult {
 
     /**
      * Custom query result, return an array of object of type $class_name.
+     * for example :
      *
-     * @param string $class_name
+     * @param string $p_classname
      *
      * @return    array
      */
-    public function custom_result_object(string $class_name): array {
-        if (isset($this->custom_result_object[$class_name])) {
-            return $this->custom_result_object[$class_name];
+    public function custom_result_object(string $p_classname): array {
+        if (isset($this->custom_result_object[$p_classname])) {
+            return (array)$this->custom_result_object[$p_classname];
         } elseif (!$this->result_id or $this->num_rows === 0) {
             return [];
         }
@@ -182,30 +183,40 @@ class flcDbResult {
             $_data = 'result_object';
         }
 
+        // If data exists get data from the current array.
         if ($_data !== null) {
             for ($i = 0; $i < $c; $i++) {
-                $this->custom_result_object[$class_name][$i] = new $class_name();
+                $this->custom_result_object[$p_classname][$i] = new $p_classname();
 
                 foreach ($this->{$_data}[$i] as $key => $value) {
-                    $this->custom_result_object[$class_name][$i]->$key = $value;
+                    // only copy existent properties.
+                    if (property_exists($this->custom_result_object[$p_classname][$i], $key)) {
+                        $this->custom_result_object[$p_classname][$i]->$key = $value;
+                    }
                 }
             }
 
         } else {
             // read from database
             $this->data_seek();
-            $this->custom_result_object[$class_name] = [];
+            $this->custom_result_object[$p_classname] = [];
 
-            while ($row = $this->_fetch_object($class_name)) {
-                $this->custom_result_object[$class_name][] = $row;
+            while ($row = $this->_fetch_object($p_classname)) {
+                $this->custom_result_object[$p_classname][] = $class = new $p_classname();
+                foreach ($row as $key => $value) {
+                    // only copy existent properties.
+                    if (property_exists($class, $key)) {
+                        $class->$key = $value;
+                    }
+                }
             }
 
             // Set the num rows
-            $this->num_rows = count($this->custom_result_object[$class_name]);
+            $this->num_rows = count($this->custom_result_object[$p_classname]);
         }
 
 
-        return $this->custom_result_object[$class_name];
+        return $this->custom_result_object[$p_classname];
     }
 
     // --------------------------------------------------------------------
@@ -290,19 +301,19 @@ class flcDbResult {
      *
      * A wrapper method for get a row, depending on a type variable
      *
-     * @param int    $n
-     * @param string $type 'object' or 'array'
+     * @param int    $p_nrecord
+     * @param string $p_type 'object' or 'array'
      *
-     * @return    mixed|null
+     * @return    object|array|null
      */
-    public function row(int $n = 0, string $type = 'object'): ?mixed {
+    public function row(int $p_nrecord = 0, string $p_type = 'object'): ?object {
 
-        if ($type === 'object') {
-            return $this->row_object($n);
-        } elseif ($type === 'array') {
-            return $this->row_array($n);
+        if ($p_type === 'object') {
+            return $this->row_object($p_nrecord);
+        } elseif ($p_type === 'array') {
+            return $this->row_array($p_nrecord);
         } else {
-            return $this->custom_row_object($n, $type);
+            return $this->custom_row_object($p_nrecord, $p_type);
         }
     }
 
@@ -312,66 +323,72 @@ class flcDbResult {
 
     /**
      * Returns a single result row - custom object version
+     * If $n exceed the max records or no records return null.
      *
-     * @param int    $n
-     * @param string $type
+     * @param int    $p_nrecord the number of record to return.
+     * @param string $p_type 'array', 'object' or a custom class name
      *
      * @return    object|null
      */
-    public function custom_row_object(int $n, string $type): ?object {
-        isset($this->custom_result_object[$type]) or $this->custom_result_object($type);
+    public function custom_row_object(int $p_nrecord, string $p_type): ?object {
+        isset($this->custom_result_object[$p_type]) or $this->custom_result_object($p_type);
 
-        if (count($this->custom_result_object[$type]) == 0) {
+        if (count((array)$this->custom_result_object[$p_type]) == 0) {
             return null;
         }
 
-        if ($n !== $this->current_row && isset($this->custom_result_object[$type][$n])) {
-            $this->current_row = $n;
-        }
+        if (isset($this->custom_result_object[$p_type][$p_nrecord])) {
+            $this->current_row = $p_nrecord;
 
-        return $this->custom_result_object[$type][$this->current_row];
+            return $this->custom_result_object[$p_type][$this->current_row];
+        } else {
+            return null;
+        }
     }
 
     // --------------------------------------------------------------------
 
     /**
      * Returns a single result row - object version
+     * If $n exceed the max records or no records return null.
      *
-     * @param int $n
+     * @param int $p_nrecord the number of record to return.
      *
-     * @return    object
+     * @return    object|null
      */
-    public function row_object(int $n = 0): mixed {
+    public function row_object(int $p_nrecord = 0): ?object {
         $result = $this->result_object();
         if (count($result) === 0) {
             return null;
         }
 
-        if ($n !== $this->current_row && isset($result[$n])) {
-            $this->current_row = $n;
+        if (isset($result[$p_nrecord])) {
+            $this->current_row = $p_nrecord;
+
+            return $result[$this->current_row];
+        } else {
+            return null;
         }
 
-        return $result[$this->current_row];
     }
 
     // --------------------------------------------------------------------
 
     /**
      * Returns a single result row - array version
+     * If $n exceed the max records or no records return null.
      *
-     * @param int $n
+     * @param int $p_nrecord the number of record to return.
      *
      * @return    array
      */
-    public function row_array(int $n = 0): ?array {
+    public function row_array(int $p_nrecord = 0): ?array {
         $result = $this->result_array();
-        if (count($result) === 0) {
+        if (count($result) === 0 || !isset($result[$p_nrecord])) {
             return null;
         }
 
-        if ($n !== $this->current_row && isset($result[$n])) {
-            $this->current_row = $n;
-        }
+        $this->current_row = $p_nrecord;
 
         return $result[$this->current_row];
     }
@@ -379,44 +396,64 @@ class flcDbResult {
     // --------------------------------------------------------------------
 
     /**
-     * Returns the "first" row
+     * Returns the "first" row , null if no records.
+     * Update the current record.
      *
-     * @param string $type 'array', 'object' or a custom class name
+     * @param string $p_type 'array', 'object' or a custom class name
      *
-     * @return    mixed|null
+     * @return    object|array|null
      */
-    public function first_row(string $type = 'object'): ?mixed {
-        $result = $this->result($type);
+    public function first_row(string $p_type = 'object') {
+        $result = $this->result($p_type);
 
-        return (count($result) === 0) ? null : $result[0];
+
+        if (count($result) === 0) {
+            return null;
+        } else {
+            $this->current_row = 0;
+
+            return $result[0];
+        }
     }
 
     // --------------------------------------------------------------------
 
     /**
-     * Returns the "last" row
+     * Returns the "last" row, null if no records.
+     * Update the current record.
      *
-     * @param string $type 'array', 'object' or a custom class name
+     * @param string $p_type 'array', 'object' or a custom class name
      *
-     * @return    mixed|null
+     * @return    object|array|null
      */
-    public function last_row(string $type = 'object'): ?mixed {
-        $result = $this->result($type);
+    public function last_row(string $p_type = 'object') {
+        $result = $this->result($p_type);
 
-        return (count($result) === 0) ? null : $result[count($result) - 1];
+        $this->current_row = 0;
+
+        $nrecords = count($result);
+        if ($nrecords === 0) {
+            return null;
+        } else {
+            $this->current_row = $nrecords - 1;
+
+            return $result[$this->current_row];
+        }
+
     }
 
     // --------------------------------------------------------------------
 
     /**
-     * Returns the "next" row
+     * Returns the "next" row, null if no records.
+     * Update the current record.
      *
-     * @param string $type 'array' , 'object' or a custom class name
+     * @param string $p_type 'array' , 'object' or a custom class name
      *
-     * @return    mixed|null
+     * @return    object|array|null
      */
-    public function next_row(string $type = 'object'): ?mixed {
-        $result = $this->result($type);
+    public function next_row(string $p_type = 'object') {
+        $result = $this->result($p_type);
         if (count($result) === 0) {
             return null;
         }
@@ -427,14 +464,15 @@ class flcDbResult {
     // --------------------------------------------------------------------
 
     /**
-     * Returns the "previous" row
+     * Returns the "previous" row, null if no records
+     * Update the current record.
      *
-     * @param string $type 'array' , 'object' or a custom class name
+     * @param string $p_type 'array' , 'object' or a custom class name
      *
-     * @return    mixed|null
+     * @return    object|array|null
      */
-    public function previous_row(string $type = 'object'): ?mixed {
-        $result = $this->result($type);
+    public function previous_row(string $p_type = 'object') {
+        $result = $this->result($p_type);
         if (count($result) === 0) {
             return null;
         }
@@ -451,18 +489,18 @@ class flcDbResult {
     /**
      * Returns an unbuffered row and move pointer to next row
      *
-     * @param string $type 'array', 'object' or a custom class name
+     * @param string $p_type 'array', 'object' or a custom class name
      *
-     * @return    mixed|false
+     * @return    object|array|null
      */
-    public function unbuffered_row(string $type = 'object'): ?mixed {
-        if ($type === 'array') {
+    public function unbuffered_row(string $p_type = 'object') {
+        if ($p_type === 'array') {
             return $this->_fetch_assoc();
-        } elseif ($type === 'object') {
+        } elseif ($p_type === 'object') {
             return $this->_fetch_object();
         }
 
-        return $this->_fetch_object($type);
+        return $this->_fetch_object($p_type);
     }
 
     // --------------------------------------------------------------------
@@ -504,6 +542,8 @@ class flcDbResult {
         return [];
     }
 
+
+
     // --------------------------------------------------------------------
 
     /**
@@ -543,11 +583,11 @@ class flcDbResult {
      *
      * Overridden by driver result classes.
      *
-     * @param int $n
+     * @param int $p_nrecord offset
      *
-     * @return    bool
+     * @return    bool true if all went ok
      */
-    public function data_seek(int $n = 0): bool {
+    public function data_seek(int $p_nrecord = 0): bool {
         return FALSE;
     }
 
@@ -575,12 +615,12 @@ class flcDbResult {
      *
      * Overridden by driver result classes.
      *
-     * @param string $class_name
+     * @param string $p_classname
      *
      * @return    object
      */
-    protected function _fetch_object(string $class_name = 'stdClass'): ?object {
-        return new $class_name();
+    protected function _fetch_object(string $p_classname = 'stdClass'): ?object {
+        return new $p_classname();
     }
 
 }

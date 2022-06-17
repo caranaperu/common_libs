@@ -1,6 +1,6 @@
 <?php
 
-namespace framework\database\driver\postgres;
+namespace framework\database\driver\mssql;
 
 
 /**
@@ -42,24 +42,50 @@ namespace framework\database\driver\postgres;
 use framework\database\flcConnection;
 
 /**
- * Database Connection Class specific for postgresql database.
+ * Database Connection Class specific for ms sql database.
  *
  * @category    Database
  * @author       Carlos Arana Reategui
  * @link        https://flabscorpprods.com
  */
-class flcPostgresConnection extends flcConnection {
+class flcMssqlConnection extends flcConnection {
+
+    protected ?string $_password = null;
+
+
 
     /**
-     * For postgres the dsn prototype will be : 'driver://username:password@hostname/database'
+     * Compression flag
+     *
+     * @var    bool
+     */
+    public bool $compress = FALSE;
+
+
+    /**
+     * For mysql the dsn prototype will be : 'driver://username:password@hostname/database'
      *
      * @inheritDoc
      */
-    public function initialize(?string $p_dsn, ?string $p_host, ?int $p_port, ?string $p_database, ?string $p_user, ?string $p_password, string $p_charset = 'utf8', string $p_collation = 'utf8_general_ci'): bool {
+    public function initialize(?string $p_dsn, ?string $p_host, ?int $p_port, ?string $p_database, ?string $p_user, ?string $p_password, string $p_charset = SQLSRV_ENC_CHAR, string $p_collation = 'SQL_Latin1_General_CP1_CI_AS'): bool {
         // Extract dsn parts if well defined, if the values are on dsn they are taken otherwise extract
         // them from the parameters
 
-        $query = "";
+        // preserve the charset
+        if ($p_charset) {
+            $this->_charset = in_array(strtolower($p_charset), [
+                'utf-8',
+                'utf8'
+            ], TRUE) ? 'UTF-8' : $p_charset;
+        } else {
+            $this->_charset = SQLSRV_ENC_CHAR;
+        }
+
+        /* if ($charset == 'UTF-8' && isset($p_collation)) {
+             substr($p_collation, -strlen($needle))===$needle
+         }*/
+
+        $query = '';
         if (($parsedDsn = @parse_url($p_dsn)) !== false) {
             $p_host = (isset($parsedDsn['host']) ? rawurldecode($parsedDsn['host']) : $p_host);
             $p_port = (isset($parsedDsn['port']) ? rawurldecode($parsedDsn['port']) : $p_port);
@@ -70,18 +96,23 @@ class flcPostgresConnection extends flcConnection {
 
         }
 
-        // generate dsn if its possible.
 
         // Set default if values not defined , generate the full dsn for postgres
-        if (!isset($p_port)) {
-            $p_port = '5432';
+        $p_port = ($p_port ?? '1433');
+
+        // if not user and password defined , try as a windows credentials login.
+        if (!isset($p_user) && !isset($p_password)) {
+            $p_user = '';
+            $p_password = '';
         }
 
         // Check values
-        if (!isset($p_host) || !isset($p_user) || !isset($p_password) || !isset($p_database)) {
+        if (!isset($p_host) || !isset($p_database)) {
             return false;
         } else {
-            $this->_dsn = 'postgresql://'.$p_user.':'.$p_password.'@'.$p_host.':'.$p_port.'/'.$p_database;
+            $this->_password = $p_password;
+
+            $this->_dsn = 'mssql://'.$p_user.':'.$p_password.'@'.$p_host.':'.$p_port.'/'.$p_database;
             if ($query && $query != "") {
                 $this->_dsn .= '&'.$query;
             }
@@ -92,10 +123,6 @@ class flcPostgresConnection extends flcConnection {
             $this->_collation = $p_collation;
         }
 
-        // preserve the charset
-        if ($p_charset) {
-            $this->_charset = $p_charset;
-        }
 
         return true;
     }
@@ -106,12 +133,8 @@ class flcPostgresConnection extends flcConnection {
      * @inheritdoc
      */
     protected function _set_charset(string $p_charset): bool {
-        // Check if open is called before
-        if ($this->_connId) {
-            return (pg_set_client_encoding($this->_connId, $p_charset) === 0);
-        } else {
-            return false;
-        }
+        // Not supported only can be set on the connection.
+        return false;
     }
 
     // --------------------------------------------------------------------
@@ -119,8 +142,40 @@ class flcPostgresConnection extends flcConnection {
     /**
      * @inheritdoc
      */
-    protected function _open() {
-        return pg_connect($this->_dsn);
+    protected function _open($p_pooling = false) {
+        $conn_info = [
+            'UID' => $this->get_user(),
+            'PWD' => $this->_password,
+            'Database' => $this->get_database(),
+            'ConnectionPooling' => ($p_pooling === TRUE) ? 1 : 0,
+            'CharacterSet' => $this->_charset,
+            'Encrypt' => ($this->encrypt === TRUE) ? 1 : 0,
+            'ReturnDatesAsStrings' => 1
+        ];
+
+        // If the username and password are both empty, assume this is a
+        // 'Windows Authentication Mode' connection.
+        if (empty($conn_info['UID']) && empty($conn_info['PWD'])) {
+            unset($conn_info['UID'], $conn_info['PWD']);
+        }
+
+        if (FALSE !== ($conn = sqlsrv_connect($this->get_host(), $conn_info))) {
+            // Determine how identifiers are escaped
+            $query = sqlsrv_query($conn,'SELECT CASE WHEN (@@OPTIONS | 256) = @@OPTIONS THEN 1 ELSE 0 END AS qi');
+            $rows = sqlsrv_fetch_array($query,SQLSRV_FETCH_ASSOC);
+            $quoted_identifier = empty($rows) ? FALSE : (bool)$rows['qi'];
+            /*$this->_escape_char = ($quoted_identifier) ? '"' : [
+                '[',
+                ']'
+            ];*/
+
+            sqlsrv_free_stmt($query);
+            unset($query);
+        } else {
+            print_r(sqlsrv_errors());
+        }
+
+        return $conn;
     }
 
     // --------------------------------------------------------------------
@@ -129,7 +184,7 @@ class flcPostgresConnection extends flcConnection {
      * @inheritdoc
      */
     protected function _close(): void {
-        pg_close($this->_connId);
+        sqlsrv_close($this->_connId);
     }
 
 }
