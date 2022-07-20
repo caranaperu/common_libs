@@ -69,8 +69,89 @@ class flcMysqlDriver extends flcDriver {
      *
      * @var    bool
      */
-    public bool $delete_hack = TRUE;
+    public bool $delete_hack = true;
 
+    // --------------------------------------------------------------------
+
+    protected static array $_cast_conversion = [
+        // boolean type
+        'boolean' => ['UNSIGNED', 'b', 1], // text types
+        'string' => ['char', 't'],
+        'char' => ['CHAR', 't'],
+        'text' => ['CHAR', 't'],
+        'nstring' => ['NCHAR', 't'],
+        'nchar' => ['NCHAR', 't'],
+        'ntext' => ['NCHAR', 't'],
+        // binary types
+        'binary' => ['BINARY', 't'],
+        'varbinary' => ['BINARY', 't'],
+        'blob' => ['BINARY', 't'],
+        // enumerated types
+        'enum' => ['ENUM', 't'],
+        'set' => ['SET', 't'],
+        // Numeric types
+        'float' => ['FLOAT', 'n'],
+        'double' => ['DOUBLE', 'n'],
+        'real' => ['REAL', 'n'],
+        'decimal' => ['DECIMAL', 'n'],
+        'ufloat' => ['FLOAT', 'n'], // deprecated
+        'udouble' => ['DOUBLE', 'n'], // deprecated
+        'udecimal' => ['DECIMAL', 'n'], // deprecated
+        'bit' => ['BIT', 'n'],
+        'tinyint' => ['SIGNED', 'n'],
+        'utinyint' => ['UNSIGNED', 'n'],
+        'smallint' => ['SIGNED', 'n'],
+        'usmallint' => ['UNSIGNED', 'n'],
+        'mediumint' => ['SIGNED', 'n'],
+        'umediumint' => ['UNSIGNED', 'n'],
+        'int' => ['SIGNED', 'n'],
+        'uint' => ['UNSIGNED', 'n'],
+        'bigint' => ['SIGNED', 'n'],
+        'ubigint' => ['UNSIGNED', 'n'],
+        'numeric' => ['DECIMAL', 'n'],
+        'unumeric' => ['DECIMAL', 'n'],
+        'money' => ['DECIMAL', 'n'],
+        // date / time types
+        'date' => ['DATE', 't'],
+        'datetime' => ['DATETIME', 't'],
+        'timestamp' => ['DATETIME', 't'],
+        'time' => ['TIME', 't'],
+        'year' => ['', 'n'],
+        // json / xml
+        'json' => ['JSON', 't'],
+        'jsonb' => ['JSON', 't'],
+        'xml' => ['CHAR', 't'],
+        // spatial data types
+        'geometry' => ['GEOMETRY', 't'],
+        'point' => ['POINT', 't'],
+        'linestring' => ['LINESTRING', 't'],
+        'line' => ['LINESTRING', 't'],
+        'lseg' => ['LINESTRING', 't'],
+        'path' => ['LINESTRING', 't'],
+        'polygon' => ['POLYGON', 't'],
+        'box' => ['POLYGON', 't'],
+        'circle' => ['POLYGON', 't'],
+        'multipoint' => ['MULTIPOINT', 't'],
+        'multilinestring' => ['MULTILINESTRING', 't'],
+        'geometrycollection' => ['GEOMETRYCOLLECTION', 't'],
+        // Interval / ranges
+        'int4range' => ['', 't'],
+        'int8range' => ['', 't'],
+        'numrange' => ['', 't'],
+        'tsrange' => ['', 't'],
+        'tstzrange' => ['', 't'],
+        'daterange' => ['', 't'],
+        // FULL TEXT SEARCH
+        'tsvector' => ['CHAR', 't'],
+        'tsquery' => ['CHAR', 't'], //arrays
+        'array' => ['CHAR', 't'], // inet types
+        'cidr' => ['CHAR(43)', 't'],
+        'inet' => ['CHAR(43)', 't'],
+        'macaddr' => ['CHAR(17)', 't'],
+
+    ];
+
+    // --------------------------------------------------------------------
 
     /**
      * @inheritdoc
@@ -115,14 +196,12 @@ class flcMysqlDriver extends flcDriver {
     public function error(): array {
         if (!empty($this->_mysqli->connect_errno)) {
             return [
-                'code' => $this->_mysqli->connect_errno,
-                'message' => $this->_mysqli->connect_error
+                'code' => $this->_mysqli->connect_errno, 'message' => $this->_mysqli->connect_error
             ];
         }
 
         return [
-            'code' => $this->conn->get_connection_id()->errno,
-            'message' => $this->conn->get_connection_id()->error
+            'code' => $this->conn->get_connection_id()->errno, 'message' => $this->conn->get_connection_id()->error
         ];
     }
 
@@ -140,7 +219,7 @@ class flcMysqlDriver extends flcDriver {
     protected function _prep_query(string $p_sqlquery): string {
         // mysqli_affected_rows() returns 0 for "DELETE FROM TABLE" queries. This hack
         // modifies the query so that it a proper number of affected rows is returned.
-        if ($this->delete_hack === TRUE && preg_match('/^\s*DELETE\s+FROM\s+(\S+)\s*$/i', $p_sqlquery)) {
+        if ($this->delete_hack === true && preg_match('/^\s*DELETE\s+FROM\s+(\S+)\s*$/i', $p_sqlquery)) {
             return trim($p_sqlquery).' WHERE 1=1';
         }
 
@@ -266,6 +345,20 @@ class flcMysqlDriver extends flcDriver {
         return $this->conn->get_connection_id()->real_escape_string($p_to_escape);
     }
 
+    /**
+     * Important in mysql cant cast to bool , then left the value as is.
+     *
+     * @inheritdoc
+     */
+    public function cast_param(string $p_param, string $p_type, ?string $p_appendstr): string {
+        if (strtolower($p_type) == 'boolean') {
+            $conv = $p_param;
+        } else {
+            $conv = parent::cast_param($p_param, $p_type,$p_appendstr);
+        }
+
+        return $conv;
+    }
 
     // --------------------------------------------------------------------
 
@@ -274,10 +367,16 @@ class flcMysqlDriver extends flcDriver {
      */
 
     /**
+     * IMPORTANT: in mysql manual says :
+     * "Beginning a transaction causes any pending transaction to be committed"
+     *
+     * That means if you try to rollback any operation after this begin transaction ,
+     * will not be possible, because they are already committed.
+     *
      * @inheritdoc
      */
     protected function _trans_begin(): bool {
-        $this->get_connection()->get_connection_id()->autocommit(FALSE);
+        $this->get_connection()->get_connection_id()->autocommit(false);
 
         return version_compare(PHP_VERSION, '5.5', '>=') ? $this->get_connection()->get_connection_id()->begin_transaction() : $this->get_connection()->get_connection_id()->query('START TRANSACTION'); // can also be BEGIN or BEGIN WORK
     }
@@ -289,7 +388,7 @@ class flcMysqlDriver extends flcDriver {
      */
     protected function _trans_commit(): bool {
         if ($this->get_connection()->get_connection_id()->commit()) {
-            $this->get_connection()->get_connection_id()->autocommit(true);
+            $this->get_connection()->get_connection_id()->autocommit(false);
 
             return true;
         }
@@ -309,9 +408,9 @@ class flcMysqlDriver extends flcDriver {
             $ret = (bool)$this->conn->get_connection_id()->query('ROLLBACK TO '.$p_savepoint);
         }
 
-        /* if ($ret) {
-            $this->conn->get_connection_id()->autocommit(true);
-         }*/
+        if ($ret) {
+            $this->conn->get_connection_id()->autocommit(false);
+        }
 
         return $ret;
     }

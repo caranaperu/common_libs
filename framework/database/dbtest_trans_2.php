@@ -23,8 +23,7 @@ include_once('./driver/mysql/flcMysqlDriver.php');
 include_once('./driver/mssql/flcMssqlConnection.php');
 include_once('./driver/mssql/flcMssqlDriver.php');
 
-$_g_do_rollback = false;
-$_g_use_pgsql = 'mssql';
+$_g_use_pgsql = 'mysql';
 
 
 if ($_g_use_pgsql == 'pgsql') {
@@ -59,6 +58,8 @@ if ($con->open()) {
         }
     }
 
+
+    $driver->set_trans_unique(false);
 
     echo 'Iniciando viendo registros existentes'.PHP_EOL;
     $query = $driver->execute_query("SELECT * FROM tb_class");
@@ -173,7 +174,8 @@ if ($con->open()) {
 
     $ans = $driver->trans_rollback();
     if (!$ans) {
-        echo 'No realizo El segundo rollback';
+        echo 'No realizo El segundo rollback'.PHP_EOL;
+        print_r($driver->error());
     }
 
     $driver->trans_complete();

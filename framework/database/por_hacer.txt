@@ -1,1 +1,140 @@
 Ver que todas las llamadas internas a un query dentro del driver liberen los recursos.
+affected_rows
+lanzar excepciones
+ver charset en mssql driver
+
+----------------------------------------------------------------------------------
+unificar:
+    $query = $driver->execute_query("execute sp_test_exception -1,'Con sp 100';");
+    //$query = $driver->execute_query("select sp_test_exception( -100,'Con sp 100');");
+    //$query = $driver->execute_query("call sp_test_exception( -1,'Con sp 100');");
+
+
+---------------------------------------------------------------------------------
+    Con mysql al iniciar una transaccion anidad hace primero commit , microsoft la rechaza
+
+        $first_rollback = true;
+
+        $ret = $driver->trans_start();
+        $query = $driver->execute_query("INSERT INTO tb_class VALUES(1, 'Abhi')");
+        $query = $driver->execute_query("INSERT INTO tb_class VALUES(2, 'Adam')");
+        $query = $driver->execute_query("INSERT INTO tb_class VALUES(4, 'Alex')");
+        $query = $driver->execute_query("INSERT INTO tb_class VALUES(5, 'Rahul')");
+
+        // In mysql start a transaction always sent a commit first
+        // In pg sql no.
+        $ret = $driver->trans_start();
+
+        $query = $driver->execute_query("INSERT INTO tb_clas_2 VALUES(1, 'Abhi')");
+        $query = $driver->execute_query("INSERT INTO tb_clas_2 VALUES(2, 'Adam')");
+
+
+        if ($first_rollback == true) {
+            $ans = $driver->trans_rollback();
+        } else {
+            $ans = $driver->trans_commit();
+        }
+
+        $query = $driver->execute_query("INSERT INTO tb_clas_2 VALUES(3, 'Tres')");
+        $query = $driver->execute_query("INSERT INTO tb_clas_2 VALUES(4, 'Cuatro')");
+
+        $ans = $driver->trans_rollback();
+
+        $driver->trans_complete();
+
+**************************************************************************************************
+Resultados con  trans_unique false (anidado)
+---------------------------------------------------------------------------------------------------
+SQL SERVER (sqlsrv)  -$first_rollback=true  | SQL SERVER (sqlsrv)  -$first_rollback=false
+                                            |
+    tb_class sin registros                  |   tb_class
+                                            |       id=1 , name=Abhi
+                                            |       id=2 , name=Adam
+                                            |       id=3 , name=Alex
+                                            |       id=4 , name=Rahul
+                                            |
+    tb_clas_2                               |   tb_clas_2
+        id=3 , name=Tres                    |       id=1 , name=Abhi
+        id=4 , name=Cuatro                  |       id=2 , name=Adam
+                                            |       id=3 , name=Tres
+                                            |       id=4 , name=Cuatro
+
+En sql server funciona el primer rollback (commit), el segundo ya no porque la db asume que para ejecutar el
+segundo rollback deberia haber una transaccion abierta , en otras palabras el primer commit o rollback
+termina la transaccion o nested transacciones a partir de alli.
+
+---------------------------------------------------------------------------------------------------
+MYSQL (mysqli)   -$first_rollback=true      | MYSQL (mysqli)  -$first_rollback=false
+                                            |
+tb_class                                    |   tb_class
+        id=1 , name=Abhi                    |       id=1 , name=Abhi
+        id=2 , name=Adam                    |       id=2 , name=Adam
+        id=4 , name=Alex                    |       id=4 , name=Alex
+        id=5 , name=Rahul                   |       id=5 , name=Rahul
+                                            |
+    tb_clas_2 sin registros                 |   tb_clas_2
+                                            |       id=1 , name=Abhi
+                                            |       id=2 , name=Adam
+
+En mysql todo rollback o commit o init transaction inician una nueva transaccion automaticamente
+por ende cuando se efectual el segundo
+    $ret = $driver->trans_start();
+efectua un commit inmediato en forma automatica y a partir de alli se inicia una nueva transaccion.
+dado lo explicado , es obvio que al efectuar los 2 rollbacks posteriores cada uno de ellos cierra
+y abre una transaccion por ende los 2 rollbacks son ejecutados dejando en blanco tb_clas2
+
+De igual manera cuando la secuencia es commit y luego rollback los id=3 y 4 no son grabados en
+tb_clas_2
+
+---------------------------------------------------------------------------------------------------
+POSTGRES (pgsql)-trans_unique false         | POSTGRES (pgsql)-trans_unique true
+                                            |
+    tb_class sin registros                  |   tb_class
+                                            |       id=1 , name=Abhi
+                                            |       id=2 , name=Adam
+                                            |       id=3 , name=Alex
+                                            |       id=4 , name=Rahul
+                                            |
+    tb_clas_2                               |   tb_clas_2
+        id=3 , name=Tres                    |       id=1 , name=Abhi
+        id=4 , name=Cuatro                  |       id=2 , name=Adam
+                                            |       id=3 , name=Tres
+                                            |       id=4 , name=Cuatro
+
+En postgres si se envia un commit o rollback lo efectuara siempre en el nivel mas exterior de las
+transacciones anidadas y a partir de alli cualquier otro commit o rollback sera silenciosamente
+ignorado. El efecto final sera similar al de sql server.
+
+
+
+
+
+
+
+
+---------------------------------------------------------------------
+SQL SERVER
+select function_name(parameters)
+exec sp param,param2,.....
+
+MYSQL
+select function_name(params...)
+call sp (param1,param2,.....);
+
+PGSQL
+select function_name(parameters)
+call sp (param1,param2,.....);
+
+
+los boolean se pasan como string true o false?
+set
+enum
+
+
+
+-- Ver caso de limit para cada db
+
+chequear sp que solo retornan output parameters
+verificar el free statement.
+caso sp con retur @valor en mysql que si se ha probado en sql server
+SET LIMIT o TOP segun el caso al crear sql

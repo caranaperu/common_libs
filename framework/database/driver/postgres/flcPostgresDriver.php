@@ -57,6 +57,96 @@ use framework\database\driver\flcDriver;
  * @link        https://flabscorpprods.com
  */
 class flcPostgresDriver extends flcDriver {
+    protected static array $_cast_conversion = [
+        // boolean type
+        'boolean' => ['boolean', 'b',1],
+        // text types
+        'string' => ['character varying', 't'],
+        'char' => ['character', 't'],
+        'text' => ['text', 't'],
+        'nstring' => ['character varying', 't'],
+        'nchar' => ['char', 't'],
+        'ntext' => ['text', 't'],
+        // binary types
+        'binary' => ['bytea', 't'],
+        'varbinary' => ['bytea', 't'],
+        'blob' => ['bytea', 't'],
+        // enumerated types
+        'enum' => ['enum', 't'], // need to append the cast name
+        'set' => ['', 't'],
+        // Numeric types
+        'float' => ['float', 'n'],
+        'double' => ['double precision', 'n'],
+        'real' => ['real', 'n'],
+        'decimal' => ['decimal', 'n'],
+        'ufloat' => ['real', 'n'],
+        'udouble' => ['double precision', 'n'],
+        'udecimal' => ['double precision', 'n'],
+        'bit' => ['bit', 'm'],
+        'tinyint' => ['smallint', 'n'],
+        'utinyint' => ['smallint', 'n'],
+        'smallint' => ['smallint', 'n'],
+        'usmallint' => ['integer', 'n'],
+        'mediumint' => ['integer', 'n'],
+        'umediumint' => ['integer', 'n'],
+        'int' => ['integer', 'n'],
+        'uint' => ['bigint', 'n'],
+        'bigint' => ['bigint', 'n'],
+        'ubigint' => ['numeric(20)', 'n'],
+        'numeric' => ['numeric', 'n'],
+        'unumeric' => ['numeric', 'n'],
+        'money' => ['money', 'n'],
+        // date / time types
+        'date' => ['date', 't'],
+        'datetime' => ['timestamp', 't'],
+        'timestamp' => ['timestamp', 't'],
+        'time' => ['time', 't'],
+        'year' => ['', 'n'],
+        // json / xml
+        'json' => ['json', 't'],
+        'jsonb' => ['jsonb', 't'],
+        'xml' => ['xml', 't'],
+        //  spatial data types
+        'geometry' => ['GEOMETRY', 't'],
+        'point' => ['point', 't'],
+        'linestring' => ['line', 't'],
+        'line' => ['line', 't'],
+        'lseg' => ['lseg', 't'],
+        'path' => ['path', 't'],
+        'polygon' => ['polygon', 't'],
+        'box' => ['box', 't'],
+        'circle' => ['circle', 't'],
+        'multipoint' => ['', 't'],
+        'multilinestring' => ['', 't'],
+        'geometrycollection' => ['', 't'],
+        // Interval / ranges
+        'int4range' => ['int4range', 't'],
+        'int8range' => ['int8range', 't'],
+        'numrange' => ['numrange', 't'],
+        'tsrange' => ['tsrange', 't'],
+        'tstzrange' => ['tstzrange', 't'],
+        'daterange' => ['daterange', 't'],
+        // FULL TEXT SEARCH
+        'tsvector' => ['tsvector', 't'],
+        'tsquery' => ['tsquery', 't'],
+        //arrays
+        'array' => ['', 't'], // to cast to array put the type of array and as append []
+        // inet types
+        'cidr' => ['cidr', 't'],
+        'inet' => ['inet', 't'],
+        'macaddr' => ['macaddr', 't'],
+
+    ];
+
+    /**
+     * For scalar functions pgsql use the same syntax to get a set of records.
+     *
+     * @var string
+     */
+    protected string       $_callable_function_call_string_scalar  = 'select * from';
+
+
+    // --------------------------------------------------------------------
 
     /**
      * @inheritdoc

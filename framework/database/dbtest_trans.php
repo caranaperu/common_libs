@@ -87,6 +87,7 @@ if ($con->open()) {
     echo PHP_EOL;
     echo 'Iniciando operaciones de transacciones'.PHP_EOL;
 
+    $driver->set_trans_unique(true);
     $driver->trans_start();
 
     $query = $driver->execute_query("INSERT INTO tb_class VALUES(1, 'Abhi')");
@@ -151,7 +152,10 @@ if ($con->open()) {
     echo 'Iniciando execute sp'.PHP_EOL;
 
     // Si falla la segunda transaccion perdera todo lo insertado, poner -1 para generar error
-   $query = $driver->execute_query("execute sp_test_exception -100,'Con sp 100';");
+    $query = $driver->execute_query("execute sp_test_exception -1,'Con sp 100';");
+    //$query = $driver->execute_query("select sp_test_exception( -100,'Con sp 100');");
+    //$query = $driver->execute_query("call sp_test_exception( -1,'Con sp 100');");
+
     if (!$query) {
         echo 'Error ejecutando sp'.PHP_EOL;
         $error = $driver->error();

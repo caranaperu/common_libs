@@ -2,7 +2,6 @@
 
 namespace framework\database\driver;
 
-
 /**
  * FLabsCode
  *
@@ -41,6 +40,8 @@ namespace framework\database\driver;
 
 use framework\database\flcConnection;
 use framework\database\flcDbResult;
+use framework\database\flcDbResultOutParams;
+use framework\database\flcDbResults;
 use framework\utils\flcStrUtils;
 
 require_once dirname(__FILE__).'/../../utils/flcStrUtils.php';
@@ -49,6 +50,7 @@ require_once dirname(__FILE__).'/../../utils/flcStrUtils.php';
  * Generic Driver Class
  *
  * This is the base class for all specific database drivers.
+ *
  * This driver try to manage nested transaction , but the behaviour depends on each
  * database,
  * For example:
@@ -69,7 +71,11 @@ require_once dirname(__FILE__).'/../../utils/flcStrUtils.php';
  *   a_table with empty records records
  *
  * The reason are :
- * 1) MySql do a commit when start a new transaction
+ * 1) MySql do a commit when start a new transaction, from the documentation :
+ *
+ * "If autocommit mode is disabled within a session with SET autocommit = 0,
+ *  the session always has a transaction open. A COMMIT or ROLLBACK statement ends
+ *  the current transaction and a new one starts."
  *
  * 2) Postgres only add a counter each time a new transaction is created , that means
  * that all operation really is under the same transaction and only the outer rollback works
@@ -170,6 +176,27 @@ abstract class flcDriver {
      */
     protected bool $_trans_unique = false;
 
+    /**
+     * Transaction unique begin flag
+     *
+     * if its true and _trans_unique is true indicates
+     * that already teh unique transaction is already
+     * open.
+     *
+     * @var    bool
+     */
+    private bool $_trans_unique_begin = false;
+
+    /**
+     * Transaction unique stop flag
+     *
+     * if its true is a signal to allow commit or rollback
+     * in the unique transaction.
+     *
+     * @var    bool
+     */
+    private bool $_trans_unique_stop = false;
+
 
     /**
      * Transaction savepoints
@@ -258,6 +285,38 @@ abstract class flcDriver {
     // --------------------------------------------------------------------
 
     /**
+     * Get if the transaction is unique and not nested
+     *
+     * @return bool
+     */
+    public function is_trans_unique(): bool {
+        return $this->_trans_unique;
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Set if the transaction will be unique or not.
+     * Call only one time before start a transaction or
+     * after a trans_complete function.
+     *
+     * @param bool $is_trans_unique
+     *
+     * @return void
+     */
+    public function set_trans_unique(bool $is_trans_unique) {
+        // Only can be changed if not transaction are active now.
+        if ($this->_trans_depth == 0) {
+            $this->_trans_unique = $is_trans_unique;
+            $this->_trans_unique_stop = false;
+            $this->_trans_unique_begin = false;
+        }
+    }
+
+
+    // --------------------------------------------------------------------
+
+    /**
      *
      * Connect to a database using the data in flcConnection.
      * Previously flcConnection $conn nee to be initialized
@@ -321,14 +380,13 @@ abstract class flcDriver {
         if (false === ($result_id = $this->_execute_qry($p_sqlqry))) {
             // This will trigger a rollback if transactions are being used
             if ($this->_trans_depth !== 0) {
-                $this->_trans_status = FALSE;
+                $this->_trans_status = false;
             }
 
             return null;
         } else {
             // Load and instantiate the result driver
             $result_driver = $this->load_result_driver();
-            $result_driver = 'framework\database\driver\\'.$this->get_db_driver().'\\'.$result_driver;
 
             return new $result_driver($this, $result_id);
         }
@@ -379,7 +437,7 @@ abstract class flcDriver {
             require_once('./driver/'.$this->get_db_driver().'/'.$driver.'.php');
         }
 
-        return $driver;
+        return $driver_class;
     }
 
     // --------------------------------------------------------------------
@@ -526,10 +584,9 @@ abstract class flcDriver {
      *
      * @return    array
      */
-    public function error() {
+    public function error(): array {
         return [
-            'code' => NULL,
-            'message' => NULL
+            'code' => null, 'message' => null
         ];
     }
 
@@ -587,14 +644,13 @@ abstract class flcDriver {
         if (is_array($p_to_escape)) {
             // recursive
             return array_map([
-                &$this,
-                'escape'
+                &$this, 'escape'
             ], $p_to_escape);
         } elseif (is_string($p_to_escape) or (is_object($p_to_escape) && method_exists($p_to_escape, '__toString'))) {
             return "'".$this->escape_str($p_to_escape)."'";
         } elseif (is_bool($p_to_escape)) {
             return ($p_to_escape === false) ? 0 : 1;
-        } elseif ($p_to_escape === NULL) {
+        } elseif ($p_to_escape === null) {
             return 'NULL';
         }
 
@@ -636,12 +692,9 @@ abstract class flcDriver {
         // escape LIKE condition wildcards
         if ($p_like === true) {
             return str_replace([
-                $this->_like_escape_chr,
-                '%',
-                '_'
+                $this->_like_escape_chr, '%', '_'
             ], [
-                $this->_like_escape_chr.$this->_like_escape_chr,
-                $this->_like_escape_chr.'%',
+                $this->_like_escape_chr.$this->_like_escape_chr, $this->_like_escape_chr.'%',
                 $this->_like_escape_chr.'_'
             ], $p_to_escape);
         }
@@ -681,10 +734,8 @@ abstract class flcDriver {
         if (empty($preg_ec)) {
             if (is_array($this->_escape_char)) {
                 $preg_ec = [
-                    preg_quote($this->_escape_char[0], '/'),
-                    preg_quote($this->_escape_char[1], '/'),
-                    $this->_escape_char[0],
-                    $this->_escape_char[1]
+                    preg_quote($this->_escape_char[0], '/'), preg_quote($this->_escape_char[1], '/'),
+                    $this->_escape_char[0], $this->_escape_char[1]
                 ];
             } else {
                 $preg_ec[0] = $preg_ec[1] = preg_quote($this->_escape_char, '/');
@@ -740,7 +791,7 @@ abstract class flcDriver {
      *
      * @return    string
      */
-    public function update_string(string $p_table, array $p_data, $p_where, int $p_limit = 0) {
+    public function update_string(string $p_table, array $p_data, $p_where, int $p_limit = 0): string {
         if (empty($p_where)) {
             return false;
         }
@@ -754,6 +805,407 @@ abstract class flcDriver {
     }
 
     // --------------------------------------------------------------------
+
+    protected string       $_callable_procedure_call_string       = 'call';
+    protected array        $_callable_procedure_sep_string        = ['(', ')'];
+    protected string       $_callable_function_call_string_scalar = 'select';
+    protected string       $_callable_function_call_string        = 'select * from';
+    protected string       $_callable_function_sep_string         = '()';
+    protected static array $_cast_conversion                      = [];
+
+
+    public function cast_param(string $p_param, string $p_type, ?string $p_appendstr): string {
+        $conv = '';
+        $type = strtolower($p_type);
+        if (array_key_exists($type, static::$_cast_conversion)) {
+            if (static::$_cast_conversion[$type][0] !== '') {
+                $conv = 'cast('.$p_param.' as '.static::$_cast_conversion[$type][0].$p_appendstr.')';
+            }
+        }
+
+        if ($conv === '') {
+            $conv = $p_param;
+        }
+
+        return $conv;
+    }
+
+    /**
+     * @param string     $p_sp_name
+     * @param string     $p_type
+     * @param array|null $p_parameters
+     *
+     * @return string
+     */
+    public function callable_string(string $p_sp_name, string $p_type, string $p_type_return, ?array $p_parameters = null, ?array $p_use_casts = null): string {
+        $sql = '';
+        if ($p_type == 'procedure') {
+            $sql = $this->_callable_procedure_call_string.' '.$p_sp_name.$this->_callable_procedure_sep_string[0];
+
+        } else {
+            if ($p_type_return == 'scalar') {
+                $sql = $this->_callable_function_call_string_scalar.' '.$p_sp_name.$this->_callable_function_sep_string[0];
+            } else {
+                $sql = $this->_callable_function_call_string.' '.$p_sp_name.$this->_callable_function_sep_string[0];
+            }
+        }
+
+        if ($p_parameters && count($p_parameters) > 0) {
+            for ($i = 0; $i < count($p_parameters); $i++) {
+                // determine if parameter is an array or simple and get the value.
+                if (is_array($p_parameters[$i])) {
+                    $value = $p_parameters[$i][0];
+                } else {
+                    $value = $p_parameters[$i];
+                }
+                if (isset($p_use_casts) && isset($p_use_casts[$i])) {
+                    // If it is an array we expect [type,appendstr] in the array , otherwise only the type
+                    if (is_array($p_use_casts[$i])) {
+                        $type = $p_use_casts[$i][0];
+                        $appendstr = $p_use_casts[$i][1];
+                    } else {
+                        $type = $p_use_casts[$i];
+                        $appendstr = '';
+                    }
+
+                    if (array_key_exists($type, static::$_cast_conversion)) {
+                        if (static::$_cast_conversion[$type][1] == 't') {
+                            $sqlvalue = '\''.$value.'\'';
+                        } elseif (static::$_cast_conversion[$type][1] == 'n') {
+                            $sqlvalue = $value;
+                        } elseif (static::$_cast_conversion[$type][1] == 'b') {
+                            if ($value === 1 or $value === '1' or $value === 'true' or $value === 'TRUE' or $value === true or $value == 't') {
+                                $sqlvalue = static::$_cast_conversion[$type][2] === 1 ? '1' : 'true';
+
+                            } else {
+                                $sqlvalue = static::$_cast_conversion[$type][2] === 1 ? '0' : 'false';
+                            }
+                        } else {
+                            $sqlvalue = is_string($value) ? '\''.$value.'\'' : $value;
+
+                        }
+
+                        $sqlvalue = $this->cast_param($sqlvalue, $type, $appendstr);
+                    } else {
+                        $sqlvalue = $value;
+
+                    }
+
+                    $sql .= $sqlvalue.',';
+                } else {
+                    if ($value === true || $value === false) {
+                        $sql .= ($value === true ? 'true' : 'false').',';
+                    } else {
+                        $sql .= $value.',';
+                    }
+
+
+                }
+            }
+            $sql = substr($sql, 0, strlen($sql) - 1);
+
+
+        }
+        if ($p_type == 'procedure') {
+            $sql .= $this->_callable_procedure_sep_string[1].';';
+
+        } else {
+            $sql .= $this->_callable_function_sep_string[1].';';
+        }
+
+
+        return $sql;
+    }
+
+    // --------------------------------------------------------------------
+
+    protected array $_parameter_types = ['IN_PARAM', 'OUT_PARAM', 'INOUT_PARAM'];
+
+    public function execute_function(string $p_fn_name, ?array $p_parameters = null, ?array $p_use_casts = null): ?flcDbResult {
+
+        $sqlinfo = /** @lang TSQL */
+            'SELECT sm.object_id,
+                           OBJECT_NAME(sm.object_id) AS object_name,
+                           o.type,
+                           o.type_desc,
+                           sm.definition,
+                           sm.uses_ansi_nulls,
+                           sm.uses_quoted_identifier,
+                           sm.is_schema_bound,
+                           sm.execute_as_principal_id
+                        FROM sys.sql_modules AS sm
+                        JOIN sys.objects AS o ON sm.object_id = o.object_id
+                        WHERE sm.object_id = OBJECT_ID(\''.$p_fn_name.'\')
+                        ORDER BY o.type;';
+
+        $type = null;
+        if ($res = $this->_execute_qry($sqlinfo)) {
+            $type = sqlsrv_fetch_array($res)['type_desc'];
+            sqlsrv_free_stmt($res);
+        } else {
+            return null;
+        }
+
+        if ($type && $type == 'SQL_SCALAR_FUNCTION') {
+            $sqlfunc = $this->callable_string($p_fn_name, 'function', 'scalar', $p_parameters, $p_use_casts);
+        } else {
+            $sqlfunc = $this->callable_string($p_fn_name, 'function', 'records', $p_parameters, $p_use_casts);
+
+        }
+        echo $sqlfunc.PHP_EOL;
+
+        return $this->execute_query($sqlfunc);
+
+    }
+
+    public const FLCDRIVER_PROCTYPE_RESULTSET      = 1;
+    public const FLCDRIVER_PROCTYPE_MULTIRESULTSET = 2;
+    public const FLCDRIVER_PROCTYPE_VALUE          = 4;
+    public const FLCDRIVER_PROCTYPE_OUTP           = 8;
+
+    public const FLCDRIVER_PARAMTYPE_IN    = 'IN';
+    public const FLCDRIVER_PARAMTYPE_INOUT = 'INOUT';
+    public const FLCDRIVER_PARAMTYPE_OUT   = 'OUT';
+
+    public function execute_stored_procedure(string $p_fn_name, string $p_type, ?array $p_parameters = null, ?array $p_use_casts = null): ?flcDbResults {
+
+        $params = [];
+        $oparams = [];
+        $outparams_count = 0;
+        $sqlpre = '';
+        $sqlpost = '';
+
+        if ($p_parameters && count($p_parameters) > 0) {
+            for ($i = 0; $i < count($p_parameters); $i++) {
+                // determine if parameter is an array or simple and get the value.
+                if (is_array($p_parameters[$i])) {
+                    $sqlpre = '';
+                    $sqlpost = '';
+
+                    // take the parameters descriptors.
+                    $value = $p_parameters[$i][0];
+                    $paramtype = $p_parameters[$i][1] ?? '';
+                    $sqltype = $p_parameters[$i][2] ?? '';
+
+                    if ($p_type == self::FLCDRIVER_PROCTYPE_VALUE) {
+                        $sqlpre .= 'DECLARE @p'.$i.' '.$sqltype.';';
+                        $sqlpost .= 'SELECT @p'.$i.';';
+                        $params[] = $value;
+                    } elseif (($p_type & self::FLCDRIVER_PROCTYPE_OUTP) == self::FLCDRIVER_PROCTYPE_OUTP) {
+                        if ($paramtype == self::FLCDRIVER_PARAMTYPE_OUT || $paramtype == self::FLCDRIVER_PARAMTYPE_INOUT) {
+                            ${'p'.$outparams_count} = (is_string($value) ? '\''.$value.'\'' : $value);
+                            $oparams[] = [&${'p'.$outparams_count}, SQLSRV_PARAM_OUT];
+                            $params[] = '?';
+                            $outparams_count++;
+                        } else {
+                            $params[] = $value;
+                        }
+                    }
+
+                } else {
+                    $params[] = (is_string($p_parameters[$i]) ? '\''.$p_parameters[$i].'\'' : $p_parameters[$i]);
+                }
+            }
+        }
+
+        // create sp store results
+        require_once('flcDbResults.php');
+        $results = new flcDbResults();
+
+
+        // Get the callable string
+        // No cast allowed in mssql server on stored procedures calls, ignore the parameter
+        $sqlfunc = $this->callable_string($p_fn_name, 'procedure', 'records', $params);
+
+
+        // Process the stored procedurre
+        //
+
+        $is_resultset = ($p_type & self::FLCDRIVER_PROCTYPE_RESULTSET) == self::FLCDRIVER_PROCTYPE_RESULTSET;
+        $is_multiresultset = ($p_type & self::FLCDRIVER_PROCTYPE_MULTIRESULTSET) == self::FLCDRIVER_PROCTYPE_MULTIRESULTSET;
+        $is_outparams = ($p_type & self::FLCDRIVER_PROCTYPE_OUTP) == self::FLCDRIVER_PROCTYPE_OUTP;
+
+        // If only a sp with a single return value?
+        // generate the sql code and execute
+        if (($p_type & self::FLCDRIVER_PROCTYPE_VALUE) == self::FLCDRIVER_PROCTYPE_VALUE) {
+            $sqlfunc = $sqlpre.$sqlfunc.$sqlpost;
+            $sqlfunc = str_replace($this->_callable_procedure_call_string.' ', $this->_callable_procedure_call_string.' @p0 = ', $sqlfunc);
+            echo $sqlfunc.PHP_EOL;
+
+            $res = $this->execute_query($sqlfunc);
+            $results->add_resultset_result($res);
+
+        } // For stores procedures with output parameters o resultset or both
+        elseif ($is_outparams || $is_resultset || $is_multiresultset) {
+            echo $sqlfunc.PHP_EOL;
+
+
+            // execute
+            $res = sqlsrv_query($this->get_connection()->get_connection_id(), $sqlfunc, $oparams);
+            if ($res) {
+                // If a resulset type sp , get the results.
+                if ($is_resultset || $is_multiresultset) {
+
+                    // In single resultsets , we don prefetch the answers , is not required and also is more
+                    // efficient.
+                    if (!$is_outparams && $is_resultset) {
+                        $result_driver = $this->load_result_driver();
+                        $result = new $result_driver($this, $res);
+
+                        $results->add_resultset_result($result);
+
+                    } else {
+                        // Get the resulset or resultsets
+                        do {
+                            $result_driver = $this->load_result_driver();
+                            $result = new $result_driver($this, $res);
+
+                            // Yes , we need to pre-fetch al records , inefficient yes , but required in case we have to fetch the output parametes.
+                            // Info on docs : "make sure all result sets are stepped through,  since the output params may not be set until this happens"
+                            // Also we can never get the next resulset results without prefetching the previous ones.
+                            // Bad , bad , but no other way.
+                            $result->result_array();
+
+                            $results->add_resultset_result($result);
+                        } while (sqlsrv_next_result($res));
+
+                    }
+                }
+
+                // If we ned to process output params?
+                if ($is_outparams) {
+                    require_once('flcDbResultOutParams.php');
+
+                    $outparams = new flcDbResultOutParams();
+
+                    if (isset($oparams) && count($oparams) > 0) {
+                        for ($i = 0; $i < count($oparams); $i++) {
+                            $outparams->add_out_param('p'.$i, ${'p'.$i});
+                        }
+
+                    }
+
+                    $results->add_outparams_result($outparams);
+                }
+
+
+            }
+
+        }
+
+        return $results;
+
+    }
+
+    public function execute_stored_procedure_mysql(string $p_fn_name, string $p_type, ?array $p_parameters = null, ?array $p_use_casts = null): ?flcDbResults {
+
+        $params = [];
+        $outparams_count = 0;
+        $sqlpre = '';
+        $sqlpost = '';
+
+        if ($p_parameters && count($p_parameters) > 0) {
+
+            for ($i = 0; $i < count($p_parameters); $i++) {
+                // determine if parameter is an array or simple and get the value.
+                if (is_array($p_parameters[$i])) {
+
+
+                    // take the parameters descriptors.
+                    $value = $p_parameters[$i][0];
+                    $paramtype = $p_parameters[$i][1] ?? '';
+                    $sqltype = $p_parameters[$i][2] ?? '';
+
+
+                    if (($p_type & self::FLCDRIVER_PROCTYPE_OUTP) == self::FLCDRIVER_PROCTYPE_OUTP) {
+                        if ($paramtype == self::FLCDRIVER_PARAMTYPE_OUT || $paramtype == self::FLCDRIVER_PARAMTYPE_INOUT) {
+
+                            $outparams_count++;
+
+                            $sqlpre .= (strlen($sqlpre) > 0 ? ';' : '');
+                            $sqlpre .= 'set @p'.$i.'='.(is_string($value) ? '\''.$value.'\'' : $value);
+                            $sqlpost .= (strlen($sqlpost) > 0 ? ',@p'.$i : 'select @p'.$i);
+
+                            $params[] = '@p'.$i;
+                        } else {
+                            $params[] = (is_string($value) ? '\''.$value.'\'' : $value);
+                        }
+                    } else {
+                        $params[] = (is_string($p_parameters[$i]) ? '\''.$p_parameters[$i].'\'' : $p_parameters[$i]);
+
+                    }
+
+                } else {
+                    $params[] = (is_string($p_parameters[$i]) ? '\''.$p_parameters[$i].'\'' : $p_parameters[$i]);
+                }
+            }
+        }
+
+        // create sp store results
+        require_once('flcDbResults.php');
+        $results = new flcDbResults();
+
+
+        // Get the callable string
+        $sqlfunc = $this->callable_string($p_fn_name, 'procedure', 'records', $params, $p_use_casts);
+        if ($sqlpre) {
+            $sqlfunc = $sqlpre.';'.$sqlfunc;
+
+        }
+        if ($sqlpost) {
+            $sqlfunc = $sqlfunc.$sqlpost.';';
+
+        }
+        echo $sqlfunc;
+
+        $mysqli = $this->get_connection()->get_connection_id();
+        $res = $mysqli->multi_query($sqlfunc);
+
+        if ($res) {
+            $results_count = 0;
+            do {
+                if ($result = $mysqli->store_result()) {
+                    $result_driver = $this->load_result_driver();
+                    $result = new $result_driver($this, $result);
+
+                    $results->add_resultset_result($result);
+
+                    $results_count++;
+                }
+            } while ($mysqli->more_results() && $mysqli->next_result());
+
+            if ($outparams_count > 0) {
+                $result = $results->get_resultset_result($results_count - 1);
+                if ($result) {
+                    require_once('flcDbResultOutParams.php');
+
+                    $outparams = new flcDbResultOutParams();
+
+
+                    if ($result->num_rows() > 0) {
+                        foreach ($result->result_array() as $row) {
+                            foreach ($row as $key => $value) {
+                                $outparams->add_out_param($key, $value);
+
+                            }
+                        }
+
+                        $results->add_outparams_result($outparams);
+                    }
+                    $results->resultset_free_result($results_count - 1);
+
+                }
+
+
+            }
+            return $results;
+
+        } else {
+            return null;
+        }
+
+
+    }
 
     /*******************************************************
      * Transaction support
@@ -822,6 +1274,11 @@ abstract class flcDriver {
 
         $ret = false;
 
+        // Flag to allow commit or rollback execution under unique transaction
+        if ($this->_trans_unique) {
+            $this->_trans_unique_stop = true;
+        }
+
         // The query() function will set this flag to false in the event that a query failed
         if ($this->_trans_status === false or $this->_trans_failure === true) {
             $this->trans_rollback();
@@ -836,20 +1293,24 @@ abstract class flcDriver {
             // log_message('debug', 'DB Transaction Failure');
 
         } else {
-            $ret =  $this->trans_commit();
+            $ret = $this->trans_commit();
         }
 
         // Because after the rollback/commit all open transactions are finished , we remove all savepoints
         // on the control array if exists and put the trans_count on 0.
         if (isset($this->_trans_savepoints) && count($this->_trans_savepoints) > 0) {
             $count = count($this->_trans_savepoints);
-            for ($i=$count-1 ; $i >=0 ; $i--) {
+            for ($i = $count - 1; $i >= 0; $i--) {
                 array_splice($this->_trans_savepoints[$i], 0);
                 unset($this->_trans_savepoints[$i]);
 
             }
         }
         $this->_trans_depth = 0;
+        if ($this->_trans_unique) {
+            $this->_trans_unique_begin = false;
+            $this->_trans_unique_stop = false;
+        }
 
         return $ret;
     }
@@ -869,11 +1330,6 @@ abstract class flcDriver {
 
     /**
      * Begin Transaction
-     * IMPORTANT: in mysql manual says :
-     * "Beginning a transaction causes any pending transaction to be committed"
-     *
-     * That means if you try to rollback any operation after this begin transaction ,
-     * will not be possible, because they are already committed.
      *
      * @param bool $test_mode
      *
@@ -891,8 +1347,13 @@ abstract class flcDriver {
             // If not under only one transaction or no current open transaction
             // begin a new transaction.
             $ret = true;
-            if (!$this->_trans_unique or $this->_trans_depth == 0) {
-                $ret = $this->_trans_begin();
+            if (!$this->_trans_unique or !$this->_trans_unique_begin) {
+                if ($ret = $this->_trans_begin()) {
+                    if ($this->_trans_unique) {
+                        $this->_trans_unique_begin = true;
+                    }
+                }
+
             }
 
             if ($ret) {
@@ -902,8 +1363,8 @@ abstract class flcDriver {
                     }
                 } else {
                     $this->_trans_savepoints[$this->_trans_depth] = [];
+                    $this->_trans_depth++;
                 }
-                $this->_trans_depth++;
 
             }
 
@@ -923,22 +1384,24 @@ abstract class flcDriver {
      * @return    bool
      */
     public function trans_commit(): bool {
-        if (!$this->trans_enabled || $this->_trans_depth == 0) {
+        if (!$this->trans_enabled || ($this->_trans_depth == 0 && !$this->_trans_unique_stop)) {
             return false;
         } // When transactions are unique commit and remove the savepoints
         elseif ($this->_trans_unique) {
-            if ($ret = $this->_trans_commit()) {
-                if (isset($this->_trans_savepoints[0])) {
-                    unset($this->_trans_savepoints[0]);
-                    $this->_trans_depth = 0;
+            $ret = true;
+            // Only commit one time under unique transaction
+            if ($this->_trans_unique_stop) {
+                if ($ret = $this->_trans_commit()) {
+                    if (isset($this->_trans_savepoints[0])) {
+                        unset($this->_trans_savepoints[0]);
+                        $this->_trans_depth = 0;
+                    }
                 }
-
-
             }
 
             return $ret;
-        } // When transactions are nested we only begin/commit/rollback the outermost ones
-        elseif ($this->_trans_depth > 1 or $this->_trans_commit()) {
+
+        } elseif (/*$this->_trans_depth > 1 or*/ $this->_trans_commit()) {
             // Remove savepoints array involved in the current transaction.
             // Some databases allow one commit after another without send an error
             // we need to take account the trans depth value here.
@@ -967,7 +1430,7 @@ abstract class flcDriver {
         if (!$this->trans_enabled) {
             return false;
         } // When transactions are nested associate to the current one
-        elseif ($this->_trans_depth > 0) {
+        elseif ($this->_trans_depth > 0 or $this->_trans_unique) {
             $pos = $this->_trans_unique ? 0 : $this->_trans_depth - 1;
 
             if (!isset($this->_trans_savepoints[$pos]) || !in_array($savepoint, $this->_trans_savepoints[$pos])) {
@@ -991,10 +1454,10 @@ abstract class flcDriver {
      * @return    bool true if exist and execute correctly
      */
     public function trans_remove_savepoint(string $p_savepoint): bool {
-        if (!$this->trans_enabled or $this->_trans_depth === 0) {
+        if (!$this->trans_enabled) {
             return false;
         } // When transactions are nested associate to the current one
-        elseif ($this->_trans_depth > 0) {
+        elseif ($this->_trans_depth > 0 or $this->_trans_unique) {
             $pos = $this->_trans_unique ? 0 : $this->_trans_depth - 1;
 
             // if save point exist in a group of transaction?
@@ -1046,24 +1509,33 @@ abstract class flcDriver {
                     }
 
                 }
-            } elseif ($this->_trans_rollback()) { // Standard rollback
-                if ($this->_trans_depth > 0) {
-                    $pos = $this->_trans_unique ? 0 : $this->_trans_depth - 1;
+            } else {
+                $ret = true;
 
-                    // rollback removes all savepoints defined in the middle automatically , we need to remove elements in the array
-                    if (isset($this->_trans_savepoints[$this->_trans_depth]) && count($this->_trans_savepoints[$this->_trans_depth])) {
-                        array_splice($this->_trans_savepoints[$this->_trans_depth], 0);
-                        unset($this->_trans_savepoints[$this->_trans_depth]);
+                if ($this->_trans_unique) {
+                    if ($this->_trans_unique_stop) {
+                        $ret = $this->_trans_rollback();
                     }
+                } elseif ($ret = $this->_trans_rollback()) { // Standard rollback
+                    if ($this->_trans_depth > 0) {
+                        $pos = $this->_trans_unique ? 0 : $this->_trans_depth - 1;
+
+                        // rollback removes all savepoints defined in the middle automatically , we need to remove elements in the array
+                        if (isset($this->_trans_savepoints[$pos]) /*&& count($this->_trans_savepoints[$pos])*/) {
+                            array_splice($this->_trans_savepoints[$pos], 0);
+                            unset($this->_trans_savepoints[$pos]);
+                        }
+                    }
+                    $this->_trans_depth--;
                 }
 
-                return true;
+
+                return $ret;
             }
         }
 
         return false;
     }
-
 
 
     /*******************************************************
@@ -1078,7 +1550,9 @@ abstract class flcDriver {
      *
      * @return object|bool the object is basically a resource db dependant
      */
-    protected abstract function _execute_qry(string $p_sqlquery);
+    protected
+
+    abstract function _execute_qry(string $p_sqlquery);
 
 
     // --------------------------------------------------------------------

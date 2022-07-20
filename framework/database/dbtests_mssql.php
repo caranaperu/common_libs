@@ -197,6 +197,8 @@ if ($con->open()) {
         ], "field5 = ".$driver->escape(true).' and field_6=100').PHP_EOL;
 
 
+    $driver->set_trans_unique(true);
+
     $driver->trans_start();
     print_r($driver->error());
 

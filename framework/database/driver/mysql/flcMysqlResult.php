@@ -65,24 +65,32 @@ class flcMysqlResult extends flcDbResult {
      * @var array|string[]
      */
     private static array $_mysql_data_type = [
-        1 => 'tinyint',
-        2 => 'smallint',
-        3 => 'int',
-        4 => 'float',
-        5 => 'double',
-        7 => 'timestamp',
-        8 => 'bigint',
-        9 => 'mediumint',
-        10 => 'date',
-        11 => 'time',
-        12 => 'datetime',
-        13 => 'year',
-        16 => 'bit',
-        252 => 'text or blob',
-        253 => 'varchar',
-        254 => 'char',
-        246 => 'decimal'
+        MYSQLI_TYPE_DECIMAL => 'olddecimal',
+        MYSQLI_TYPE_TINY => 'tinyint',
+        MYSQLI_TYPE_SHORT => 'smallint',
+        MYSQLI_TYPE_LONG => 'int',
+        MYSQLI_TYPE_FLOAT => 'float',
+        MYSQLI_TYPE_DOUBLE => 'double',
+        MYSQLI_TYPE_TIMESTAMP => 'timestamp',
+        MYSQLI_TYPE_LONGLONG => 'bigint',
+        MYSQLI_TYPE_INT24 => 'int24',
+        MYSQLI_TYPE_DATE => 'date',
+        MYSQLI_TYPE_TIME => 'time',
+        MYSQLI_TYPE_DATETIME => 'datetime',
+        MYSQLI_TYPE_YEAR => 'year',
+        MYSQLI_TYPE_NEWDATE => 'newdate',
+        MYSQLI_TYPE_BIT => 'bit',
+        MYSQLI_TYPE_BLOB => 'blob',
+        MYSQLI_TYPE_VAR_STRING => 'varchar',
+        MYSQLI_TYPE_STRING => 'char',
+        MYSQLI_TYPE_NEWDECIMAL => 'decimal',
+        MYSQLI_TYPE_SET => 'set',
+        MYSQLI_TYPE_TINY_BLOB => 'tiny_blob',
+        MYSQLI_TYPE_MEDIUM_BLOB => 'medium_blob',
+        MYSQLI_TYPE_LONG_BLOB => 'long_blob',
+        MYSQLI_TYPE_GEOMETRY => 'geometry'
     ];
+
 
     /**
      * This list is the result of take the first and fourth column of this
@@ -103,6 +111,7 @@ class flcMysqlResult extends flcDbResult {
      * @inheritdoc
      */
     public function num_rows(): int {
+
         return ($this->num_rows > 0) ? $this->num_rows : $this->num_rows = $this->result_id->num_rows;
     }
 
@@ -139,7 +148,7 @@ class flcMysqlResult extends flcDbResult {
         $retval = [];
         $field_data = $this->result_id->fetch_fields();
         for ($i = 0, $c = count($field_data); $i < $c; $i++) {
-            $bytesxchar =$this-> _get_charset_bytes_per_character($field_data[$i]->charsetnr);
+            $bytesxchar = $this->_get_charset_bytes_per_character($field_data[$i]->charsetnr);
             echo $bytesxchar.PHP_EOL;
 
             $retval[$i] = new stdClass();

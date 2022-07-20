@@ -183,15 +183,29 @@ if ($con->open()) {
     echo 'Posicion test 01-1 in 0:'.array_search('test 01-1',$a[0]).PHP_EOL;
 
 
-   $driver->trans_start();
+    $driver->set_trans_unique(true);
+
     $driver->trans_start();
+    print_r($driver->error());
+
+    $driver->trans_start();
+    print_r($driver->error());
     $driver->trans_savepoint('ssss');
+    print_r($driver->error());
+    $driver->trans_rollback('ssss');
+    print_r($driver->error());
     $driver->trans_remove_savepoint('ssss');
+    print_r($driver->error());
     $driver->trans_commit();
+    print_r($driver->error());
     $driver->trans_remove_savepoint('xxxx');
+    print_r($driver->error());
     $driver->trans_complete();
+    print_r($driver->error());
 
     $con->close();
+
+
 
 } else {
     echo "Fallo la coneccion";

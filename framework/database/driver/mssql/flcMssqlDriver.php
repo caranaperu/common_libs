@@ -72,6 +72,99 @@ class flcMssqlDriver extends flcDriver {
     public $scrollable= null;
 
     /**
+     * The reserved word to execurte a stored procedure.
+     * @var string
+     */
+    protected string $_callable_procedure_call_string = 'exec';
+    protected array  $_callable_procedure_sep_string  = [' ', ' '];
+
+
+    // --------------------------------------------------------------------
+
+    protected static array $_cast_conversion = [
+        // boolean type
+        'boolean' => ['BIT', 'b',1],
+        // text types
+        'string' => ['VARCHAR', 't'],
+        'char' => ['CHAR', 't'],
+        'text' => ['VARCHAR(max)', 't'],
+        'nstring' => ['NVARCHAR', 't'],
+        'nchar' => ['NCHAR', 't'],
+        'ntext' => ['NTEXT', 't'],
+        // binary types
+        'binary' => ['VARBINARY', 't'],
+        'varbinary' => ['VARBINARY', 't'],
+        'blob' => ['VARBINARY(max)', 't'],
+        // enumerated types
+        'enum' => ['', 't'],
+        'set' => ['', 't'],
+        // Numeric types
+        'float' => ['FLOAT', 'n'],
+        'double' => ['DOUBLE PRECISION', 'n'],
+        'real' => ['REAL', 'n'],
+        'decimal' => ['DECIMAL', 'n'],
+        'ufloat' => ['FLOAT', 'n'],
+        'udouble' => ['DOUBLE PRECISION', 'n'],
+        'udecimal' => ['DECIMAL', 'n'],
+        'bit' => ['BIT', 'm'],
+        'tinyint' => ['SMALLINT', 'n'],
+        'utinyint' => ['SMALLINT', 'n'],
+        'smallint' => ['SMALLINT', 'n'],
+        'usmallint' => ['INTEGER', 'n'],
+        'mediumint' => ['INTEGER', 'n'],
+        'umediumint' => ['INTEGER', 'n'],
+        'int' => ['INTEGER', 'n'],
+        'uint' => ['BIGINT', 'n'],
+        'bigint' => ['BIGINT', 'n'],
+        'ubigint' => ['NUMERIC(20)', 'n'],
+        'numeric' => ['NUMERIC', 'n'],
+        'unumeric' => ['NUMERIC', 'n'],
+        'money' => ['MONEY', 'n'],
+        // date / time types
+        'date' => ['DATE', 't'],
+        'datetime' => ['DATETIME', 't'],
+        'timestamp' => ['DATETIME', 't'],
+        'time' => ['TIME', 't'],
+        'year' => ['SMALLINT', 'n'],
+        // json / xml
+        'json' => ['VARCHAR', 't'],
+        'jsonb' => ['VARCHAR', 't'],
+        'xml' => ['XML', 't'],
+        //  spatial data types
+        'geometry' => ['', 't'],
+        'point' => ['', 't'],
+        'linestring' => ['', 't'],
+        'line' => ['', 't'],
+        'lseg' => ['', 't'],
+        'path' => ['', 't'],
+        'polygon' => ['', 't'],
+        'box' => ['', 't'],
+        'circle' => ['', 't'],
+        'multipoint' => ['', 't'],
+        'multilinestring' => ['', 't'],
+        'geometrycollection' => ['', 't'],
+        // Interval / ranges
+        'int4range' => ['', 't'],
+        'int8range' => ['', 't'],
+        'numrange' => ['', 't'],
+        'tsrange' => ['', 't'],
+        'tstzrange' => ['', 't'],
+        'daterange' => ['', 't'],
+        // FULL TEXT SEARCH
+        'tsvector' => ['', 't'],
+        'tsquery' => ['', 't'],
+        //arrays
+        'array' => ['', 't'],
+        // inet types
+        'cidr' => ['', 't'],
+        'inet' => ['', 't'],
+        'macaddr' => ['', 't'],
+
+    ];
+
+    // --------------------------------------------------------------------
+
+    /**
      * Class constructor
      *
      * @param array $params
@@ -88,8 +181,11 @@ class flcMssqlDriver extends flcDriver {
         //
         if ($this->scrollable === NULL) {
             $this->scrollable = defined('SQLSRV_CURSOR_CLIENT_BUFFERED') ? SQLSRV_CURSOR_CLIENT_BUFFERED : FALSE;
+            //$this->scrollable = defined('SQLSRV_CURSOR_STATIC') ? SQLSRV_CURSOR_STATIC : FALSE;
         }
     }
+
+    // --------------------------------------------------------------------
 
 
     /**
@@ -171,7 +267,7 @@ class flcMssqlDriver extends flcDriver {
     protected function _execute_qry(string $p_sqlquery) {
         return ($this->scrollable === FALSE OR $this->is_write_type($p_sqlquery))
             ? sqlsrv_query($this->conn->get_connection_id(), $p_sqlquery)
-            : sqlsrv_query($this->conn->get_connection_id(), $p_sqlquery, NULL, array('Scrollable' => $this->scrollable));
+            : sqlsrv_query($this->conn->get_connection_id(), $p_sqlquery, NULL, array('Scrollable' => $this->scrollable,'SendStreamParamsAtExec' => 0));
     }
 
     // --------------------------------------------------------------------
@@ -341,8 +437,8 @@ class flcMssqlDriver extends flcDriver {
      * @inheritdoc
      */
     protected function _trans_remove_savepoint(string $p_savepoint): bool {
-        // NOT SUPPORTED IN T_SQL
-        return FALSE;
+        // NOT SUPPORTED IN T_SQL always retur tru to allow normal flow of the driver
+        return true;
     }
 
     // --------------------------------------------------------------------

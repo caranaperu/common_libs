@@ -182,6 +182,7 @@ if ($con->open()) {
 
 
 
+    $driver->set_trans_unique(true);
     $driver->trans_start();
     print_r($driver->error());
 
