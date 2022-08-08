@@ -138,3 +138,8 @@ chequear sp que solo retornan output parameters
 verificar el free statement.
 caso sp con retur @valor en mysql que si se ha probado en sql server
 SET LIMIT o TOP segun el caso al crear sql
+que pasa para los casos sin return.
+
+VER CASO VIEWS , son funciones o stored procedures?
+Select [NAME] from sysobjects where type = 'V' and category = 0
+

@@ -15,217 +15,128 @@ ini_set('sqlsrv.ClientBufferMaxKBSize', '200000'); // Setting to 512M
 $con = new flcMssqlConnection();
 $con->initialize(null, '192.168.18.9', 1532, 'veritrade', 'sa', 'melivane', $p_charset = 'utf8');
 
+
+function print_resultsets($driver, $query) {
+    if ($query) {
+
+        $numresults = $query->get_num_resultsets();
+
+        for ($i = 0; $i < $numresults; $i++) {
+            $res = $query->get_resultset_result($i);
+
+            if ($res) {
+                echo PHP_EOL.'  --- Resultset -----'.PHP_EOL;
+
+                if ($res->num_rows() > 0) {
+                    foreach ($res->result_array() as $row) {
+                        print_r($row);
+                    }
+                    $res->free_result();;
+                }
+
+                // PONER COMO HACER FREEEEEEEE
+            } else {
+                $errors = $driver->error();
+                if ($errors) {
+                    print_r($errors);
+                }
+            }
+
+        }
+
+        echo PHP_EOL.'  --- Output parameters -----'.PHP_EOL;
+
+        $outparams = $query->get_out_params();
+        if (isset($outparams)) {
+            echo PHP_EOL;
+            $paramtoshow = $outparams->get_out_params();
+            foreach ($paramtoshow as $key => $value) {
+                echo 'EL RESULTAOD : '.$key.' - '.$value.PHP_EOL;
+            }
+
+
+        }
+    } else {
+        print_r($driver->error());
+    }
+
+}
+
 if ($con->open()) {
     $driver = new flcMssqlDriver($con);
 
     echo PHP_EOL.'---------------------------- Devuelve un solo valor ------------------------'.PHP_EOL;
 
-    $query = $driver->execute_stored_procedure('getSimpleValue', flcDriver::FLCDRIVER_PROCTYPE_VALUE, [
+    $query = $driver->execute_stored_procedure('getSimpleValue', flcDriver::FLCDRIVER_PROCTYPE_SCALAR, [
         [
             100, flcDriver::FLCDRIVER_PARAMTYPE_IN, 'int'
         ]
     ]);
-    if ($query) {
-        $query = $query->get_resultset_result();
-        if ($query->num_rows() > 0) {
-            foreach ($query->result_array() as $row) {
-                print_r($row);
-            }
-        }
-    } else {
-        print_r($driver->error());
-    }
+    print_resultsets($driver, $query);
 
     echo PHP_EOL.'---------------------------- Devuelve single resultsets ------------------------'.PHP_EOL;
 
     $query = $driver->execute_stored_procedure('getResultset', flcDriver::FLCDRIVER_PROCTYPE_RESULTSET, [1, 2018]);
-    if ($query) {
-        $res = $query->get_resultset_result();
+    print_resultsets($driver, $query);
 
-        if ($res->num_rows() > 0) {
-            foreach ($res->result_array() as $row) {
-                print_r($row);
-            }
-        }
-    } else {
-        print_r($driver->error());
-    }
 
     echo PHP_EOL.'---------------------------- Devuelve single resultsets y output paramas ------------------------'.PHP_EOL;
 
-    $query = $driver->execute_stored_procedure('getResultset_out', (flcDriver::FLCDRIVER_PROCTYPE_OUTP | flcDriver::FLCDRIVER_PROCTYPE_RESULTSET), [
+    $query = $driver->execute_stored_procedure('getResultset_out', flcDriver::FLCDRIVER_PROCTYPE_RESULTSET, [
         1, 2018, [
             2, flcDriver::FLCDRIVER_PARAMTYPE_OUT
         ]
     ]);
-    if ($query) {
-        $res = $query->get_resultset_result();
-
-        if ($res->num_rows() > 0) {
-            foreach ($res->result_array() as $row) {
-                print_r($row);
-            }
-        }
-
-        $outparams = $query->get_out_params();
-        if (isset($outparams) > 0) {
-            $paramtoshow = $outparams->get_out_params();
-            foreach ($paramtoshow as $key => $value) {
-                echo 'EL RESULTAOD : '.$key.' - '.$value.PHP_EOL;
-            }
-
-
-        }
-    } else {
-        print_r($driver->error());
-    }
+    print_resultsets($driver, $query);
 
     echo PHP_EOL.'---------------------------- Devuelve multiple resultsets ------------------------'.PHP_EOL;
 
-    $query = $driver->execute_stored_procedure('getMultipleResultset', flcDriver::FLCDRIVER_PROCTYPE_MULTIRESULTSET, [1, 2018]);
-    if ($query) {
-        for ($i=0 ; $i < $query->get_num_resultsets(); $i++) {
-            $res = $query->get_resultset_result($i);
-
-            if ($res->num_rows() > 0) {
-                foreach ($res->result_array() as $row) {
-                    print_r($row);
-                }
-            }
-
-        }
-
-    } else {
-        print_r($driver->error());
-    }
+    $query = $driver->execute_stored_procedure('getMultipleResultset', flcDriver::FLCDRIVER_PROCTYPE_MULTIRESULTSET, [
+        1, 2018, ['ref1', flcDriver::FLCDRIVER_PARAMTYPE_OUT, 'refcursor'],
+        ['ref2', flcDriver::FLCDRIVER_PARAMTYPE_OUT, 'refcursor']
+    ]);
+    print_resultsets($driver, $query);
 
     echo PHP_EOL.'---------------------------- Devuelve multiples resultsets y out params ------------------------'.PHP_EOL;
 
-    $query = $driver->execute_stored_procedure('getMultipleResultset_out', (flcDriver::FLCDRIVER_PROCTYPE_MULTIRESULTSET | flcDriver::FLCDRIVER_PROCTYPE_OUTP),
-        [1, 2018,['',flcDriver::FLCDRIVER_PARAMTYPE_OUT]]);
-    if ($query) {
-        for ($i=0 ; $i < $query->get_num_resultsets(); $i++) {
-            $res = $query->get_resultset_result($i);
+    $query = $driver->execute_stored_procedure('getMultipleResultset_out', flcDriver::FLCDRIVER_PROCTYPE_MULTIRESULTSET, [
+        1, 2018, [
+            '', flcDriver::FLCDRIVER_PARAMTYPE_OUT
+        ], ['ref1', flcDriver::FLCDRIVER_PARAMTYPE_OUT, 'refcursor'],
+        ['ref2', flcDriver::FLCDRIVER_PARAMTYPE_OUT, 'refcursor']
+    ]);
+    print_resultsets($driver, $query);
 
-            if ($res->num_rows() > 0) {
-                foreach ($res->result_array() as $row) {
-                    print_r($row);
-                }
-            }
-
-        }
-        $outparams = $query->get_out_params();
-        if (isset($outparams) > 0) {
-            $paramtoshow = $outparams->get_out_params();
-            foreach ($paramtoshow as $key => $value) {
-                echo 'EL RESULTAOD : '.$key.' - '.$value.PHP_EOL;
-            }
-
-
-        }
-
-    } else {
-        print_r($driver->error());
-    }
 
     echo PHP_EOL.'---------------------------- Devuelve un solo valor - out param (2) ------------------------'.PHP_EOL;
-    $query = $driver->execute_stored_procedure('assignDemo', flcDriver::FLCDRIVER_PROCTYPE_OUTP, [
+    $query = $driver->execute_stored_procedure('assignDemo', flcDriver::FLCDRIVER_PROCTYPE_RESULTSET, [
         [
             100, flcDriver::FLCDRIVER_PARAMTYPE_OUT
         ]
     ]/*,[0=>'int']*/);
-
-    if ($query) {
-        $res = $query->get_resultset_result();
-
-        if ($res && $res->num_rows() > 0) {
-            foreach ($res->result_array() as $row) {
-                print_r($row);
-            }
-        }
-
-        $outparams = $query->get_out_params();
-        if (isset($outparams)) {
-            $paramtoshow = $outparams->get_out_params();
-            foreach ($paramtoshow as $key => $value) {
-                echo 'EL RESULTAOD : '.$key.' - '.$value.PHP_EOL;
-            }
-
-
-        }
-    } else {
-        echo 'Error';
-        $error = sqlsrv_errors();
-        print_r($error).PHP_EOL;
-    }
+    print_resultsets($driver, $query);
 
 
     echo PHP_EOL.'---------------------------- Devuelve 2 valores - out param (2) ------------------------'.PHP_EOL;
-    $query = $driver->execute_stored_procedure('assignDemo_2', flcDriver::FLCDRIVER_PROCTYPE_OUTP, [
+    $query = $driver->execute_stored_procedure('assignDemo_2', flcDriver::FLCDRIVER_PROCTYPE_RESULTSET, [
         [
-            'test', flcDriver::FLCDRIVER_PARAMTYPE_OUT
+            'test', flcDriver::FLCDRIVER_PARAMTYPE_INOUT
         ], [
             1, flcDriver::FLCDRIVER_PARAMTYPE_OUT
         ]
     ]/*,[0=>'int']*/);
+    print_resultsets($driver, $query);
 
-    if ($query) {
-
-        $res = $query->get_resultset_result();
-
-        if ($res && $res->num_rows() > 0) {
-            foreach ($res->result_array() as $row) {
-                print_r($row);
-            }
-        }
-
-        $outparams = $query->get_out_params();
-        if (isset($outparams)) {
-            $paramtoshow = $outparams->get_out_params();
-            foreach ($paramtoshow as $key => $value) {
-                echo 'EL RESULTAOD : '.$key.' - '.$value.PHP_EOL;
-            }
-
-
-        }
-    } else {
-        echo 'Error';
-        $error = sqlsrv_errors();
-        print_r($error).PHP_EOL;
-    }
 
     echo PHP_EOL.'---------------------------- Devuelve 2 valores y un input - out param (2) ------------------------'.PHP_EOL;
-    $query = $driver->execute_stored_procedure('assignDemo_3', flcDriver::FLCDRIVER_PROCTYPE_OUTP, [
+    $query = $driver->execute_stored_procedure('assignDemo_3', flcDriver::FLCDRIVER_PROCTYPE_RESULTSET, [
         [
             'test', flcDriver::FLCDRIVER_PARAMTYPE_OUT
         ], 333, [
             1, flcDriver::FLCDRIVER_PARAMTYPE_OUT
         ]
     ]/*,[0=>'int']*/);
-
-    if ($query) {
-        $res = $query->get_resultset_result();
-
-        if ($res && $res->num_rows() > 0) {
-            foreach ($res->result_array() as $row) {
-                print_r($row);
-            }
-        }
-
-        $outparams = $query->get_out_params(1);
-        if (isset($outparams)) {
-            $paramtoshow = $outparams->get_out_params();
-            foreach ($paramtoshow as $key => $value) {
-                echo 'EL RESULTAOD : '.$key.' - '.$value.PHP_EOL;
-            }
-
-
-        }
-    } else {
-        echo 'Error';
-        $error = sqlsrv_errors();
-        print_r($error).PHP_EOL;
-    }
+    print_resultsets($driver, $query);
 
     $con->close();
 }

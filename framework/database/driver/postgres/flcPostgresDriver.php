@@ -2,6 +2,8 @@
 
 namespace framework\database\driver\postgres;
 
+
+
 /**
  * FLabsCode
  *
@@ -39,6 +41,10 @@ namespace framework\database\driver\postgres;
  */
 
 use framework\database\driver\flcDriver;
+use framework\database\flcDbResultOutParams;
+use framework\database\flcDbResults;
+use framework\database\flcDbResult;
+
 
 /**
  * Postgres Driver Class
@@ -143,7 +149,7 @@ class flcPostgresDriver extends flcDriver {
      *
      * @var string
      */
-    protected string       $_callable_function_call_string_scalar  = 'select * from';
+    protected string       $_callable_function_call_string_scalar  = 'select';
 
 
     // --------------------------------------------------------------------
@@ -390,5 +396,288 @@ class flcPostgresDriver extends flcDriver {
     }
 
     // --------------------------------------------------------------------
+    /*******************************************************
+     * DB dependant methods
+     */
 
+    /**
+     * @inheritdoc
+     *
+     * Important : postgres doesnt support limit or order by in update statementes (try use CTE, can be a solution)
+     */
+    protected function _update(string $p_table, array $p_values, string $p_where, int $p_limit = 0, ?string $p_orderby = null): string {
+        $valstr = [];
+        foreach ($p_values as $key => $val) {
+            $valstr[] = $key.' = '.$val;
+        }
+
+        return "UPDATE $p_table SET ".implode(', ', $valstr)." WHERE $p_where";
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * @inheritdoc
+     */
+    public function affected_rows(?flcDbResult $p_rsrc) : int {
+        return pg_affected_rows($p_rsrc->result_id);
+    }
+
+    // --------------------------------------------------------------------
+
+
+    /***********************************************************************
+     * Stored procedures and function support
+     */
+
+    /**
+     * @inheritdoc
+     */
+    public function execute_function(string $p_fn_name, ?array $p_parameters = null, ?array $p_casts = null): ?flcDbResult {
+        $is_scalar = false;
+
+        // detect number of in parameters
+        if ($p_parameters == null || count($p_parameters) == 0) {
+            $numparams = 0;
+        } else {
+            $numparams = count($p_parameters);
+        }
+
+        // detect type function or procedure and if the return is refcursors, in postgres when we have return of refcursors
+        // its imposible to have refcursors as inout or out parameters.
+        // See we also search using number of input parameters because we can have 2 functions/procedures with the same name but
+        // different parameters,
+        // TODO: Verify same number of parameters but of different types.
+        $res = $this->execute_query("SELECT proname,prokind,proretset FROM pg_proc p  WHERE pronargs = $numparams and proname = LOWER('$p_fn_name')");
+        if ($res) {
+            $row = $res->row_array(0);
+            if ($row['proretset'] == 'f') {
+                $is_scalar = true;
+            }
+            $res->free_result();
+        } else {
+            // TODO: add error log
+            return null;
+        }
+
+        if ($is_scalar) {
+            $sqlfunc = $this->callable_string($p_fn_name, 'function', 'scalar', $p_parameters, $p_casts);
+        } else {
+            $sqlfunc = $this->callable_string($p_fn_name, 'function', 'records', $p_parameters, $p_casts);
+
+        }
+        echo $sqlfunc.PHP_EOL;
+
+
+        return $this->execute_query($sqlfunc);
+
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function execute_stored_procedure(string $p_fn_name, string $p_type, ?array $p_parameters = null, ?array $p_casts = null): ?flcDbResults {
+
+        $params = [];
+        $outparams_count = 0;
+        $sqlpre = '';
+
+        $is_outparams = false;
+        $is_multiresult = false;
+        $is_function = true;
+        $refcursors = [];
+
+        $refcursors_ret = false;
+
+        // detect number of in parameters
+        if ($p_parameters == null || count($p_parameters) == 0) {
+            $numparams = 0;
+        } else {
+            $numparams = count($p_parameters);
+        }
+
+        // detect type function or procedure and if the return is refcursors, in postgres when we have return of refcursors
+        // its imposible to have refcursors as inout or out parameters.
+        // See we also search using number of input parameters because we can have 2 functions/procedures with the same name but
+        // different parameters,
+        // TODO: Verify same number of parameters but of different types.
+        $res = $this->execute_query("SELECT proname,prokind,pa.typname FROM pg_proc p INNER JOIN pg_type pa ON pa.oid = p.prorettype WHERE pronargs = $numparams and proname = LOWER('$p_fn_name')");
+        if ($res) {
+            $row = $res->row_array(0);
+            if ($row['prokind'] == 'p') {
+                $is_function = false;
+            }
+            if ($row['typname'] === 'refcursor') {
+                $refcursors_ret = true;
+                $sqlpre = 'begin;';
+            }
+            $res->free_result();
+        } else {
+            // TODO: add error log
+            return null;
+        }
+
+        // Parameter analisys
+        if ($p_parameters && count($p_parameters) > 0) {
+            for ($i = 0; $i < count($p_parameters); $i++) {
+                // determine if parameter is an array or simple and get the value.
+                if (is_array($p_parameters[$i])) {
+
+                    // take the parameters descriptors.
+                    $value = $p_parameters[$i][0];
+                    $paramtype = $p_parameters[$i][1] ?? '';
+                    $sqltype = $p_parameters[$i][2] ?? '';
+
+                    if ($p_type == self::FLCDRIVER_PROCTYPE_SCALAR) {
+                        $params[] = $value;
+                    } elseif ($paramtype == self::FLCDRIVER_PARAMTYPE_OUT || $paramtype == self::FLCDRIVER_PARAMTYPE_INOUT) {
+                        if ($sqltype !== 'refcursor') {
+                            $is_outparams = true;
+                            $outparams_count++;
+                            $params[] = (is_string($value) ? '\''.$value.'\'' : $value);;
+                        } else {
+                            // refcursors
+                            $params[] = '\''.$value.'\'';
+                            $refcursors[] = $value;
+
+                            $sqlpre = 'begin;';
+                        }
+                    } else {
+                        $params[] = (is_string($value) ? '\''.$value.'\'' : $value);;
+                    }
+
+
+                } else {
+                    $params[] = (is_string($p_parameters[$i]) ? '\''.$p_parameters[$i].'\'' : $p_parameters[$i]);
+                }
+            }
+        }
+
+        $is_resultset = ($p_type == self::FLCDRIVER_PROCTYPE_RESULTSET);
+        $is_multiresultset = ($p_type == self::FLCDRIVER_PROCTYPE_MULTIRESULTSET);
+
+        // create sp store results
+        require_once('flcDbResults.php');
+        $results = new flcDbResults();
+
+
+        // Get the callable string
+        if ($is_function) {
+            if ($is_resultset || $is_multiresultset) {
+                $sqlfunc = $this->callable_string($p_fn_name, 'function', 'records', $params, $p_casts);
+
+            } else {
+                $sqlfunc = $this->callable_string($p_fn_name, 'function', 'scalar', $params, $p_casts);
+            }
+
+        } else {
+            $sqlfunc = $this->callable_string($p_fn_name, 'procedure', 'scalar', $params, $p_casts);
+
+        }
+
+        $sqlfunc = $sqlpre.$sqlfunc;
+        echo $sqlfunc.PHP_EOL;
+
+
+        // Process the stored procedurre
+        //
+
+
+        // If only a sp with a single return value?
+        // generate the sql code and execute
+        if (($p_type & self::FLCDRIVER_PROCTYPE_SCALAR) == self::FLCDRIVER_PROCTYPE_SCALAR) {
+
+            $res = $this->execute_query($sqlfunc);
+            $results->add_resultset_result($res);
+
+        } // For stores procedures with output parameters o resultset or both
+        elseif ($is_outparams || $is_resultset || $is_multiresultset) {
+
+            $conn = $this->get_connection()->get_connection_id();
+            // execute
+            $res = pg_query($conn, $sqlfunc);
+            if ($res) {
+                $refcursor_count = count($refcursors);
+                // Have refcursors parameters?
+                if ($refcursor_count > 0) {
+                    // have output parameters ?
+                    if ($is_outparams) {
+                        // get the resultset first with the output parameters
+                        $result_driver = $this->load_result_driver();
+                        $result = new $result_driver($this, $res);
+
+
+                        $results->add_resultset_result($result);
+
+                    }
+
+                    // process refcursor parameters
+                    for ($i = 0; $i < $refcursor_count; $i++) {
+                        print_r("----------------------------------");
+                        print_r($refcursors[$i]);
+                        print_r("----------------------------------");
+
+                        $resrefs = $this->execute_query("fetch all in $refcursors[$i];");
+                        $results->add_resultset_result($resrefs);
+
+                    }
+                    $resrefs = pg_query($conn, 'end;');
+
+                } elseif ($refcursors_ret) {
+                    // with refcursor return only, no in refcursors parameters
+                    while ($row = pg_fetch_row($res)) {
+                        pg_query($conn, "begin;");;
+                        $resrefs = $this->execute_query("fetch all in \"$row[0]\";");
+                        $results->add_resultset_result($resrefs);
+
+                    }
+                    $resrefs = pg_query($conn, 'end;');
+
+                } else {
+                    // If a resulset type sp , get the results.
+                    if ($is_resultset || $is_multiresultset) {
+
+                        // Get the resulset or resultsets
+                        $result_driver = $this->load_result_driver();
+                        $result = new $result_driver($this, $res);
+
+
+                        $results->add_resultset_result($result);
+
+
+                    }
+                }
+                // we need to process output params?
+                if ($is_outparams) {
+                    // in the first resultset always we found the out params
+                    $result = $results->get_resultset_result();
+                    if ($result) {
+                        require_once('flcDbResultOutParams.php');
+                        $outparams = new flcDbResultOutParams();
+
+                        if ($result->num_rows() > 0) {
+                            foreach ($result->result_array() as $row) {
+                                foreach ($row as $key => $value) {
+                                    $outparams->add_out_param($key, $value);
+
+                                }
+                            }
+
+                            $results->add_outparams_result($outparams);
+                        }
+                        $results->resultset_free_result();
+
+                    }
+                }
+
+
+            } else {
+                $results = null;
+            }
+
+        }
+
+        return $results;
+
+    }
 }

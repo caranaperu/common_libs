@@ -73,7 +73,7 @@ class flcDbResults {
     // --------------------------------------------------------------------
 
     /**
-     * @param object $p_resulset_id
+     * @param flcDbResult $p_resulset_result
      *
      * @return void
      */
@@ -92,9 +92,22 @@ class flcDbResults {
 
     // --------------------------------------------------------------------
 
+    /**
+     * Return the resultset in the index position or null if not exist.
+     * We dont use $this->resultsets[$index] because some of the elements can be removed
+     * and the index will be different that the position.
+     *
+     * @param int $index number of element to search
+     *
+     * @return flcDbResult|null the result
+     */
     public function get_resultset_result(int $index = 0): ?flcDbResult {
-        if (isset($this->resultsets[$index])) {
-            return $this->resultsets[$index];
+        if (isset($this->resultsets)) {
+            $result = array_values($this->resultsets)[$index];
+            if (isset($result)) {
+                return $result;
+            }
+
         }
 
         return null;

@@ -10,26 +10,8 @@ select * from fn(params)                    | N/A                               
 
 
 
--- Functions in ms sql server
-Stored Procedure (SP)	Function (UDF - User Defined)
-SP can return zero, single or multiple values.	Function must return a single value (which may be a scalar or a table).
-We can use transaction in SP.	We can't use transaction in UDF.
-SP can have input/output parameter.	Only input parameter.
-We can call function from SP.	We can't call SP from function.
-We can't use SP in SELECT/ WHERE/ HAVING statement.	We can use UDF in SELECT/ WHERE/ HAVING statement.
-We can use exception handling using Try-Catch block in SP.	We can't use Try-Catch block in UDF.
 
 
-Caso uno devuelve un solo valor siolo input parameter.
-caso devuelve multiple resultsets
-caso devuelve por output parameters
+-----------------------------------------------------------
+Ver la necesidad de usar multiple resultsets flag.
 
-
-Si devuelve out parameters
-el flcResult debe agregarsele estos campos al los results
-
-si devuelve multiple resultsets
-el flcResult debe contener mas de una respuesta array o debe haber un flcResult por cada resultset.
-
--- IMPORTANTE , VER COMO GENERAR CASTS COON DECLARE EN MSSQL SERVER
-- En sql server no se permiten cast al llamar.

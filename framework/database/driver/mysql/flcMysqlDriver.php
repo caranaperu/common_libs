@@ -2,6 +2,7 @@
 
 namespace framework\database\driver\mysql;
 
+
 /**
  * FLabsCode
  *
@@ -39,6 +40,10 @@ namespace framework\database\driver\mysql;
  */
 
 use framework\database\driver\flcDriver;
+use framework\database\flcDbResult;
+use framework\database\flcDbResultOutParams;
+use framework\database\flcDbResults;
+
 
 /**
  * Mysql Driver Class
@@ -76,78 +81,32 @@ class flcMysqlDriver extends flcDriver {
     protected static array $_cast_conversion = [
         // boolean type
         'boolean' => ['UNSIGNED', 'b', 1], // text types
-        'string' => ['char', 't'],
-        'char' => ['CHAR', 't'],
-        'text' => ['CHAR', 't'],
-        'nstring' => ['NCHAR', 't'],
-        'nchar' => ['NCHAR', 't'],
-        'ntext' => ['NCHAR', 't'],
-        // binary types
-        'binary' => ['BINARY', 't'],
-        'varbinary' => ['BINARY', 't'],
-        'blob' => ['BINARY', 't'],
-        // enumerated types
-        'enum' => ['ENUM', 't'],
-        'set' => ['SET', 't'],
-        // Numeric types
-        'float' => ['FLOAT', 'n'],
-        'double' => ['DOUBLE', 'n'],
-        'real' => ['REAL', 'n'],
-        'decimal' => ['DECIMAL', 'n'],
+        'string' => ['char', 't'], 'char' => ['CHAR', 't'], 'text' => ['CHAR', 't'], 'nstring' => ['NCHAR', 't'],
+        'nchar' => ['NCHAR', 't'], 'ntext' => ['NCHAR', 't'], // binary types
+        'binary' => ['BINARY', 't'], 'varbinary' => ['BINARY', 't'], 'blob' => ['BINARY', 't'], // enumerated types
+        'enum' => ['ENUM', 't'], 'set' => ['SET', 't'], // Numeric types
+        'float' => ['FLOAT', 'n'], 'double' => ['DOUBLE', 'n'], 'real' => ['REAL', 'n'], 'decimal' => ['DECIMAL', 'n'],
         'ufloat' => ['FLOAT', 'n'], // deprecated
         'udouble' => ['DOUBLE', 'n'], // deprecated
         'udecimal' => ['DECIMAL', 'n'], // deprecated
-        'bit' => ['BIT', 'n'],
-        'tinyint' => ['SIGNED', 'n'],
-        'utinyint' => ['UNSIGNED', 'n'],
-        'smallint' => ['SIGNED', 'n'],
-        'usmallint' => ['UNSIGNED', 'n'],
-        'mediumint' => ['SIGNED', 'n'],
-        'umediumint' => ['UNSIGNED', 'n'],
-        'int' => ['SIGNED', 'n'],
-        'uint' => ['UNSIGNED', 'n'],
-        'bigint' => ['SIGNED', 'n'],
-        'ubigint' => ['UNSIGNED', 'n'],
-        'numeric' => ['DECIMAL', 'n'],
-        'unumeric' => ['DECIMAL', 'n'],
-        'money' => ['DECIMAL', 'n'],
-        // date / time types
-        'date' => ['DATE', 't'],
-        'datetime' => ['DATETIME', 't'],
-        'timestamp' => ['DATETIME', 't'],
-        'time' => ['TIME', 't'],
-        'year' => ['', 'n'],
-        // json / xml
-        'json' => ['JSON', 't'],
-        'jsonb' => ['JSON', 't'],
-        'xml' => ['CHAR', 't'],
-        // spatial data types
-        'geometry' => ['GEOMETRY', 't'],
-        'point' => ['POINT', 't'],
-        'linestring' => ['LINESTRING', 't'],
-        'line' => ['LINESTRING', 't'],
-        'lseg' => ['LINESTRING', 't'],
-        'path' => ['LINESTRING', 't'],
-        'polygon' => ['POLYGON', 't'],
-        'box' => ['POLYGON', 't'],
-        'circle' => ['POLYGON', 't'],
-        'multipoint' => ['MULTIPOINT', 't'],
-        'multilinestring' => ['MULTILINESTRING', 't'],
-        'geometrycollection' => ['GEOMETRYCOLLECTION', 't'],
-        // Interval / ranges
-        'int4range' => ['', 't'],
-        'int8range' => ['', 't'],
-        'numrange' => ['', 't'],
-        'tsrange' => ['', 't'],
-        'tstzrange' => ['', 't'],
-        'daterange' => ['', 't'],
-        // FULL TEXT SEARCH
-        'tsvector' => ['CHAR', 't'],
-        'tsquery' => ['CHAR', 't'], //arrays
+        'bit' => ['BIT', 'n'], 'tinyint' => ['SIGNED', 'n'], 'utinyint' => ['UNSIGNED', 'n'],
+        'smallint' => ['SIGNED', 'n'], 'usmallint' => ['UNSIGNED', 'n'], 'mediumint' => ['SIGNED', 'n'],
+        'umediumint' => ['UNSIGNED', 'n'], 'int' => ['SIGNED', 'n'], 'uint' => ['UNSIGNED', 'n'],
+        'bigint' => ['SIGNED', 'n'], 'ubigint' => ['UNSIGNED', 'n'], 'numeric' => ['DECIMAL', 'n'],
+        'unumeric' => ['DECIMAL', 'n'], 'money' => ['DECIMAL', 'n'], // date / time types
+        'date' => ['DATE', 't'], 'datetime' => ['DATETIME', 't'], 'timestamp' => ['DATETIME', 't'],
+        'time' => ['TIME', 't'], 'year' => ['', 'n'], // json / xml
+        'json' => ['JSON', 't'], 'jsonb' => ['JSON', 't'], 'xml' => ['CHAR', 't'], // spatial data types
+        'geometry' => ['GEOMETRY', 't'], 'point' => ['POINT', 't'], 'linestring' => ['LINESTRING', 't'],
+        'line' => ['LINESTRING', 't'], 'lseg' => ['LINESTRING', 't'], 'path' => ['LINESTRING', 't'],
+        'polygon' => ['POLYGON', 't'], 'box' => ['POLYGON', 't'], 'circle' => ['POLYGON', 't'],
+        'multipoint' => ['MULTIPOINT', 't'], 'multilinestring' => ['MULTILINESTRING', 't'],
+        'geometrycollection' => ['GEOMETRYCOLLECTION', 't'], // Interval / ranges
+        'int4range' => ['', 't'], 'int8range' => ['', 't'], 'numrange' => ['', 't'], 'tsrange' => ['', 't'],
+        'tstzrange' => ['', 't'], 'daterange' => ['', 't'], // FULL TEXT SEARCH
+        'tsvector' => ['CHAR', 't'], 'tsquery' => ['CHAR', 't'], //arrays
         'array' => ['CHAR', 't'], // inet types
-        'cidr' => ['CHAR(43)', 't'],
-        'inet' => ['CHAR(43)', 't'],
-        'macaddr' => ['CHAR(17)', 't'],
+        'cidr' => ['CHAR(43)', 't'], 'inet' => ['CHAR(43)', 't'], 'macaddr' => ['CHAR(17)', 't'],
 
     ];
 
@@ -346,15 +305,31 @@ class flcMysqlDriver extends flcDriver {
     }
 
     /**
+     * @inheritdoc
+     */
+    public function escape_identifiers($p_item) {
+
+        if (is_array($p_item)) {
+            foreach ($p_item as $key => $value) {
+                $p_item[$key] = $this->escape_identifiers($value);
+            }
+
+            return $p_item;
+        }
+
+        return $this->conn->get_connection_id()->real_escape_string($p_item);
+    }
+
+    /**
      * Important in mysql cant cast to bool , then left the value as is.
      *
      * @inheritdoc
      */
-    public function cast_param(string $p_param, string $p_type, ?string $p_appendstr): string {
+    public function cast_param(string $p_param, string $p_type, ?string $p_appendstr = null): string {
         if (strtolower($p_type) == 'boolean') {
             $conv = $p_param;
         } else {
-            $conv = parent::cast_param($p_param, $p_type,$p_appendstr);
+            $conv = parent::cast_param($p_param, $p_type, $p_appendstr);
         }
 
         return $conv;
@@ -434,5 +409,150 @@ class flcMysqlDriver extends flcDriver {
     }
 
     // --------------------------------------------------------------------
+
+    /**********************************************************************
+     * DB dependant methods
+     */
+
+    /**
+     * @inheritdoc
+     */
+    public function affected_rows(?flcDbResult $p_rsrc) : int {
+        return mysqli_affected_rows($this->conn->get_connection_id());
+    }
+
+    // --------------------------------------------------------------------
+
+    /***********************************************************************
+     * Stored procedures and function support
+     */
+
+    /**
+     * @inheritdoc
+     */
+    public function execute_function(string $p_fn_name, ?array $p_parameters = null, ?array $p_casts = null): ?flcDbResult {
+        $sqlfunc = $this->callable_string($p_fn_name, 'function', 'scalar', $p_parameters, $p_casts);
+
+        return $this->execute_query($sqlfunc);
+
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function execute_stored_procedure(string $p_fn_name, string $p_type, ?array $p_parameters = null, ?array $p_casts = null): ?flcDbResults {
+
+        $params = [];
+        $outparams_count = 0;
+        $sqlpre = '';
+        $sqlpost = '';
+
+        if ($p_parameters && count($p_parameters) > 0) {
+
+            for ($i = 0; $i < count($p_parameters); $i++) {
+                // determine if parameter is an array or simple and get the value.
+                if (is_array($p_parameters[$i])) {
+
+
+                    // take the parameters descriptors.
+                    $value = $p_parameters[$i][0];
+                    $paramtype = $p_parameters[$i][1] ?? '';
+                    $sqltype = $p_parameters[$i][2] ?? '';
+
+                    // Ignore refcursors for mantain compatability with pgsql
+                    if ($sqltype == 'refcursor') {
+                        continue;
+                    }
+
+                    // generate list of output paramenter
+                    if ($paramtype == self::FLCDRIVER_PARAMTYPE_OUT || $paramtype == self::FLCDRIVER_PARAMTYPE_INOUT) {
+
+                        $outparams_count++;
+
+                        $sqlpre .= (strlen($sqlpre) > 0 ? ';' : '');
+                        if ($paramtype == self::FLCDRIVER_PARAMTYPE_INOUT) {
+                            $sqlpre .= 'set @p'.$i.'='.(is_string($value) ? '\''.$value.'\'' : $value);
+                        }
+                        $sqlpost .= (strlen($sqlpost) > 0 ? ',@p'.$i : 'select @p'.$i);
+
+                        $params[] = '@p'.$i;
+                    } else {
+                        $params[] = (is_string($value) ? '\''.$value.'\'' : $value);
+                    }
+
+
+                } else {
+                    $params[] = (is_string($p_parameters[$i]) ? '\''.$p_parameters[$i].'\'' : $p_parameters[$i]);
+                }
+            }
+        }
+
+        // create sp store results
+        require_once('flcDbResults.php');
+        $results = new flcDbResults();
+
+
+        // Get the callable string
+        $sqlfunc = $this->callable_string($p_fn_name, 'procedure', 'records', $params, $p_casts);
+        if ($sqlpre) {
+            $sqlfunc = $sqlpre.';'.$sqlfunc;
+
+        }
+        if ($sqlpost) {
+            $sqlfunc = $sqlfunc.$sqlpost.';';
+
+        }
+        echo $sqlfunc;
+
+        $mysqli = $this->get_connection()->get_connection_id();
+        $res = $mysqli->multi_query($sqlfunc);
+
+        if ($res) {
+
+            $results_count = 0;
+            do {
+                if ($result = $mysqli->store_result()) {
+                    $result_driver = $this->load_result_driver();
+                    $result = new $result_driver($this, $result);
+
+                    $results->add_resultset_result($result);
+
+                    $results_count++;
+                }
+            } while ($mysqli->more_results() && $mysqli->next_result());
+
+            if ($outparams_count > 0) {
+                $result = $results->get_resultset_result($results_count - 1);
+                if ($result) {
+                    require_once('flcDbResultOutParams.php');
+
+                    $outparams = new flcDbResultOutParams();
+
+
+                    if ($result->num_rows() > 0) {
+                        foreach ($result->result_array() as $row) {
+                            foreach ($row as $key => $value) {
+                                $outparams->add_out_param($key, $value);
+
+                            }
+                        }
+
+                        $results->add_outparams_result($outparams);
+                    }
+                    $results->resultset_free_result($results_count - 1);
+
+                }
+
+
+            }
+
+            return $results;
+
+        } else {
+            return null;
+        }
+
+
+    }
 
 }

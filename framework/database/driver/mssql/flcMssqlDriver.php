@@ -2,6 +2,7 @@
 
 namespace framework\database\driver\mssql;
 
+
 /**
  * FLabsCode
  *
@@ -40,6 +41,10 @@ namespace framework\database\driver\mssql;
 
 use framework\database\driver\flcDriver;
 use framework\database\flcConnection;
+use framework\database\flcDbResultOutParams;
+use framework\database\flcDbResults;
+use framework\database\flcDbResult;
+
 
 /**
  * Microsoft sql  Driver Class (based on sqlsrv)
@@ -72,7 +77,7 @@ class flcMssqlDriver extends flcDriver {
     public $scrollable= null;
 
     /**
-     * The reserved word to execurte a stored procedure.
+     * The reserved word to execute a stored procedure.
      * @var string
      */
     protected string $_callable_procedure_call_string = 'exec';
@@ -173,6 +178,8 @@ class flcMssqlDriver extends flcDriver {
      */
     public function __construct(flcConnection $p_conn) {
         parent::__construct($p_conn);
+        //ini_set('memory_limit','256M'); // This also needs to be increased in some cases. Can be changed to a higher value as per need)
+
 
         // This is only supported as of SQLSRV 3.0
         // Recommendation left as null , otherwise some functions like get the numrows or isert_id will
@@ -385,6 +392,30 @@ class flcMssqlDriver extends flcDriver {
         return 'SELECT @@VERSION AS ver';
     }
 
+    /**
+     * @inheritdoc
+     */
+    function escape_identifiers($p_item) {
+        if (!isset($p_item) or empty($p_item))
+            return '';
+
+        if (is_numeric($p_item))
+            return $p_item;
+
+        $non_displayables = array(
+            '/%0[0-8bcef]/',        // URL encoded 00-08, 11, 12, 14, 15
+            '/%1[0-9a-f]/',         // url encoded 16-31
+            '/[\x00-\x08]/',        // 00-08
+            '/\x0b/',               // 11
+            '/\x0c/',               // 12
+            '/[\x0e-\x1f]/',        // 14-31
+            '/\27/'
+        );
+        foreach ($non_displayables as $regex)
+            $p_item = preg_replace( $regex, '', $p_item);
+        $replace = array('"', "'", '=');
+        return str_replace($replace, "*", $p_item);
+    }
     // --------------------------------------------------------------------
 
     /***********************************************************************
@@ -442,5 +473,231 @@ class flcMssqlDriver extends flcDriver {
     }
 
     // --------------------------------------------------------------------
+    /*******************************************************
+     * DB dependant methods
+     */
 
+    /**
+     *
+     * @inheritdoc
+     *
+     * Important : SQL SERVER doesnt allow order by on updates.
+     */
+    protected function _update(string $p_table, array $p_values, string $p_where, int $p_limit = 0, ?string $p_orderby = null ): string {
+        $valstr = [];
+        foreach ($p_values as $key => $val) {
+            $valstr[] = $key.' = '.$val;
+        }
+
+        $limitstr = '';
+        if ($p_limit > 0) {
+            $limitstr = "TOP($p_limit)";
+        }
+
+        return "UPDATE $limitstr $p_table  SET ".implode(', ', $valstr)." WHERE $p_where";
+    }
+
+    // --------------------------------------------------------------------
+
+
+    /**
+     * @inheritdoc
+     */
+    public function affected_rows(?flcDbResult $p_rsrc) : int {
+        return sqlsrv_rows_affected($p_rsrc->result_id);
+    }
+
+    // --------------------------------------------------------------------
+
+    /***********************************************************************
+     * Stored procedures and function support
+     */
+
+    /**
+     * @inheritdoc
+     */
+    public function execute_function(string $p_fn_name, ?array $p_parameters = null, ?array $p_casts = null): ?flcDbResult {
+
+        $sqlinfo = /** @lang TSQL */
+            'SELECT sm.object_id,
+                           OBJECT_NAME(sm.object_id) AS object_name,
+                           o.type,
+                           o.type_desc,
+                           sm.definition,
+                           sm.uses_ansi_nulls,
+                           sm.uses_quoted_identifier,
+                           sm.is_schema_bound,
+                           sm.execute_as_principal_id
+                        FROM sys.sql_modules AS sm
+                        JOIN sys.objects AS o ON sm.object_id = o.object_id
+                        WHERE sm.object_id = OBJECT_ID(\''.$p_fn_name.'\')
+                        ORDER BY o.type;';
+
+        $type = null;
+        if ($res = $this->_execute_qry($sqlinfo)) {
+            $type = sqlsrv_fetch_array($res)['type_desc'];
+            sqlsrv_free_stmt($res);
+        } else {
+            // TDDO : add to errors
+            return null;
+        }
+
+        if ($type && $type == 'SQL_SCALAR_FUNCTION') {
+            $sqlfunc = $this->callable_string($p_fn_name, 'function', 'scalar', $p_parameters, $p_casts);
+        } else {
+            $sqlfunc = $this->callable_string($p_fn_name, 'function', 'records', $p_parameters, $p_casts);
+
+        }
+        echo $sqlfunc.PHP_EOL;
+
+        return $this->execute_query($sqlfunc);
+
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function execute_stored_procedure(string $p_fn_name, string $p_type, ?array $p_parameters = null, ?array $p_casts = null): ?flcDbResults {
+
+        $params = [];
+        $oparams = [];
+        $outparams_count = 0;
+        $sqlpre = '';
+        $sqlpost = '';
+        $is_outparams = false;
+
+        if ($p_parameters && count($p_parameters) > 0) {
+            for ($i = 0; $i < count($p_parameters); $i++) {
+                // determine if parameter is an array or simple and get the value.
+                if (is_array($p_parameters[$i])) {
+                    $sqlpre = '';
+                    $sqlpost = '';
+
+                    // take the parameters descriptors.
+                    $value = $p_parameters[$i][0];
+                    $paramtype = $p_parameters[$i][1] ?? '';
+                    $sqltype = $p_parameters[$i][2] ?? '';
+
+                    // Ignore refcursors for mantain compatability with pgsql
+                    if ($sqltype == 'refcursor') {
+                        continue;
+                    }
+
+                    if ($p_type == self::FLCDRIVER_PROCTYPE_SCALAR) {
+                        // generate pre and post for catch the scalar return
+                        $sqlpre .= 'DECLARE @p'.$i.' '.$sqltype.';';
+                        $sqlpost .= 'SELECT @p'.$i.' as p'.$i.';';
+                        $params[] = $value;
+                    } elseif ($paramtype == self::FLCDRIVER_PARAMTYPE_OUT || $paramtype == self::FLCDRIVER_PARAMTYPE_INOUT) {
+                        $is_outparams = true;
+
+                        // In mssql server al output parameters are input also , no specific code for each case here.
+                        ${'p'.$outparams_count} = $value;
+
+                        $oparams[] = [
+                            &${'p'.$outparams_count},
+                            $paramtype == self::FLCDRIVER_PARAMTYPE_INOUT ? SQLSRV_PARAM_INOUT : SQLSRV_PARAM_OUT
+                        ];
+                        $params[] = '?';
+                        $outparams_count++;
+                    } else {
+                        $params[] = $value;
+                    }
+
+
+                } else {
+                    $params[] = (is_string($p_parameters[$i]) ? '\''.$p_parameters[$i].'\'' : $p_parameters[$i]);
+                }
+            }
+        }
+
+        // create sp store results
+        require_once('flcDbResults.php');
+        $results = new flcDbResults();
+
+
+        // Get the callable string
+        // No cast allowed in mssql server on stored procedures calls, ignore the parameter
+        $sqlfunc = $this->callable_string($p_fn_name, 'procedure', 'records', $params);
+
+
+        // Process the stored procedurre
+        //
+
+        $is_resultset = ($p_type == self::FLCDRIVER_PROCTYPE_RESULTSET);
+        $is_multiresultset = ($p_type == self::FLCDRIVER_PROCTYPE_MULTIRESULTSET);
+
+        // If only a sp with a single return value?
+        // generate the sql code and execute
+        if ($p_type == self::FLCDRIVER_PROCTYPE_SCALAR) {
+            $sqlfunc = $sqlpre.$sqlfunc.$sqlpost;
+            $sqlfunc = str_replace($this->_callable_procedure_call_string.' ', $this->_callable_procedure_call_string.' @p0 = ', $sqlfunc);
+            echo $sqlfunc.PHP_EOL;
+
+            $res = $this->execute_query($sqlfunc);
+            $results->add_resultset_result($res);
+
+        } // For stores procedures with output parameters o resultset or both
+        elseif ($is_outparams || $is_resultset || $is_multiresultset) {
+            echo $sqlfunc.PHP_EOL;
+
+
+            // execute
+            $res = sqlsrv_query($this->get_connection()->get_connection_id(), $sqlfunc, $oparams);
+            if ($res) {
+                // If a resulset type sp , get the results.
+                if ($is_resultset || $is_multiresultset) {
+
+                    // In single resultsets , we don prefetch the answers , is not required and also is more
+                    // efficient.
+                    if (!$is_outparams && $is_resultset) {
+                        $result_driver = $this->load_result_driver();
+                        $result = new $result_driver($this, $res);
+
+                        $results->add_resultset_result($result);
+
+                    } else {
+                        // Get the resulset or resultsets
+                        do {
+                            $result_driver = $this->load_result_driver();
+                            $result = new $result_driver($this, $res);
+
+                            // Yes , we need to pre-fetch al records , inefficient yes , but required in case we have to fetch the output parametes.
+                            // Info on docs : "make sure all result sets are stepped through,  since the output params may not be set until this happens"
+                            // Also we can never get the next resulset results without prefetching the previous ones.
+                            // Bad , bad , but no other way.
+                            $result->result_array();
+
+                            $results->add_resultset_result($result);
+                        } while (sqlsrv_next_result($res));
+
+                    }
+                }
+
+                // If we ned to process output params?
+                if ($is_outparams) {
+                    require_once('flcDbResultOutParams.php');
+
+                    $outparams = new flcDbResultOutParams();
+
+                    if (isset($oparams) && count($oparams) > 0) {
+                        for ($i = 0; $i < count($oparams); $i++) {
+                            $outparams->add_out_param('p'.$i, ${'p'.$i});
+                        }
+
+                    }
+
+                    $results->add_outparams_result($outparams);
+                }
+
+
+            } else {
+                return null;
+            }
+
+        }
+
+        return $results;
+
+    }
 }

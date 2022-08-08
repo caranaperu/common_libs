@@ -81,6 +81,10 @@ class flcMysqlConnection extends flcConnection {
      * @inheritDoc
      */
     public function initialize(?string $p_dsn, ?string $p_host, ?int $p_port, ?string $p_database, ?string $p_user, ?string $p_password, string $p_charset = 'utf8', string $p_collation = 'utf8_general_ci'): bool {
+        // For receive exceptions on errors
+        mysqli_report(MYSQLI_REPORT_ERROR);
+
+
         // Extract dsn parts if well defined, if the values are on dsn they are taken otherwise extract
         // them from the parameters
 

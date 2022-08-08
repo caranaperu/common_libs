@@ -1,0 +1,19 @@
+Para microsoft:
+SELECT Top n column names from table where ....... OFFSET n
+
+Para Mysql :
+select column names from table where ... LIMIT nrows
+select column names from table where ... LIMIT begin ! nrows
+
+PAra Postgres:
+select column names from table where ... LIMIT n
+
+
+------- Sql query
+
+select fields from table
+where field ....
+inner | left | right  join
+group by
+having
+order by
