@@ -187,6 +187,7 @@ class flcMssqlResult extends flcDbResult {
     public function free_result(): void {
         if (is_resource($this->result_id)) {
             sqlsrv_free_stmt($this->result_id);
+
             $this->result_id = null;
         }
     }
@@ -211,5 +212,17 @@ class flcMssqlResult extends flcDbResult {
 
         return is_object($obj) ? $obj : null;
     }
+
+    // --------------------------------------------------------------------
+
+
+    /**
+     * @inheritdoc
+     */
+    public function affected_rows() : int {
+        return sqlsrv_rows_affected($this->result_id);
+    }
+
+
 
 }

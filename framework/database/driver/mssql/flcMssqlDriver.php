@@ -40,10 +40,9 @@ namespace framework\database\driver\mssql;
  */
 
 use framework\database\driver\flcDriver;
-use framework\database\flcConnection;
+use framework\database\flcDbResult;
 use framework\database\flcDbResultOutParams;
 use framework\database\flcDbResults;
-use framework\database\flcDbResult;
 
 
 /**
@@ -65,6 +64,14 @@ use framework\database\flcDbResult;
 class flcMssqlDriver extends flcDriver {
 
     /**
+     * Hold the connection password
+     *
+     * @var string|null
+     */
+    protected ?string $_password = null;
+
+
+    /**
      * Scrollable flag
      *
      * Determines what cursor type to use when executing queries.
@@ -72,9 +79,9 @@ class flcMssqlDriver extends flcDriver {
      * FALSE or SQLSRV_CURSOR_FORWARD would increase performance,
      * but would disable num_rows() (and possibly insert_id())
      *
-     * @var	mixed
+     * @var    mixed
      */
-    public $scrollable= null;
+    public $scrollable = null;
 
     /**
      * The reserved word to execute a stored procedure.
@@ -88,7 +95,7 @@ class flcMssqlDriver extends flcDriver {
 
     protected static array $_cast_conversion = [
         // boolean type
-        'boolean' => ['BIT', 'b',1],
+        'boolean' => ['BIT', 'b', 1],
         // text types
         'string' => ['VARCHAR', 't'],
         'char' => ['CHAR', 't'],
@@ -172,12 +179,9 @@ class flcMssqlDriver extends flcDriver {
     /**
      * Class constructor
      *
-     * @param array $params
-     *
      * @return    void
      */
-    public function __construct(flcConnection $p_conn) {
-        parent::__construct($p_conn);
+    public function __construct() {
         //ini_set('memory_limit','256M'); // This also needs to be increased in some cases. Can be changed to a higher value as per need)
 
 
@@ -186,14 +190,138 @@ class flcMssqlDriver extends flcDriver {
         // fail as microsoft document.
         // @link https://docs.microsoft.com/en-us/sql/connect/php/cursor-types-sqlsrv-driver?view=sql-server-ver16
         //
-        if ($this->scrollable === NULL) {
-            $this->scrollable = defined('SQLSRV_CURSOR_CLIENT_BUFFERED') ? SQLSRV_CURSOR_CLIENT_BUFFERED : FALSE;
+        if ($this->scrollable === null) {
+            $this->scrollable = defined('SQLSRV_CURSOR_CLIENT_BUFFERED') ? SQLSRV_CURSOR_CLIENT_BUFFERED : false;
             //$this->scrollable = defined('SQLSRV_CURSOR_STATIC') ? SQLSRV_CURSOR_STATIC : FALSE;
         }
     }
 
     // --------------------------------------------------------------------
 
+    /**
+     * For mysql the dsn prototype will be : 'driver://username:password@hostname/database'
+     *
+     * @inheritDoc
+     */
+    public function initialize(?string $p_dsn, ?string $p_host, ?int $p_port, ?string $p_database, ?string $p_user, ?string $p_password, string $p_charset = SQLSRV_ENC_CHAR, string $p_collation = 'SQL_Latin1_General_CP1_CI_AS'): bool {
+        // Extract dsn parts if well defined, if the values are on dsn they are taken otherwise extract
+        // them from the parameters
+
+        // preserve the charset
+        if ($p_charset) {
+            $this->_charset = in_array(strtolower($p_charset), [
+                'utf-8',
+                'utf8'
+            ], true) ? 'UTF-8' : $p_charset;
+        } else {
+            $this->_charset = SQLSRV_ENC_CHAR;
+        }
+
+        /* if ($charset == 'UTF-8' && isset($p_collation)) {
+             substr($p_collation, -strlen($needle))===$needle
+         }*/
+
+        $query = '';
+        if (($parsedDsn = @parse_url($p_dsn)) !== false) {
+            $p_host = (isset($parsedDsn['host']) ? rawurldecode($parsedDsn['host']) : $p_host);
+            $p_port = (isset($parsedDsn['port']) ? rawurldecode($parsedDsn['port']) : $p_port);
+            $p_user = (isset($parsedDsn['user']) ? rawurldecode($parsedDsn['user']) : $p_user);
+            $p_password = (isset($parsedDsn['pass']) ? rawurldecode($parsedDsn['pass']) : $p_password);
+            $p_database = (isset($parsedDsn['database']) ? rawurldecode($parsedDsn['database']) : $p_database);
+            $query = isset($parsedDsn['query']) ? rawurldecode($parsedDsn['query']) : "";
+
+        }
+
+
+        // Set default if values not defined , generate the full dsn for postgres
+        $p_port = ($p_port ?? '1433');
+
+        // if not user and password defined , try as a windows credentials login.
+        if (!isset($p_user) && !isset($p_password)) {
+            $p_user = '';
+            $p_password = '';
+        }
+
+        // Check values
+        if (!isset($p_host) || !isset($p_database)) {
+            return false;
+        } else {
+            $this->_password = $p_password;
+
+            $this->_dsn = 'mssql://'.$p_user.':'.$p_password.'@'.$p_host.':'.$p_port.'/'.$p_database;
+            if ($query && $query != "") {
+                $this->_dsn .= '&'.$query;
+            }
+        }
+
+        // preserve the collation
+        if ($p_collation) {
+            $this->_collation = $p_collation;
+        }
+
+
+        return true;
+    }
+    // --------------------------------------------------------------------
+
+
+    /**
+     * @inheritdoc
+     */
+    protected function _open($p_pooling = false) {
+        $conn_info = [
+            'UID' => $this->get_user(),
+            'PWD' => $this->_password,
+            'Database' => $this->get_database(),
+            'ConnectionPooling' => ($p_pooling === true) ? 1 : 0,
+            'CharacterSet' => $this->_charset,
+            'Encrypt' => ($this->encrypt === true) ? 1 : 0,
+            'ReturnDatesAsStrings' => 1
+        ];
+
+        // If the username and password are both empty, assume this is a
+        // 'Windows Authentication Mode' connection.
+        if (empty($conn_info['UID']) && empty($conn_info['PWD'])) {
+            unset($conn_info['UID'], $conn_info['PWD']);
+        }
+
+        if (false !== ($conn = sqlsrv_connect($this->get_host(), $conn_info))) {
+            // Determine how identifiers are escaped
+            $query = sqlsrv_query($conn, 'SELECT CASE WHEN (@@OPTIONS | 256) = @@OPTIONS THEN 1 ELSE 0 END AS qi');
+            $rows = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC);
+            $quoted_identifier = empty($rows) ? false : (bool)$rows['qi'];
+            $this->_escape_char = ($quoted_identifier) ? '"' : [
+                '[',
+                ']'
+            ];
+
+            sqlsrv_free_stmt($query);
+            unset($query);
+        }
+
+        return $conn;
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * @inheritdoc
+     */
+    protected function _close(): void {
+        sqlsrv_close($this->_connId);
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * @inheritdoc
+     */
+    protected function _set_charset(string $p_charset): bool {
+        // Not supported only can be set on the connection.
+        return false;
+    }
+
+    // --------------------------------------------------------------------
 
     /**
      * @inheritdoc
@@ -208,7 +336,7 @@ class flcMssqlDriver extends flcDriver {
      * @inheritDoc
      */
     public function connect(): bool {
-        return $this->conn->open();
+        return $this->open();
     }
 
     // --------------------------------------------------------------------
@@ -218,15 +346,19 @@ class flcMssqlDriver extends flcDriver {
      */
     public function select_database(string $p_database): bool {
         if ($p_database === '') {
-            $p_database = $this->get_connection()->get_database();
+            $p_database = $this->get_database();
         }
 
         if (($res = $this->_execute_qry('USE '.$this->escape_identifiers($p_database)))) {
             sqlsrv_free_stmt($res);
-            $this->get_connection()->_set_database($p_database);
+            unset($res);
+
+            $this->_set_database($p_database);
 
             return true;
         }
+
+        $this->display_error("Select database for $p_database ", 'E');
 
         return false;
     }
@@ -272,9 +404,10 @@ class flcMssqlDriver extends flcDriver {
      * @inheritdoc
      */
     protected function _execute_qry(string $p_sqlquery) {
-        return ($this->scrollable === FALSE OR $this->is_write_type($p_sqlquery))
-            ? sqlsrv_query($this->conn->get_connection_id(), $p_sqlquery)
-            : sqlsrv_query($this->conn->get_connection_id(), $p_sqlquery, NULL, array('Scrollable' => $this->scrollable,'SendStreamParamsAtExec' => 0));
+        return ($this->scrollable === false or $this->is_write_type($p_sqlquery)) ? sqlsrv_query($this->_connId, $p_sqlquery) : sqlsrv_query($this->_connId, $p_sqlquery, null, [
+            'Scrollable' => $this->scrollable,
+            'SendStreamParamsAtExec' => 0
+        ]);
     }
 
     // --------------------------------------------------------------------
@@ -396,13 +529,15 @@ class flcMssqlDriver extends flcDriver {
      * @inheritdoc
      */
     function escape_identifiers($p_item) {
-        if (!isset($p_item) or empty($p_item))
+        if (!isset($p_item) or empty($p_item)) {
             return '';
+        }
 
-        if (is_numeric($p_item))
+        if (is_numeric($p_item)) {
             return $p_item;
+        }
 
-        $non_displayables = array(
+        $non_displayables = [
             '/%0[0-8bcef]/',        // URL encoded 00-08, 11, 12, 14, 15
             '/%1[0-9a-f]/',         // url encoded 16-31
             '/[\x00-\x08]/',        // 00-08
@@ -410,10 +545,12 @@ class flcMssqlDriver extends flcDriver {
             '/\x0c/',               // 12
             '/[\x0e-\x1f]/',        // 14-31
             '/\27/'
-        );
-        foreach ($non_displayables as $regex)
-            $p_item = preg_replace( $regex, '', $p_item);
-        $replace = array('"', "'", '=');
+        ];
+        foreach ($non_displayables as $regex) {
+            $p_item = preg_replace($regex, '', $p_item);
+        }
+        $replace = ['"', "'", '='];
+
         return str_replace($replace, "*", $p_item);
     }
     // --------------------------------------------------------------------
@@ -426,7 +563,7 @@ class flcMssqlDriver extends flcDriver {
      * @inheritdoc
      */
     protected function _trans_begin(): bool {
-        return sqlsrv_begin_transaction($this->conn->get_connection_id());
+        return sqlsrv_begin_transaction($this->_connId);
     }
 
     // --------------------------------------------------------------------
@@ -435,7 +572,7 @@ class flcMssqlDriver extends flcDriver {
      * @inheritdoc
      */
     protected function _trans_commit(): bool {
-        return sqlsrv_commit($this->conn->get_connection_id());
+        return sqlsrv_commit($this->_connId);
     }
 
     // --------------------------------------------------------------------
@@ -445,9 +582,9 @@ class flcMssqlDriver extends flcDriver {
      */
     protected function _trans_rollback(string $p_savepoint = ''): bool {
         if ($p_savepoint === '') {
-            return sqlsrv_rollback($this->conn->get_connection_id());
+            return sqlsrv_rollback($this->_connId);
         } else {
-            return (bool)sqlsrv_query($this->conn->get_connection_id(), 'ROLLBACK TRANSACTION '.$p_savepoint.';');
+            return (bool)sqlsrv_query($this->_connId, 'ROLLBACK TRANSACTION '.$p_savepoint.';');
         }
     }
 
@@ -459,7 +596,8 @@ class flcMssqlDriver extends flcDriver {
     protected function _trans_savepoint(string $p_savepoint): bool {
         $query = 'SAVE TRANSACTION '.$p_savepoint.';';
         echo $query.PHP_EOL;
-        return (bool)sqlsrv_query( $this->conn->get_connection_id(),$query);
+
+        return (bool)sqlsrv_query($this->_connId, $query);
     }
 
     // --------------------------------------------------------------------
@@ -483,7 +621,7 @@ class flcMssqlDriver extends flcDriver {
      *
      * Important : SQL SERVER doesnt allow order by on updates.
      */
-    protected function _update(string $p_table, array $p_values, string $p_where, int $p_limit = 0, ?string $p_orderby = null ): string {
+    protected function _update(string $p_table, array $p_values, string $p_where, int $p_limit = 0, ?string $p_orderby = null): string {
         $valstr = [];
         foreach ($p_values as $key => $val) {
             $valstr[] = $key.' = '.$val;
@@ -495,16 +633,6 @@ class flcMssqlDriver extends flcDriver {
         }
 
         return "UPDATE $limitstr $p_table  SET ".implode(', ', $valstr)." WHERE $p_where";
-    }
-
-    // --------------------------------------------------------------------
-
-
-    /**
-     * @inheritdoc
-     */
-    public function affected_rows(?flcDbResult $p_rsrc) : int {
-        return sqlsrv_rows_affected($p_rsrc->result_id);
     }
 
     // --------------------------------------------------------------------
@@ -537,8 +665,10 @@ class flcMssqlDriver extends flcDriver {
         if ($res = $this->_execute_qry($sqlinfo)) {
             $type = sqlsrv_fetch_array($res)['type_desc'];
             sqlsrv_free_stmt($res);
+            unset($res);
         } else {
-            // TDDO : add to errors
+            $this->display_error("execute function $p_fn_name fail ", 'E');
+
             return null;
         }
 
@@ -612,7 +742,7 @@ class flcMssqlDriver extends flcDriver {
         }
 
         // create sp store results
-        require_once('flcDbResults.php');
+        require_once(dirname(__FILE__).'/../../flcDbResults.php');
         $results = new flcDbResults();
 
 
@@ -634,8 +764,11 @@ class flcMssqlDriver extends flcDriver {
             $sqlfunc = str_replace($this->_callable_procedure_call_string.' ', $this->_callable_procedure_call_string.' @p0 = ', $sqlfunc);
             echo $sqlfunc.PHP_EOL;
 
-            $res = $this->execute_query($sqlfunc);
-            $results->add_resultset_result($res);
+            if ($res = $this->execute_query($sqlfunc)) {
+                $results->add_resultset_result($res);
+            } else {
+                $this->display_error("execute stored procedure $p_fn_name fail ", 'E');
+            }
 
         } // For stores procedures with output parameters o resultset or both
         elseif ($is_outparams || $is_resultset || $is_multiresultset) {
@@ -643,7 +776,7 @@ class flcMssqlDriver extends flcDriver {
 
 
             // execute
-            $res = sqlsrv_query($this->get_connection()->get_connection_id(), $sqlfunc, $oparams);
+            $res = sqlsrv_query($this->_connId, $sqlfunc, $oparams);
             if ($res) {
                 // If a resulset type sp , get the results.
                 if ($is_resultset || $is_multiresultset) {
@@ -676,7 +809,7 @@ class flcMssqlDriver extends flcDriver {
 
                 // If we ned to process output params?
                 if ($is_outparams) {
-                    require_once('flcDbResultOutParams.php');
+                    require_once(dirname(__FILE__).'/../../flcDbResultOutParams.php');
 
                     $outparams = new flcDbResultOutParams();
 
@@ -692,6 +825,8 @@ class flcMssqlDriver extends flcDriver {
 
 
             } else {
+                $this->display_error("execute stored procedure $p_fn_name fail ", 'E');
+
                 return null;
             }
 

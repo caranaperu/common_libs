@@ -41,12 +41,7 @@ namespace framework\database;
 /**
  * Database Result Class
  *
- * This is the platform-independent result class.
- * This class will  be called directly if not specific adapter
- * class for the specific database exist.
- *
- * Important : This class is a modified one of db_result from codeigniter
- * all credits for his authors.
+ * This is the platform-independent output parameters result class.
  *
  * @category    Database
  * @author       Carlos Arana Reategui
@@ -57,7 +52,7 @@ class flcDbResultOutParams {
     /**
      * Array of output parameters
      *
-     * @var    array
+     * @var  array
      */
     private array $outparams = [];
 
@@ -87,12 +82,25 @@ class flcDbResultOutParams {
 
     // --------------------------------------------------------------------
 
+    /**
+     * Add an output  parameter value to the list of results.
+     *
+     * @param string $p_param_name
+     * @param        $p_param_value
+     *
+     * @return void
+     */
     public function add_out_param(string $p_param_name, $p_param_value) {
         $this->outparams[$p_param_name] = $p_param_value;
     }
 
     // --------------------------------------------------------------------
 
+    /**
+     * Return an array with the total of output parameters.
+     *
+     * @return array
+     */
     public function get_out_params(): array {
         return $this->outparams;
     }

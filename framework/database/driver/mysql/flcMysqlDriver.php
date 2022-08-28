@@ -66,6 +66,38 @@ use framework\database\flcDbResults;
 class flcMysqlDriver extends flcDriver {
 
     /**
+     * Hold the connection password
+     *
+     * @var string|null
+     */
+    protected ?string $_password = null;
+
+    /**
+     * Hold the connection socket
+     *
+     * @var string|null
+     */
+    private string    $_socket;
+
+    /**
+     * Hold the client flags
+     *
+     * @var int
+     */
+    private int       $_client_flags;
+
+    /**
+     * MySQLi object
+     *
+     * Has to be preserved without being assigned to $conn_id.
+     *
+     * @var \mysqli|null $_mysqli
+     */
+    protected ?\mysqli $_mysqli = null;
+
+
+
+    /**
      * DELETE hack flag
      *
      * Whether to use the MySQL "delete hack" which allows the number
@@ -113,6 +145,174 @@ class flcMysqlDriver extends flcDriver {
     // --------------------------------------------------------------------
 
     /**
+     * For mysql the dsn prototype will be : 'driver://username:password@hostname/database'
+     *
+     * @inheritDoc
+     */
+    public function initialize(?string $p_dsn, ?string $p_host, ?int $p_port, ?string $p_database, ?string $p_user, ?string $p_password, string $p_charset = 'utf8', string $p_collation = 'utf8_general_ci'): bool {
+        // For receive exceptions on errors
+        mysqli_report(MYSQLI_REPORT_ERROR);
+
+
+        // Extract dsn parts if well defined, if the values are on dsn they are taken otherwise extract
+        // them from the parameters
+
+        $query = '';
+        if (($parsedDsn = @parse_url($p_dsn)) !== false) {
+            $p_host = (isset($parsedDsn['host']) ? rawurldecode($parsedDsn['host']) : $p_host);
+            $p_port = (isset($parsedDsn['port']) ? rawurldecode($parsedDsn['port']) : $p_port);
+            $p_user = (isset($parsedDsn['user']) ? rawurldecode($parsedDsn['user']) : $p_user);
+            $p_password = (isset($parsedDsn['pass']) ? rawurldecode($parsedDsn['pass']) : $p_password);
+            $p_database = (isset($parsedDsn['database']) ? rawurldecode($parsedDsn['database']) : $p_database);
+            $query = isset($parsedDsn['query']) ? rawurldecode($parsedDsn['query']) : "";
+
+        }
+
+
+        // Set default if values not defined , generate the full dsn for postgres
+        $p_port = ($p_port ?? '3306');
+
+        // Check values
+        if (!isset($p_host) || !isset($p_user) || !isset($p_password) || !isset($p_database)) {
+            return false;
+        } else {
+
+            $this->_password = $p_password;
+            $this->_socket = '';
+
+
+            // Do we have a socket path?
+            if ($p_host[0] === '/') {
+                $p_port = null;
+                $this->_socket = $p_host;
+                $p_host = null;
+            }
+
+            $this->_dsn = 'mysql://'.$p_user.':'.$p_password.'@'.$p_host.':'.$p_port.'/'.$p_database;
+            if ($query && $query != "") {
+                $this->_dsn .= '&'.$query;
+            }
+        }
+
+        // preserve the collation
+        if ($p_collation) {
+            $this->_collation = $p_collation;
+        }
+
+        // preserve the charset
+        if ($p_charset) {
+            $this->_charset = $p_charset;
+        }
+
+        // Compress stuff ,
+        $this->_client_flags = ($this->compress === TRUE) ? MYSQLI_CLIENT_COMPRESS : 0;
+        $this->_mysqli = mysqli_init();
+
+        $this->_mysqli->options(MYSQLI_OPT_CONNECT_TIMEOUT, 10);
+        if (isset($this->stricton)) {
+            if ($this->stricton) {
+                $this->_mysqli->options(MYSQLI_INIT_COMMAND, 'SET SESSION sql_mode = CONCAT(@@sql_mode, ",", "STRICT_ALL_TABLES")');
+            } else {
+                $this->_mysqli->options(MYSQLI_INIT_COMMAND, 'SET SESSION sql_mode =
+					REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+					@@sql_mode,
+					"STRICT_ALL_TABLES,", ""),
+					",STRICT_ALL_TABLES", ""),
+					"STRICT_ALL_TABLES", ""),
+					"STRICT_TRANS_TABLES,", ""),
+					",STRICT_TRANS_TABLES", ""),
+					"STRICT_TRANS_TABLES", "")');
+            }
+        }
+
+        // ssl stuff
+        // Important : to set encrypt after the class creation do :
+        // $c = new FlcMysqlConnection();
+        // $c->encrypt['ssl_key'=> key,..........];
+        // $c->initialize(........params);
+        //
+        if (is_array($this->encrypt)) {
+            $ssl = [];
+            empty($this->encrypt['ssl_key']) or $ssl['key'] = $this->encrypt['ssl_key'];
+            empty($this->encrypt['ssl_cert']) or $ssl['cert'] = $this->encrypt['ssl_cert'];
+            empty($this->encrypt['ssl_ca']) or $ssl['ca'] = $this->encrypt['ssl_ca'];
+            empty($this->encrypt['ssl_capath']) or $ssl['capath'] = $this->encrypt['ssl_capath'];
+            empty($this->encrypt['ssl_cipher']) or $ssl['cipher'] = $this->encrypt['ssl_cipher'];
+
+            if (!empty($ssl)) {
+                if (isset($this->encrypt['ssl_verify'])) {
+                    if ($this->encrypt['ssl_verify']) {
+                        defined('MYSQLI_OPT_SSL_VERIFY_SERVER_CERT') && mysqli_options($this->_mysqli, MYSQLI_OPT_SSL_VERIFY_SERVER_CERT, TRUE);
+                    }
+                    // Apparently (when it exists), setting MYSQLI_OPT_SSL_VERIFY_SERVER_CERT
+                    // to FALSE didn't do anything, so PHP 5.6.16 introduced yet another
+                    // constant ...
+                    //
+                    // https://secure.php.net/ChangeLog-5.php#5.6.16
+                    // https://bugs.php.net/bug.php?id=68344
+                    elseif (defined('MYSQLI_CLIENT_SSL_DONT_VERIFY_SERVER_CERT')) {
+                        $this->_client_flags |= MYSQLI_CLIENT_SSL_DONT_VERIFY_SERVER_CERT;
+                    }
+                }
+
+                $this->_client_flags |= MYSQLI_CLIENT_SSL;
+                $this->_mysqli->ssl_set($ssl['key'] ?? null, $ssl['cert'] ?? null, $ssl['ca'] ?? null, $ssl['capath'] ?? null, $ssl['cipher'] ?? null);
+            }
+        }
+
+        return true;
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * @inheritdoc
+     */
+    protected function _set_charset(string $p_charset): bool {
+        // Check if open is called before
+        if ($this->_mysqli != null) {
+            return $this->_mysqli->set_charset($p_charset);
+        } else {
+            return false;
+        }
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * @inheritdoc
+     */
+    protected function _open() {
+        if ($this->_mysqli->real_connect($this->get_host(), $this->get_user(), $this->_password, $this->get_database(), $this->get_port(), $this->_socket, $this->_client_flags)) {
+            // Prior to version 5.7.3, MySQL silently downgrades to an unencrypted connection if SSL setup fails
+            if (($this->_client_flags & MYSQLI_CLIENT_SSL) && version_compare($this->_mysqli->client_info, '5.7.3', '<=') && empty($this->_mysqli->query("SHOW STATUS LIKE 'ssl_cipher'")->fetch_object()->Value)) {
+                $this->_mysqli->close();
+
+                $this->display_error('Open failed , cant mantain an SSL connection','W');
+
+                return false;
+            }
+
+            return $this->_mysqli;
+        } else {
+            return false;
+        }
+
+
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * @inheritdoc
+     */
+    protected function _close(): void {
+        $this->_mysqli->close();
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
      * @inheritdoc
      */
     public function get_db_driver(): string {
@@ -125,7 +325,7 @@ class flcMysqlDriver extends flcDriver {
      * @inheritDoc
      */
     public function connect(): bool {
-        return $this->conn->open();
+        return $this->open();
     }
 
     // --------------------------------------------------------------------
@@ -135,14 +335,16 @@ class flcMysqlDriver extends flcDriver {
      */
     public function select_database(string $p_database): bool {
         if ($p_database === '') {
-            $p_database = $this->get_connection()->get_database();
+            $p_database = $this->get_database();
         }
 
-        if ($this->get_connection()->get_connection_id()->select_db($p_database)) {
-            $this->get_connection()->_set_database($p_database);
+        if ($this->_connId->select_db($p_database)) {
+            $this->_set_database($p_database);
 
             return true;
         }
+
+        $this->display_error("Select database for $p_database ",'E');
 
         return false;
     }
@@ -160,7 +362,7 @@ class flcMysqlDriver extends flcDriver {
         }
 
         return [
-            'code' => $this->conn->get_connection_id()->errno, 'message' => $this->conn->get_connection_id()->error
+            'code' => $this->_mysqli->errno, 'message' => $this->_mysqli->error
         ];
     }
 
@@ -171,7 +373,7 @@ class flcMysqlDriver extends flcDriver {
      *
      * If needed, each database adapter can prep the query string
      *
-     * @param string $sql an SQL query
+     * @param string $p_sqlquery an SQL query
      *
      * @return    string
      */
@@ -191,7 +393,7 @@ class flcMysqlDriver extends flcDriver {
      * @inheritdoc
      */
     protected function _execute_qry(string $p_sqlquery) {
-        return $this->get_connection()->get_connection_id()->query($this->_prep_query($p_sqlquery));
+        return $this->_connId->query($this->_prep_query($p_sqlquery));
     }
 
     // --------------------------------------------------------------------
@@ -204,7 +406,7 @@ class flcMysqlDriver extends flcDriver {
      * @inheritdoc
      */
     protected function _list_columns_qry(string $p_table = ''): string {
-        return 'SELECT COLUMN_NAME as column_name FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = '.$this->escape($p_table).' AND table_schema = '.$this->escape($this->conn->get_database());
+        return 'SELECT COLUMN_NAME as column_name FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = '.$this->escape($p_table).' AND table_schema = '.$this->escape($this->get_database());
 
     }
 
@@ -213,7 +415,7 @@ class flcMysqlDriver extends flcDriver {
      */
     public function column_data(string $p_table, string $p_schema = ''): ?array {
         if ($p_schema == '') {
-            $schema = $this->get_connection()->get_database();
+            $schema = $this->get_database();
         } else {
             $schema = $p_schema;
         }
@@ -275,7 +477,7 @@ class flcMysqlDriver extends flcDriver {
 
         // if the schema contains the databse name use it, else get from connection.
         if (trim($p_schema) == '') {
-            $dbname = $this->get_connection()->get_database();
+            $dbname = $this->get_database();
 
         } else {
             $dbname = $p_schema;
@@ -301,7 +503,7 @@ class flcMysqlDriver extends flcDriver {
      * @inheritdoc
      */
     protected function _escape_str(string $p_to_escape): string {
-        return $this->conn->get_connection_id()->real_escape_string($p_to_escape);
+        return $this->_connId->real_escape_string($p_to_escape);
     }
 
     /**
@@ -317,7 +519,7 @@ class flcMysqlDriver extends flcDriver {
             return $p_item;
         }
 
-        return $this->conn->get_connection_id()->real_escape_string($p_item);
+        return $this->_connId->real_escape_string($p_item);
     }
 
     /**
@@ -351,9 +553,9 @@ class flcMysqlDriver extends flcDriver {
      * @inheritdoc
      */
     protected function _trans_begin(): bool {
-        $this->get_connection()->get_connection_id()->autocommit(false);
+        $this->_connId->autocommit(false);
 
-        return version_compare(PHP_VERSION, '5.5', '>=') ? $this->get_connection()->get_connection_id()->begin_transaction() : $this->get_connection()->get_connection_id()->query('START TRANSACTION'); // can also be BEGIN or BEGIN WORK
+        return version_compare(PHP_VERSION, '5.5', '>=') ? $this->_connId->begin_transaction() : $this->_connId->get_connection_id()->query('START TRANSACTION'); // can also be BEGIN or BEGIN WORK
     }
 
     // --------------------------------------------------------------------
@@ -362,8 +564,8 @@ class flcMysqlDriver extends flcDriver {
      * @inheritdoc
      */
     protected function _trans_commit(): bool {
-        if ($this->get_connection()->get_connection_id()->commit()) {
-            $this->get_connection()->get_connection_id()->autocommit(false);
+        if ($this->_connId->commit()) {
+            $this->_connId->autocommit(false);
 
             return true;
         }
@@ -378,13 +580,16 @@ class flcMysqlDriver extends flcDriver {
      */
     protected function _trans_rollback(string $p_savepoint = ''): bool {
         if ($p_savepoint === '') {
-            $ret = (bool)$this->conn->get_connection_id()->rollback();
+            $ret = (bool)$this->_connId->rollback();
         } else {
-            $ret = (bool)$this->conn->get_connection_id()->query('ROLLBACK TO '.$p_savepoint);
+            $ret = (bool)$this->_connId->query('ROLLBACK TO '.$p_savepoint);
         }
 
         if ($ret) {
-            $this->conn->get_connection_id()->autocommit(false);
+            $this->_connId->autocommit(false);
+        } else {
+            $this->display_error("Rollback fail for $p_savepoint",'E');
+
         }
 
         return $ret;
@@ -396,7 +601,7 @@ class flcMysqlDriver extends flcDriver {
      * @inheritdoc
      */
     protected function _trans_savepoint(string $p_savepoint): bool {
-        return (bool)$this->conn->get_connection_id()->savepoint($p_savepoint);
+        return (bool)$this->_connId->savepoint($p_savepoint);
     }
 
     // --------------------------------------------------------------------
@@ -405,7 +610,7 @@ class flcMysqlDriver extends flcDriver {
      * @inheritdoc
      */
     protected function _trans_remove_savepoint(string $p_savepoint): bool {
-        return (bool)$this->conn->get_connection_id()->release_savepoint($p_savepoint);
+        return (bool)$this->_connId->release_savepoint($p_savepoint);
     }
 
     // --------------------------------------------------------------------
@@ -413,15 +618,6 @@ class flcMysqlDriver extends flcDriver {
     /**********************************************************************
      * DB dependant methods
      */
-
-    /**
-     * @inheritdoc
-     */
-    public function affected_rows(?flcDbResult $p_rsrc) : int {
-        return mysqli_affected_rows($this->conn->get_connection_id());
-    }
-
-    // --------------------------------------------------------------------
 
     /***********************************************************************
      * Stored procedures and function support
@@ -488,7 +684,7 @@ class flcMysqlDriver extends flcDriver {
         }
 
         // create sp store results
-        require_once('flcDbResults.php');
+        require_once(dirname(__FILE__).'/../../flcDbResults.php');
         $results = new flcDbResults();
 
 
@@ -504,7 +700,7 @@ class flcMysqlDriver extends flcDriver {
         }
         echo $sqlfunc;
 
-        $mysqli = $this->get_connection()->get_connection_id();
+        $mysqli = $this->_connId;
         $res = $mysqli->multi_query($sqlfunc);
 
         if ($res) {
@@ -524,8 +720,7 @@ class flcMysqlDriver extends flcDriver {
             if ($outparams_count > 0) {
                 $result = $results->get_resultset_result($results_count - 1);
                 if ($result) {
-                    require_once('flcDbResultOutParams.php');
-
+                    require_once(dirname(__FILE__).'/../../flcDbResultOutParams.php');
                     $outparams = new flcDbResultOutParams();
 
 
@@ -549,6 +744,7 @@ class flcMysqlDriver extends flcDriver {
             return $results;
 
         } else {
+            $this->display_error("execute_stored_procedure fail for $sqlfunc",'E');
             return null;
         }
 

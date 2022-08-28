@@ -38,7 +38,6 @@ namespace framework\database\driver;
  * @filesource
  */
 
-use framework\database\flcConnection;
 use framework\database\flcDbResult;
 use framework\database\flcDbResults;
 use framework\utils\flcStrUtils;
@@ -121,6 +120,60 @@ require_once dirname(__FILE__).'/../../utils/flcStrUtils.php';
  * @link        https://flabscorpprods.com
  */
 abstract class flcDriver {
+
+    /**************************************************************
+     * Connection variables
+     */
+    /**
+     * Represents an connection id , this a resource that depends on each database.
+     * @var resource|null
+     */
+    protected $_connId;
+
+
+    /**
+     * Collation , basically for table creation.
+     *
+     * @var    string
+     */
+    protected string $_collation = 'utf8_general_ci';
+
+    /**
+     * charset , if defined used on open connection.
+     *
+     * @var    string
+     */
+    protected string $_charset = 'utf8';
+
+    /**
+     * @var string
+     */
+    protected string $_dsn;
+
+    /**
+     * Encryption flag/data
+     *
+     * @var    bool | array
+     */
+    public $encrypt = false;
+
+    /**
+     * Compression flag
+     *
+     * @var    bool
+     */
+    public bool $compress = false;
+
+    /**
+     * database table/functions/procedures prefix
+     * Can be used for compatibility purposes , some databases
+     * like ms sql server use dbo as prefix for example , always
+     * prepend your tables , etc with this prefix.
+     *
+     * @var    string
+     */
+    public string $dbprefix = '';
+
     /**
      * @var string
      */
@@ -135,10 +188,12 @@ abstract class flcDriver {
 
     /**
      * Strict transaction mode flag
+     * If false try to allow autonomous transactios
+     * otherwise al operations are under one transaction.
      *
      * @var    bool
      */
-    public bool $trans_strict = true;
+    public bool $trans_strict = false;
 
     /**
      * Transaction depth level
@@ -230,13 +285,13 @@ abstract class flcDriver {
      */
     protected array $_reserved_identifiers = ['*'];
 
-
     /**
-     * connection class containing connection data for the instance driver
+     * For enable o disable debug
      *
-     * @var flcConnection
+     * @var bool true for enable debug
      */
-    protected flcConnection $conn;
+    public bool $debug = true;
+
 
     /**************************************************************************
      * For stored procedure and  function support (callables)
@@ -281,14 +336,194 @@ abstract class flcDriver {
 
     // --------------------------------------------------------------------
 
+    /**
+     * Constructor , the constructor allow to send the initial setup
+     * for options , this array can contain one or more keys of :
+     *   - db_debug for enable the debug stuff of the driver
+     *   - stricton for strict mode on transactions
+     *   - encrypt to allow encrypted connection if the database support it.
+     *   - compress to allow compression on the connection if the database support it.
+     *   - dbprefix prefix that can be used for prefix the tables/functions/sp
+     *
+     * @param array|null $p_options if null take defaults
+     */
+    public function __construct(?array $p_options = null) {
+        // if the options are sended we take their values if exists on the
+        // array , otherwise set defaults.
+        if (isset($p_options) && is_array($p_options)) {
+            $this->debug = $p_options['db_debug'] ?? false;
+            $this->trans_strict = $p_options['stricton'] ?? false;
+            $this->encrypt = $p_options['encrypt'] ?? false;
+            $this->compress = $p_options['compress'] ?? false;
+            $this->dbprefix = $p_options['dbprefix'] ?? '';
+
+        }
+    }
+
+    // --------------------------------------------------------------------
 
     /**
-     * Constructor
      *
-     * @param flcConnection $p_conn
+     * initialize the data required for a connection using a dsn or separate parameters required for the connection.
+     * IF dsn is incomplete the function will try to use the another parameters to complete
+     * the required data.
+     *
+     * If no dsn is specified all others need to be.
+     *
+     * @param string | null $p_dsn Then dsn of the connection
+     * @param string | null $p_host The hostname or ip address of the server.
+     * @param int | null    $p_port The por number
+     * @param string | null $p_database The database name to connect
+     * @param string | null $p_user The user name
+     * @param string | null $p_password The password
+     * @param string        $p_charset The default charset to be used by the connection , default utf8
+     * @param string        $p_collation The default collation for the connection , default utf8_general_ci
+     *
+     *
+     * @return bool FALSE if not enough parameter data to create a correct dsn.
      */
-    public function __construct(flcConnection $p_conn) {
-        $this->conn = $p_conn;
+    public abstract function initialize(?string $p_dsn, ?string $p_host, ?int $p_port, ?string $p_database, ?string $p_user, ?string $p_password, string $p_charset = 'utf8', string $p_collation = 'utf8_general_ci'): bool;
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Open the connection used by this instance, if is already
+     * a live connection the current one will be used, if this is not
+     * the desired action call close method first.
+     *
+     * @return bool true if can get connection or already one open , false otherwise
+     */
+    public function open(): bool {
+        if (!isset($this->_connId) || !$this->_connId) {
+
+            $conn = $this->_open();
+
+            if (!$conn) {
+                return false;
+            }
+
+            // from here $_mysqli = $_conn_id
+            $this->_connId = $conn;
+        }
+
+
+        $this->_set_charset($this->_charset);
+
+        return true;
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Close the connection, put in null the connection id.
+     *
+     * @return void
+     */
+    public function close(): void {
+        if ($this->_connId) {
+            $this->_close();
+            $this->_connId = null;
+        }
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Extract the host from the dsn , if dsn is not initialized or host
+     * is not defined return null.
+     *
+     * @return string|null The host value
+     */
+    public function get_host(): ?string {
+        if (isset($this->_dsn) && $this->_dsn) {
+            return parse_url($this->_dsn, PHP_URL_HOST);
+        }
+
+        return null;
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Extract the port from the dsn , if dsn is not initialized or port
+     * is not defined return null.
+     *
+     * @return string|null The port value
+     */
+    public function get_port(): ?string {
+        if (isset($this->_dsn) && $this->_dsn) {
+            $port = parse_url($this->_dsn, PHP_URL_PORT);
+            if ($port) {
+                return strval($port);
+            }
+        }
+
+        return null;
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Extract the user name  from the dsn , if dsn is not initialized or user
+     * is not defined return null.
+     *
+     * @return string|null The user name  value
+     */
+    public function get_user(): ?string {
+        if (isset($this->_dsn) && $this->_dsn) {
+            return parse_url($this->_dsn, PHP_URL_USER);
+        }
+
+        return null;
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Extract the database name from the dsn , if dsn is not initialized or database
+     * is not defined return null.
+     * The database for a db dsn is on the path of the url.
+     *
+     * @return string|null The database name value
+     */
+    public function get_database(): ?string {
+        if (isset($this->_dsn) && $this->_dsn) {
+            $database = parse_url($this->_dsn, PHP_URL_PATH);
+            // in database url the path is the database then remove the trailing
+            // slash.
+            if ($database !== null) {
+                return str_replace('/', '', $database);
+            }
+        }
+
+        return null;
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Set the database name in the dsn , if dsn is not initialized or database
+     * is not defined return false.
+     * The database for a db dsn is on the path of the url.
+     *
+     * IMPORTANT: For internal use only.
+     *
+     * @param string $p_database the database name
+     *
+     * @return bool false if can set the database name
+     */
+    public function _set_database(string $p_database): bool {
+        if (isset($this->_dsn) && $this->_dsn) {
+            $database = '/'.$this->get_database();
+            // in database url the path is the database
+            if ($database !== '/') {
+                str_replace($database, $p_database, $this->_dsn);
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // --------------------------------------------------------------------
@@ -323,10 +558,10 @@ abstract class flcDriver {
     /**
      * Get the internal connection associated to the driver in constructor
      *
-     * @return flcConnection
+     * @return resource with the connection id
      */
-    public function get_connection(): flcConnection {
-        return $this->conn;
+    public function get_connection() {
+        return $this->_connId;
     }
 
     // --------------------------------------------------------------------
@@ -365,8 +600,7 @@ abstract class flcDriver {
 
     /**
      *
-     * Connect to a database using the data in flcConnection.
-     * Previously flcConnection $conn nee to be initialized
+     * Connect to a database alias for open
      *
      * @return bool true if is connected , false if not.
      */
@@ -376,8 +610,7 @@ abstract class flcDriver {
 
     /**
      *
-     * Disconnect from a database using the data in flcConnection.
-     * Previously flcConnection $conn need to be initialized
+     * Disconnect from a database
      *
      * @return void
      */
@@ -393,7 +626,7 @@ abstract class flcDriver {
             }
         }
         $this->_trans_savepoints = [];
-        $this->conn->close();
+        $this->close();
     }
 
     // --------------------------------------------------------------------
@@ -430,6 +663,8 @@ abstract class flcDriver {
                 $this->_trans_status = false;
             }
 
+            $this->display_error('Cant execute query '.$p_sqlqry, 'E');
+
             return null;
         } else {
             // Load and instantiate the result driver
@@ -454,11 +689,15 @@ abstract class flcDriver {
      */
     public function count_all(string $p_table = ''): int {
         if ($p_table === '') {
+
+            $this->display_error("Count all required a table name");
+
             return 0;
         }
 
         $query = $this->execute_query($this->_get_count_all_sql().$this->escape_identifiers('numrows').' FROM '.$p_table);
         if (!$query or $query->num_rows() === 0) {
+
             return 0;
         }
 
@@ -480,8 +719,8 @@ abstract class flcDriver {
         $driver_class = 'framework\database\driver\\'.$this->get_db_driver().'\\'.$driver;
 
         if (!class_exists($driver_class, false)) {
-            require_once('flcDbResult.php');
-            require_once('./driver/'.$this->get_db_driver().'/'.$driver.'.php');
+            require_once(dirname(__FILE__).'/../'.'flcDbResult.php');
+            require_once(dirname(__FILE__).'/'.$this->get_db_driver().'/'.$driver.'.php');
         }
 
         return $driver_class;
@@ -633,7 +872,8 @@ abstract class flcDriver {
      */
     public function error(): array {
         return [
-            'code' => null, 'message' => null
+            'code' => null,
+            'message' => null
         ];
     }
 
@@ -691,7 +931,8 @@ abstract class flcDriver {
         if (is_array($p_to_escape)) {
             // recursive
             return array_map([
-                &$this, 'escape'
+                &$this,
+                'escape'
             ], $p_to_escape);
         } elseif (is_string($p_to_escape) or (is_object($p_to_escape) && method_exists($p_to_escape, '__toString'))) {
             return "'".$this->escape_str($p_to_escape)."'";
@@ -739,9 +980,12 @@ abstract class flcDriver {
         // escape LIKE condition wildcards
         if ($p_like === true) {
             return str_replace([
-                $this->_like_escape_chr, '%', '_'
+                $this->_like_escape_chr,
+                '%',
+                '_'
             ], [
-                $this->_like_escape_chr.$this->_like_escape_chr, $this->_like_escape_chr.'%',
+                $this->_like_escape_chr.$this->_like_escape_chr,
+                $this->_like_escape_chr.'%',
                 $this->_like_escape_chr.'_'
             ], $p_to_escape);
         }
@@ -781,8 +1025,10 @@ abstract class flcDriver {
         if (empty($preg_ec)) {
             if (is_array($this->_escape_char)) {
                 $preg_ec = [
-                    preg_quote($this->_escape_char[0], '/'), preg_quote($this->_escape_char[1], '/'),
-                    $this->_escape_char[0], $this->_escape_char[1]
+                    preg_quote($this->_escape_char[0], '/'),
+                    preg_quote($this->_escape_char[1], '/'),
+                    $this->_escape_char[0],
+                    $this->_escape_char[1]
                 ];
             } else {
                 $preg_ec[0] = $preg_ec[1] = preg_quote($this->_escape_char, '/');
@@ -831,15 +1077,15 @@ abstract class flcDriver {
     /**
      * Generate an update string
      *
-     * @param string $p_table the table upon which the query will be performed
-     * @param array  $p_data an associative array data of key/values
-     * @param mixed  $p_where the "where" statement
-     * @param int    $p_limit the number of records to update
-     * @param string $p_orderby the 'order by" clause
+     * @param string      $p_table the table upon which the query will be performed
+     * @param array       $p_data an associative array data of key/values
+     * @param string      $p_where the "where" statement
+     * @param int         $p_limit the number of records to update
+     * @param string|null $p_orderby the 'order by" clause
      *
      * @return    string
      */
-    public function update_string(string $p_table, array $p_data, $p_where, int $p_limit = 0, string $p_orderby = null): string {
+    public function update_string(string $p_table, array $p_data, string $p_where, int $p_limit = 0, string $p_orderby = null): string {
         if (empty($p_where)) {
             return false;
         }
@@ -849,7 +1095,7 @@ abstract class flcDriver {
             $fields[$this->escape_identifiers($key)] = $this->escape($val);
         }
 
-        return $this->_update($this->escape_identifiers($p_table), $fields, $p_where, $p_limit,$p_orderby);
+        return $this->_update($this->escape_identifiers($p_table), $fields, $p_where, $p_limit, $p_orderby);
     }
 
     // --------------------------------------------------------------------
@@ -1191,6 +1437,31 @@ abstract class flcDriver {
      */
 
     /**
+     * Set client character set
+     *
+     * @param string $p_charset see database docs for accepted charsets.
+     *
+     * @return    bool false if cant set the character encoding
+     */
+    protected abstract function _set_charset(string $p_charset): bool;
+
+    // --------------------------------------------------------------------
+
+    /**
+     * @return object|null basically a resource from the db
+     */
+    protected abstract function _open();
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Close the database connection.
+     *
+     * @return void
+     */
+    protected abstract function _close(): void;
+
+    /**
      * Execute the query in low level , the return is a resource that depends of each
      * database that contain the answer.
      *
@@ -1287,20 +1558,6 @@ abstract class flcDriver {
     abstract protected function _column_data_qry(string $p_table): string;
 
     // --------------------------------------------------------------------
-
-    /**
-     * Affected Rows
-     * Need to be override by each specific driver.
-     *
-     * For select querys use from the results  the num_rows() function
-     *
-     * @param flcDbResult|null $p_rsrc the rsult class of the last executed query or null
-     *
-     * @return	int whit the number of affected rows.
-     */
-    public function affected_rows(?flcDbResult $p_rsrc) : int {
-        return -1;
-    }
 
     /**
      * Rollback Transaction
@@ -1401,15 +1658,15 @@ abstract class flcDriver {
      *
      * Generates a platform-specific update string from the supplied data
      *
-     * @param string $p_table the table name
-     * @param array  $p_values the update data
-     * @param string $p_where the where clause
-     * @param int    $p_limit the maximun number of records to update
-     * @param string $p_orderby order by clause
+     * @param string      $p_table the table name
+     * @param array       $p_values the update data
+     * @param string      $p_where the where clause
+     * @param int         $p_limit the maximun number of records to update
+     * @param string|null $p_orderby order by clause
      *
      * @return    string
      */
-    protected function _update(string $p_table, array $p_values, string $p_where, int $p_limit = 0, ?string $p_orderby = null ): string {
+    protected function _update(string $p_table, array $p_values, string $p_where, int $p_limit = 0, ?string $p_orderby = null): string {
         $valstr = [];
         foreach ($p_values as $key => $val) {
             $valstr[] = $key.' = '.$val;
@@ -1719,13 +1976,19 @@ abstract class flcDriver {
     /**
      * Display an error message
      *
-     * @param	string	$p_error the error message
-     * @param	string	$p_swap any "swap" values
-     * @param   string  $p_type W-'warning' or E-'error'
+     * @param string $p_error the error message
+     * @param string $p_type W-'warning' or E-'error'
+     * @param string $p_swap any "swap" values
      *
      */
-    public function display_error(string $p_error , $p_swap = '', string $p_type = 'W') {
-        echo $p_error.PHP_EOL;
+    public function display_error(string $p_error, string $p_type = 'W', string $p_swap = '') {
+        if ($this->debug) {
+            echo $p_error.PHP_EOL;
+            if ($p_type == 'E') {
+                $error = $this->error();
+                print_r($error);
+            }
+        }
     }
 }
 

@@ -114,7 +114,7 @@ class flcDbResult {
      * @param resource  $p_result_id the result_id resource returned after execute a query on database
      */
     public function __construct(flcDriver $p_db_driver, $p_result_id) {
-        $this->conn_id = $p_db_driver->get_connection()->get_connection_id();
+        $this->conn_id = $p_db_driver->get_connection();
         $this->result_id = $p_result_id;
     }
 
@@ -623,4 +623,17 @@ class flcDbResult {
         return new $p_classname();
     }
 
+    // --------------------------------------------------------------------
+
+    /**
+     * Affected Rows
+     * Need to be override by each specific driver.
+     *
+     * For select querys use from the results  the num_rows() function
+     **
+     * @return	int with the number of affected rows.
+     */
+    public function affected_rows() : int {
+        return -1;
+    }
 }

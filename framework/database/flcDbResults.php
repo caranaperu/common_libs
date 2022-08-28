@@ -39,14 +39,13 @@ namespace framework\database;
  */
 
 /**
- * Database Results Class
+ * Database Multiple Results Class
  *
- * This is the platform-independent result class.
- * This class will  be called directly if not specific adapter
- * class for the specific database exist.
+ * This is the platform-independent multiple result class.
+ * This class is a container of a multiple resulset(s) and output
+ * parameters to support stored procedures / function that support
+ * the return of multiple resulsets and also output parameters.
  *
- * Important : This class is a modified one of db_result from codeigniter
- * all credits for his authors.
  *
  * @category    Database
  * @author       Carlos Arana Reategui
@@ -65,7 +64,7 @@ class flcDbResults {
 
     /**
      * The number of parameters
-     * @var int
+     * @var flcDbResultOutParams
      */
     private flcDbResultOutParams $outparams;
 
@@ -73,6 +72,8 @@ class flcDbResults {
     // --------------------------------------------------------------------
 
     /**
+     * Add a resultset results to the list of resultsets.
+     *
      * @param flcDbResult $p_resulset_result
      *
      * @return void
@@ -86,6 +87,13 @@ class flcDbResults {
     // --------------------------------------------------------------------
 
 
+    /**
+     * Add the  results that contains the output parameters.
+     *
+     * @param flcDbResultOutParams $p_outparams_result
+     *
+     * @return void
+     */
     public function add_outparams_result(flcDbResultOutParams $p_outparams_result) {
         $this->outparams = $p_outparams_result;
     }
@@ -113,6 +121,12 @@ class flcDbResults {
         return null;
     }
 
+    /**
+     * Free the resources asociated to a resultset
+     * @param int $index
+     *
+     * @return void
+     */
     public function resultset_free_result(int $index = 0) {
         if (isset($this->resultsets[$index])) {
             $this->resultsets[$index]->free_result();
@@ -120,6 +134,11 @@ class flcDbResults {
         }
     }
 
+    /**
+     * Return the number of resultsets
+     *
+     * @return int
+     */
     public function get_num_resultsets() : int {
         return count($this->resultsets);
     }

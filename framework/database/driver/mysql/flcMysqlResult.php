@@ -169,7 +169,7 @@ class flcMysqlResult extends flcDbResult {
      * @inheritdoc
      */
     public function free_result(): void {
-        if (is_object($this->result_id)) {
+        if (is_resource($this->result_id)) {
             $this->result_id->free();
             $this->result_id = null;
         }
@@ -204,7 +204,16 @@ class flcMysqlResult extends flcDbResult {
         return is_object($obj) ? $obj : null;
     }
 
+    // --------------------------------------------------------------------
 
+    /**
+     * @inheritdoc
+     */
+    public function affected_rows() : int {
+        return mysqli_affected_rows($this->conn_id);
+    }
+
+    // --------------------------------------------------------------------
     /**
      * Mysql return an id of a charset/collation when get field data
      * and its necessary based on that information the number of bytes

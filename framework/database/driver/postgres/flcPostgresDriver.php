@@ -3,7 +3,6 @@
 namespace framework\database\driver\postgres;
 
 
-
 /**
  * FLabsCode
  *
@@ -41,9 +40,9 @@ namespace framework\database\driver\postgres;
  */
 
 use framework\database\driver\flcDriver;
+use framework\database\flcDbResult;
 use framework\database\flcDbResultOutParams;
 use framework\database\flcDbResults;
-use framework\database\flcDbResult;
 
 
 /**
@@ -63,9 +62,10 @@ use framework\database\flcDbResult;
  * @link        https://flabscorpprods.com
  */
 class flcPostgresDriver extends flcDriver {
+
     protected static array $_cast_conversion = [
         // boolean type
-        'boolean' => ['boolean', 'b',1],
+        'boolean' => ['boolean', 'b', 1],
         // text types
         'string' => ['character varying', 't'],
         'char' => ['character', 't'],
@@ -149,8 +149,90 @@ class flcPostgresDriver extends flcDriver {
      *
      * @var string
      */
-    protected string       $_callable_function_call_string_scalar  = 'select';
+    protected string $_callable_function_call_string_scalar = 'select';
 
+    /**
+     * For postgres the dsn prototype will be : 'driver://username:password@hostname/database'
+     *
+     * @inheritDoc
+     */
+    public function initialize(?string $p_dsn, ?string $p_host, ?int $p_port, ?string $p_database, ?string $p_user, ?string $p_password, string $p_charset = 'utf8', string $p_collation = 'utf8_general_ci'): bool {
+        // Extract dsn parts if well defined, if the values are on dsn they are taken otherwise extract
+        // them from the parameters
+
+        $query = "";
+        if (($parsedDsn = @parse_url($p_dsn)) !== false) {
+            $p_host = (isset($parsedDsn['host']) ? rawurldecode($parsedDsn['host']) : $p_host);
+            $p_port = (isset($parsedDsn['port']) ? rawurldecode($parsedDsn['port']) : $p_port);
+            $p_user = (isset($parsedDsn['user']) ? rawurldecode($parsedDsn['user']) : $p_user);
+            $p_password = (isset($parsedDsn['pass']) ? rawurldecode($parsedDsn['pass']) : $p_password);
+            $p_database = (isset($parsedDsn['database']) ? rawurldecode($parsedDsn['database']) : $p_database);
+            $query = isset($parsedDsn['query']) ? rawurldecode($parsedDsn['query']) : "";
+
+        }
+
+        // generate dsn if its possible.
+
+        // Set default if values not defined , generate the full dsn for postgres
+        if (!isset($p_port)) {
+            $p_port = '5432';
+        }
+
+        // Check values
+        if (!isset($p_host) || !isset($p_user) || !isset($p_password) || !isset($p_database)) {
+            return false;
+        } else {
+            $this->_dsn = 'postgresql://'.$p_user.':'.$p_password.'@'.$p_host.':'.$p_port.'/'.$p_database;
+            if ($query && $query != "") {
+                $this->_dsn .= '&'.$query;
+            }
+        }
+
+        // preserve the collation
+        if ($p_collation) {
+            $this->_collation = $p_collation;
+        }
+
+        // preserve the charset
+        if ($p_charset) {
+            $this->_charset = $p_charset;
+        }
+
+        return true;
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * @inheritdoc
+     */
+    protected function _set_charset(string $p_charset): bool {
+        // Check if open is called before
+        if ($this->_connId) {
+            return (pg_set_client_encoding($this->_connId, $p_charset) === 0);
+        } else {
+            return false;
+        }
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * @inheritdoc
+     */
+    protected function _open() {
+        // Never reuse a connection
+        return pg_connect($this->_dsn, PGSQL_CONNECT_FORCE_NEW);
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * @inheritdoc
+     */
+    protected function _close(): void {
+        pg_close($this->_connId);
+    }
 
     // --------------------------------------------------------------------
 
@@ -167,7 +249,7 @@ class flcPostgresDriver extends flcDriver {
      * @inheritDoc
      */
     public function connect(): bool {
-        return $this->conn->open();
+        return $this->open();
     }
 
     // --------------------------------------------------------------------
@@ -176,7 +258,7 @@ class flcPostgresDriver extends flcDriver {
      * @inheritDoc
      */
     public function select_database(string $p_database): bool {
-        return TRUE;
+        return true;
     }
 
     // --------------------------------------------------------------------
@@ -184,10 +266,10 @@ class flcPostgresDriver extends flcDriver {
     /**
      * @inheritdoc
      */
-    public function error() : array {
+    public function error(): array {
         return [
             'code' => 0,
-            'message' => pg_last_error($this->conn->get_connection_id())
+            'message' => pg_last_error($this->_connId)
         ];
     }
 
@@ -198,7 +280,7 @@ class flcPostgresDriver extends flcDriver {
      * @inheritdoc
      */
     protected function _execute_qry(string $p_sqlquery) {
-        return pg_query($this->conn->get_connection_id(), $p_sqlquery);
+        return pg_query($this->_connId, $p_sqlquery);
     }
 
     // --------------------------------------------------------------------
@@ -304,7 +386,7 @@ class flcPostgresDriver extends flcDriver {
      * @inheritdoc
      */
     protected function _escape_str(string $p_to_escape): string {
-        return pg_escape_string($this->conn->get_connection_id(), $p_to_escape);
+        return pg_escape_string($this->_connId, $p_to_escape);
     }
 
     // --------------------------------------------------------------------
@@ -314,7 +396,7 @@ class flcPostgresDriver extends flcDriver {
      */
     public function escape($p_to_escape) {
         if (version_compare(PHP_VERSION, '5.4.4', '>=') && (is_string($p_to_escape) or (is_object($p_to_escape) && method_exists($p_to_escape, '__toString')))) {
-            return pg_escape_literal($this->conn->get_connection_id(), $p_to_escape);
+            return pg_escape_literal($this->_connId, $p_to_escape);
         } elseif (is_bool($p_to_escape)) {
             return ($p_to_escape) ? 'TRUE' : 'FALSE';
         }
@@ -339,7 +421,7 @@ class flcPostgresDriver extends flcDriver {
             return $p_item;
         }
 
-        return pg_escape_identifier($this->conn->get_connection_id(), $p_item);
+        return pg_escape_identifier($this->_connId, $p_item);
     }
 
     // --------------------------------------------------------------------
@@ -352,7 +434,7 @@ class flcPostgresDriver extends flcDriver {
      * @inheritdoc
      */
     protected function _trans_begin(): bool {
-        return (bool)pg_query($this->conn->get_connection_id(), 'BEGIN');
+        return (bool)pg_query($this->_connId, 'BEGIN');
     }
 
     // --------------------------------------------------------------------
@@ -361,7 +443,7 @@ class flcPostgresDriver extends flcDriver {
      * @inheritdoc
      */
     protected function _trans_commit(): bool {
-        return (bool)pg_query($this->conn->get_connection_id(), 'COMMIT');
+        return (bool)pg_query($this->_connId, 'COMMIT');
     }
 
     // --------------------------------------------------------------------
@@ -371,9 +453,9 @@ class flcPostgresDriver extends flcDriver {
      */
     protected function _trans_rollback(string $p_savepoint = ''): bool {
         if ($p_savepoint === '') {
-            return (bool)pg_query($this->conn->get_connection_id(), 'ROLLBACK');
+            return (bool)pg_query($this->_connId, 'ROLLBACK');
         } else {
-            return (bool)pg_query($this->conn->get_connection_id(), 'ROLLBACK TO '.$p_savepoint);
+            return (bool)pg_query($this->_connId, 'ROLLBACK TO '.$p_savepoint);
         }
     }
 
@@ -383,7 +465,7 @@ class flcPostgresDriver extends flcDriver {
      * @inheritdoc
      */
     protected function _trans_savepoint(string $p_savepoint): bool {
-        return (bool)pg_query($this->conn->get_connection_id(), 'SAVEPOINT '.$p_savepoint);
+        return (bool)pg_query($this->_connId, 'SAVEPOINT '.$p_savepoint);
     }
 
     // --------------------------------------------------------------------
@@ -392,7 +474,7 @@ class flcPostgresDriver extends flcDriver {
      * @inheritdoc
      */
     protected function _trans_remove_savepoint(string $p_savepoint): bool {
-        return (bool)pg_query($this->conn->get_connection_id(), 'RELEASE SAVEPOINT '.$p_savepoint);
+        return (bool)pg_query($this->_connId, 'RELEASE SAVEPOINT '.$p_savepoint);
     }
 
     // --------------------------------------------------------------------
@@ -414,14 +496,6 @@ class flcPostgresDriver extends flcDriver {
         return "UPDATE $p_table SET ".implode(', ', $valstr)." WHERE $p_where";
     }
 
-    // --------------------------------------------------------------------
-
-    /**
-     * @inheritdoc
-     */
-    public function affected_rows(?flcDbResult $p_rsrc) : int {
-        return pg_affected_rows($p_rsrc->result_id);
-    }
 
     // --------------------------------------------------------------------
 
@@ -451,12 +525,11 @@ class flcPostgresDriver extends flcDriver {
         $res = $this->execute_query("SELECT proname,prokind,proretset FROM pg_proc p  WHERE pronargs = $numparams and proname = LOWER('$p_fn_name')");
         if ($res) {
             $row = $res->row_array(0);
-            if ($row['proretset'] == 'f') {
+            if ($row && $row['proretset'] == 'f') {
                 $is_scalar = true;
             }
             $res->free_result();
         } else {
-            // TODO: add error log
             return null;
         }
 
@@ -513,7 +586,6 @@ class flcPostgresDriver extends flcDriver {
             }
             $res->free_result();
         } else {
-            // TODO: add error log
             return null;
         }
 
@@ -534,7 +606,7 @@ class flcPostgresDriver extends flcDriver {
                         if ($sqltype !== 'refcursor') {
                             $is_outparams = true;
                             $outparams_count++;
-                            $params[] = (is_string($value) ? '\''.$value.'\'' : $value);;
+                            $params[] = (is_string($value) ? '\''.$value.'\'' : $value);
                         } else {
                             // refcursors
                             $params[] = '\''.$value.'\'';
@@ -543,7 +615,7 @@ class flcPostgresDriver extends flcDriver {
                             $sqlpre = 'begin;';
                         }
                     } else {
-                        $params[] = (is_string($value) ? '\''.$value.'\'' : $value);;
+                        $params[] = (is_string($value) ? '\''.$value.'\'' : $value);
                     }
 
 
@@ -557,7 +629,7 @@ class flcPostgresDriver extends flcDriver {
         $is_multiresultset = ($p_type == self::FLCDRIVER_PROCTYPE_MULTIRESULTSET);
 
         // create sp store results
-        require_once('flcDbResults.php');
+        require_once(dirname(__FILE__).'/../../flcDbResults.php');
         $results = new flcDbResults();
 
 
@@ -593,7 +665,7 @@ class flcPostgresDriver extends flcDriver {
         } // For stores procedures with output parameters o resultset or both
         elseif ($is_outparams || $is_resultset || $is_multiresultset) {
 
-            $conn = $this->get_connection()->get_connection_id();
+            $conn = $this->_connId;
             // execute
             $res = pg_query($conn, $sqlfunc);
             if ($res) {
@@ -613,12 +685,10 @@ class flcPostgresDriver extends flcDriver {
 
                     // process refcursor parameters
                     for ($i = 0; $i < $refcursor_count; $i++) {
-                        print_r("----------------------------------");
-                        print_r($refcursors[$i]);
-                        print_r("----------------------------------");
 
-                        $resrefs = $this->execute_query("fetch all in $refcursors[$i];");
-                        $results->add_resultset_result($resrefs);
+                        if ($resrefs = $this->execute_query("fetch all in $refcursors[$i];")) {
+                            $results->add_resultset_result($resrefs);
+                        }
 
                     }
                     $resrefs = pg_query($conn, 'end;');
@@ -626,10 +696,11 @@ class flcPostgresDriver extends flcDriver {
                 } elseif ($refcursors_ret) {
                     // with refcursor return only, no in refcursors parameters
                     while ($row = pg_fetch_row($res)) {
-                        pg_query($conn, "begin;");;
-                        $resrefs = $this->execute_query("fetch all in \"$row[0]\";");
-                        $results->add_resultset_result($resrefs);
+                        pg_query($conn, "begin;");
 
+                        if ($resrefs = $this->execute_query("fetch all in \"$row[0]\";")) {
+                            $results->add_resultset_result($resrefs);
+                        }
                     }
                     $resrefs = pg_query($conn, 'end;');
 
@@ -652,7 +723,7 @@ class flcPostgresDriver extends flcDriver {
                     // in the first resultset always we found the out params
                     $result = $results->get_resultset_result();
                     if ($result) {
-                        require_once('flcDbResultOutParams.php');
+                        require_once(dirname(__FILE__).'/../../flcDbResultOutParams.php');
                         $outparams = new flcDbResultOutParams();
 
                         if ($result->num_rows() > 0) {
@@ -672,6 +743,7 @@ class flcPostgresDriver extends flcDriver {
 
 
             } else {
+                $this->display_error("execute stored procedure  $p_fn_name fail ", 'E');
                 $results = null;
             }
 

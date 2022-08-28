@@ -147,4 +147,14 @@ class flcPostgresResult extends flcDbResult {
         return is_object($obj) ? $obj : null;
     }
 
+
+    // --------------------------------------------------------------------
+
+    /**
+     * @inheritdoc
+     */
+    public function affected_rows() : int {
+        return pg_affected_rows($this->result_id);
+    }
+
 }
