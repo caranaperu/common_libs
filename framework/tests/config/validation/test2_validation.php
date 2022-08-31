@@ -31,23 +31,31 @@ $config = [
         [
             'field' => 'name',
             'label' => 'Name',
-            'rules' => 'required|alpha'
+            'rules' => 'required|max_length[2]|alpha'
         ],
         [
             'field' => 'title',
             'label' => 'Title',
-            'rules' => [
-                'required',
-                ['$this->users_model', 'valid_username']
-            ]
+            'rules' =>    'required',
+            'errors' => array(
+                'required' => 'You must provide a %s.',
+            ),
+
         ],
         [
             'field' => 'message',
             'label' => 'MessageBody',
-            'rules' => [
-                'required',
-                ['username_callable', ['$this->users_model', 'valid_username']]
-            ]
+            'rules' =>    'required'
+
+        ],
+        [
+            'field' => 'fieldtest2',
+            'label' => 'FieldTest2',
+            'rules' =>    'callback_fieldtest',
+            'errors' => array(
+                'fieldtest' => 'You must provide with callback a %s.',
+            ),
+
         ]
     ]
 ];

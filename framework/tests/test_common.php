@@ -56,8 +56,9 @@ if (!$flc->lang->load(['email', 'calendar'], 'es')) {
 }
 
 $xx = new xx();
+$users_model = new xx();
 
-$flc->validation = new flcValidation($xx);
+$flc->validation = new flcValidation($flc->lang, $xx);
 
 $flc->set_validations('test_validation');
 $rules = $flc->get_rules('v_entidad_registro_propiedad');
@@ -83,20 +84,54 @@ echo '***************************************************'.PHP_EOL;
 $flc->validation->set_rules($rules['email']);
 
 $data = [
-    'title' => 'soy un titulo',
-    'message' => 'soy un mensaje',
-    'fieldtest' => 'soy field test'
+    /*  'title' => 'soy un titulo',*/
+      'message' => 'soy un mensaje',
+     'fieldtest' => 'soy field test',
+    /*  'name' => 'soy un nombre',*/
+    'message2' => 'soy un mensaje2',
+    'message3' => 'soy un mensaje3',
+    'message4' => 'soy un mensaje4',
+    'message5' => 'soy un mensaje5',
+
+   // 'fieldtest2' => 'soy field test2',
+
 ];
+
 $flc->validation->set_data($data);
-$flc->validation->add_rule('fieldtest', 'Field Test', 'callback_fieldtest');
+// PAra un callback el error de la regla si se indica no debe usar la palabra callbak de la regla.
+$flc->validation->add_rule('fieldtest', 'Field Test', 'callback_fieldtest', [
+    'fieldtest' => 'You must provide with callback a %s.',
+]);
+
+$simple_set_message = false;
+if ($simple_set_message) {
+    $flc->validation->set_message('rule_id','El mensaje %s viene de set_mesage');
+
+} else {
+    $flc->validation->set_message(['rule_id'=>'El mensaje %s viene de set_mesage','required' => 'Es requerido {field}']);
+
+}
+
+
+$flc->validation->add_rule('message2', 'Message2', [[$users_model, 'valid_username']]); // esto solo funciona con add rule NOOO en el array.
+$flc->validation->add_rule('message3', 'Message3', [['rule_id',[$users_model, 'valid_username']]],['rule_id' => 'EL %s no sirve']); // esto solo funciona con add rule NOOO en el array.
+$flc->validation->add_rule('message4', 'Message4', [['rule_id',function($str) {echo 'paso amomious ';return false;}]],['rule_id' => 'EL %s no sirve (v2)']); // esto solo funciona con add rule NOOO en el array.
+$flc->validation->add_rule('message5', 'Message5', [['rule_id',function($str) {echo 'paso amomious 2';return false;}]]); // esto solo funciona con add rule NOOO en el array.
 
 $flc->validation->run();
 
 
 class xx {
-    public function fieldtest($param) {
+    public function fieldtest($param): bool {
         echo 'paso field test con param '.$param.PHP_EOL;
-        return true;
+
+        return false;
+    }
+
+    public function valid_username($param): bool {
+        echo 'paso valid user name '.$param.PHP_EOL;
+
+        return false;
     }
 }
 //print_r($flc);

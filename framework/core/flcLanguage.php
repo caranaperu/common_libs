@@ -43,6 +43,15 @@ class flcLanguage {
     private array $_loaded_langs;
     private array $_lang=[];
 
+    /**
+     * Recordar que acu,ula lo cargado.
+     *
+     * @param        $p_langfile
+     * @param string $p_idiom
+     * @param string $p_langsuffix
+     *
+     * @return bool
+     */
     public function load($p_langfile, string $p_idiom = '', string $p_langsuffix = '_lang') : bool {
         static $lang;
 
@@ -98,15 +107,20 @@ class flcLanguage {
         }
         $this->_lang = array_merge($this->_lang,$lang);
         unset($lang);
-        print_r($this->_lang);
+        //print_r($this->_lang);
 
         $this->_loaded_langs[] = $p_langfile.'_'.$p_idiom;
-        print_r($this->_loaded_langs);
+        //print_r($this->_loaded_langs);
 
         return true;
 
     }
 
+    /**
+     * @param string $p_line
+     *
+     * @return string | bool
+     */
     public function line(string $p_line) : string {
         if (isset($this->_lang[$p_line])) {
             return $this->_lang[$p_line];
