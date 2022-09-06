@@ -44,7 +44,7 @@ $config = [
         ],
         [
             'field' => 'message',
-            'label' => 'MessageBody',
+            'label' => 'lang:message',
             'rules' =>    'required'
 
         ],

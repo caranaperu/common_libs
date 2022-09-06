@@ -95,16 +95,17 @@ class flcLanguage {
                     return false;
                 }
 
-                include_once $filepath;
-
-                if (!isset($lang) or !is_array($lang)) {
-                    flcCommon::log_message('error', 'flcLanguage:load() - Language file contains no data: language/'.$p_idiom.'/'.$p_langfile);
-
-                    return false;
-                }
             }
 
+            include_once $filepath;
+
+            if (!isset($lang) or !is_array($lang)) {
+                flcCommon::log_message('error', 'flcLanguage:load() - Language file contains no data: language/'.$p_idiom.'/'.$p_langfile);
+
+                return false;
+            }
         }
+
         $this->_lang = array_merge($this->_lang,$lang);
         unset($lang);
         //print_r($this->_lang);

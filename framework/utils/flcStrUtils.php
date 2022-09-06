@@ -14,7 +14,7 @@ class flcStrUtils {
      *
      * @return    string
      */
-    public static function remove_invisible_characters(string $str, bool $url_encoded = TRUE): string {
+    public static function remove_invisible_characters(string $str, bool $url_encoded = true): string {
         $non_displayables = [];
 
         // every control character except newline (dec 10),
@@ -33,6 +33,30 @@ class flcStrUtils {
         return $str;
     }
 
+    // --------------------------------------------------------------------
 
+    /**
+     * Validate IP Address
+     *
+     * @param string $p_ip IP address
+     * @param string $p_which IP protocol: 'ipv4' or 'ipv6'
+     *
+     * @return    bool
+     */
+    public static function valid_ip(string $p_ip, string $p_which = '') : bool {
+        switch (strtolower($p_which)) {
+            case 'ipv4':
+                $p_which = FILTER_FLAG_IPV4;
+                break;
+            case 'ipv6':
+                $p_which = FILTER_FLAG_IPV6;
+                break;
+            default:
+                $p_which = null;
+                break;
+        }
+
+        return (bool)filter_var($p_ip, FILTER_VALIDATE_IP, $p_which);
+    }
 
 }
