@@ -42,6 +42,8 @@ use framework\database\flcDbResult;
 use framework\database\flcDbResults;
 use framework\utils\flcStrUtils;
 
+require_once dirname(__FILE__).'/../flcDbResult.php';
+require_once dirname(__FILE__).'/../flcDbResults.php';
 require_once dirname(__FILE__).'/../../utils/flcStrUtils.php';
 
 /**

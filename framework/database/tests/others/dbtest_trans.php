@@ -4,10 +4,10 @@ use framework\database\driver\mssql\flcMssqlDriver;
 use framework\database\driver\mysql\flcMysqlDriver;
 use framework\database\driver\postgres\flcPostgresDriver;
 
-include_once('../../driver/flcDriver.php');
-include_once('../../driver/postgres/flcPostgresDriver.php');
-include_once('../../driver/mysql/flcMysqlDriver.php');
-include_once('../../driver/mssql/flcMssqlDriver.php');
+require_once('../../driver/flcDriver.php');
+require_once('../../driver/postgres/flcPostgresDriver.php');
+require_once('../../driver/mysql/flcMysqlDriver.php');
+require_once('../../driver/mssql/flcMssqlDriver.php');
 
 $_g_do_rollback = true;
 $_use_pgsql = 'pgsql';

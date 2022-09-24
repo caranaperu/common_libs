@@ -4,6 +4,8 @@ namespace framework\core;
 
 use framework\flcCommon;
 
+require_once dirname(__FILE__).'/../flcCommon.php';
+
 /**
  * FLabsCode
  *
@@ -51,14 +53,15 @@ class flcLanguage {
      * @param string $p_langsuffix
      *
      * @return bool
+     * @throws \Exception if not main config is loaded.
      */
     public function load($p_langfile, string $p_idiom = '', string $p_langsuffix = '_lang') : bool {
         static $lang;
 
         if (empty($p_idiom)) {
             // Use the default , if not defined use english
-            $config = &flcCommon::get_config();
-            $p_idiom = $config['language'] ?? 'english';
+            $langconfig = FLC::get_instance()->get_config()->item('language');
+            $p_idiom = $langconfig ?? 'english';
         }
 
 
@@ -88,7 +91,7 @@ class flcLanguage {
                             return true;
                         }
                     } else {
-                        flcCommon::log_message('error', "flcLanguage:load() - Language file for '$p_langfile' and idiom '$p_idiom or default idiom' doesnt exist");
+                        flcCommon::log_message('error', "flcLanguage->load : Language file for '$p_langfile' and idiom '$p_idiom or default idiom' doesnt exist");
 
                     }
 
@@ -100,7 +103,7 @@ class flcLanguage {
             include_once $filepath;
 
             if (!isset($lang) or !is_array($lang)) {
-                flcCommon::log_message('error', 'flcLanguage:load() - Language file contains no data: language/'.$p_idiom.'/'.$p_langfile);
+                flcCommon::log_message('error', 'flcLanguage->load : Language file contains no data: language/'.$p_idiom.'/'.$p_langfile);
 
                 return false;
             }
@@ -126,7 +129,7 @@ class flcLanguage {
         if (isset($this->_lang[$p_line])) {
             return $this->_lang[$p_line];
         } else {
-            flcCommon::log_message('warning', 'flcLanguage:line() - no translation exist for '.$p_line);
+            flcCommon::log_message('warning', 'flcLanguage->line : no translation exist for '.$p_line);
             return false;
         }
 

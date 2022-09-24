@@ -2,8 +2,8 @@
 
 use framework\database\driver\mysql\flcMysqlConnection;
 
-include_once('../../driver/flcDriver.php');
-include_once('../../driver/mysql/flcMysqlDriver.php');
+require_once('../../driver/flcDriver.php');
+require_once('../../driver/mysql/flcMysqlDriver.php');
 
 
 

@@ -3,8 +3,8 @@
 use framework\database\driver\mssql\flcMssqlDriver;
 
 
-include_once('../../driver/flcDriver.php');
-include_once('../../driver/mssql/flcMssqlDriver.php');
+require_once('../../driver/flcDriver.php');
+require_once('../../driver/mssql/flcMssqlDriver.php');
 
 function print_results($driver, $query) {
     if ($query) {

@@ -43,7 +43,12 @@ use framework\database\driver\flcDriver;
 use framework\database\flcDbResult;
 use framework\database\flcDbResultOutParams;
 use framework\database\flcDbResults;
+use stdClass;
 
+require_once dirname(__FILE__).'/../flcDriver.php';
+require_once dirname(__FILE__).'/../../flcDbResult.php';
+require_once dirname(__FILE__).'/../../flcDbResultOutParams.php';
+require_once dirname(__FILE__).'/../../flcDbResults.php';
 
 /**
  * Postgres Driver Class
@@ -353,7 +358,7 @@ class flcPostgresDriver extends flcDriver {
 
         $retval = [];
         for ($i = 0, $c = count($query); $i < $c; $i++) {
-            $retval[$i] = new \stdClass();
+            $retval[$i] = new stdClass();
             $retval[$i]->name = $query[$i]->column_name;
             $retval[$i]->type = $query[$i]->data_type;
             $retval[$i]->max_length = ($query[$i]->character_maximum_length > 0) ? $query[$i]->character_maximum_length : $query[$i]->numeric_precision;

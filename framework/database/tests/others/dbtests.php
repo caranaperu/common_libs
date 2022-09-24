@@ -2,8 +2,8 @@
 
 use framework\database\driver\postgres\flcPostgresDriver;
 
-include_once('../../driver/flcDriver.php');
-include_once('../../driver/postgres/flcPostgresDriver.php');
+require_once('../../driver/flcDriver.php');
+require_once('../../driver/postgres/flcPostgresDriver.php');
 
 class menu {
     public string $sys_systemcode;

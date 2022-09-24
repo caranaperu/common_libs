@@ -6,6 +6,10 @@ namespace framework\core;
 use framework\flcCommon;
 use framework\utils\flcStrUtils;
 
+require_once dirname(__FILE__).'/../flcCommon.php';
+require_once dirname(__FILE__).'/../utils/flcStrUtils.php';
+require_once dirname(__FILE__).'/flcLanguage.php';
+
 /**
  * FLabsCode
  *
@@ -285,14 +289,14 @@ class flcValidation {
     public function run(): bool {
         // no fields to verify
         if (isset($this->_data) && count($this->_data) == 0) {
-            flcCommon::log_message('info', 'flcValitadion:run() - no data to validate');
+            flcCommon::log_message('info', 'flcValitadion->run : no data to validate');
 
             return false;
         }
 
         // no rules pre processed nothing to do.
         if (isset($this->_field_data) && count($this->_field_data) == 0) {
-            flcCommon::log_message('info', 'flcValitadion:run() - no rules to validate');
+            flcCommon::log_message('info', 'flcValitadion->run : no rules to validate');
 
             return false;
 
@@ -396,7 +400,7 @@ class flcValidation {
                     if (isset($this->_controller)) {
                         // if callback  search  on the controller , if exist call
                         if (!method_exists($this->_controller, $rule)) {
-                            flcCommon::log_message('info', "unable to find callback method $rule");
+                            flcCommon::log_message('info', "flcValidation->_execute : unable to find callback method $rule");
 
                             $result = false;
                         } else {
@@ -417,7 +421,7 @@ class flcValidation {
                 if (function_exists($rule)) {
                     $result = ($param !== false) ? $rule($p_postdata, $param) : $rule($p_postdata);
                 } else {
-                    flcCommon::log_message('info', "Validation function $rule doesnt exist");
+                    flcCommon::log_message('info', "flcValidation->_execute :Validation function $rule doesnt exist");
                     $result = false;
                 }
             } else {

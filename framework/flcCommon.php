@@ -4,6 +4,9 @@ namespace framework;
 
 use framework\database\driver\flcDriver;
 
+require_once dirname(__FILE__).'/database/driver/flcDriver.php';
+
+
 /**
  * FLabsCode
  *
@@ -44,9 +47,17 @@ class flcCommon {
     /**
      * Load the config file that need to be in the APPPATH defined and
      * config directory.
+     * This method can be used to load the main config file directly
+     * without the use of any other class of the library, if we need to load the other
+     * config files @return array with the config options
+     * @see framework\core\flcConfig.BASEPATH
+     *
+     * Only load the main config file in the APPPPATH directory but not in the ENVIROMENT
+     * that can be defied by the aplication. use FLC otherwise in your main function.
+     *
+     *
      * if fails exit , without config is not possible to continue.
      *
-     * @return array with the config options
      */
     static function &load_config(): array {
         static $config;
@@ -59,13 +70,14 @@ class flcCommon {
 
                 //  check if the config values are ok.
                 if (!isset($config) || !$config || !is_array($config)) {
-                    self::exit_error('config() : error loading the config file bad configuration', 503);
+                    self::exit_error('config->load_config : error loading the config file bad configuration', 503);
                 }
 
             } else {
-                self::exit_error('config() : error config file doesnt exist in '.APPPATH.'config', 503);
+                self::exit_error('->load_config : error config file doesnt exist in '.APPPATH.'config', 503);
             }
         }
+
 
         return $config;
 
@@ -123,13 +135,14 @@ class flcCommon {
     static function load_validation_config(string $p_filename): ?array {
 
         // only load one time
-        echo 'loading validation .....'.PHP_EOL;
         $path = APPPATH."config/validation/$p_filename.php";
         if (file_exists($path)) {
-            require_once $path;
-            return $config;
+            require $path;
+            if (isset($config)) {
+                return $config;
+            }
         }
-        flcCommon::log_message('warning', "Validation file $p_filename doesnt exist");
+        flcCommon::log_message('warning', "flcCommon->load_validation_config : Validation file $p_filename doesnt exist or not config variable was dedfiend");
 
         return null;
     }
@@ -145,7 +158,7 @@ class flcCommon {
      *
      * @return flcDriver
      */
-    static function load_database(?string $p_dbid = null): flcDriver {
+    static function load_database(?string $p_dbid = null): ?flcDriver {
         $db = self::load_database_config();
 
         // If required a specific database entry
@@ -215,7 +228,162 @@ class flcCommon {
 
         }
 
+        return null;
     }
+
+    /**
+     * Is HTTPS?
+     *
+     * Determines if the application is accessed via an encrypted
+     * (HTTPS) connection.
+     *
+     * Try all the well known ways to check the protocol, some servers
+     * use one or another
+     *
+     * @return    bool
+     */
+    static function is_https(): bool {
+        if (!self::is_cli()) {
+            if (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off') {
+                return true;
+            } elseif (isset($_SERVER['REQUEST_SCHEME']) && $_SERVER['REQUEST_SCHEME'] === 'https') {
+                return true;
+            } elseif (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https') {
+                return true;
+            } elseif (!empty($_SERVER['HTTP_FRONT_END_HTTPS']) && strtolower($_SERVER['HTTP_FRONT_END_HTTPS']) !== 'off') {
+                return true;
+            } elseif (!empty($_SERVER['HTTP_X_FORWARDED_SSL']) && strtolower($_SERVER['HTTP_X_FORWARDED_SSL']) !== 'on') {
+                return true;
+            } elseif ($_SERVER['SERVER_PORT'] == 443) {
+                return true;
+            }
+
+        }
+
+        return false;
+    }
+
+    /**
+     * Is CLI?
+     *
+     * Test to see if a request was made from the command line.
+     *
+     * @return    bool
+     */
+    static function is_cli(): bool {
+        return (php_sapi_name() === 'cli' or defined('STDIN'));
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Is AJAX request?
+     *
+     * Test to see if a request contains the HTTP_X_REQUESTED_WITH header.
+     *
+     * @return    bool
+     */
+    static function is_ajax(): bool {
+        return (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest');
+    }
+
+
+    /**
+     * Remove Invisible Characters
+     *
+     * This prevents sandwiching null characters
+     * between ascii characters, like Java\0script.
+     *
+     * @param string $p_str the string to validate
+     * @param bool   $p_url_encoded
+     *
+     * @return    string the result
+     */
+    static function remove_invisible_characters(string $p_str, bool $p_url_encoded = true): string {
+        $non_displayables = [];
+
+        // every control character except newline (dec 10),
+        // carriage return (dec 13) and horizontal tab (dec 09)
+        if ($p_url_encoded) {
+            $non_displayables[] = '/%0[0-8bcef]/i';    // url encoded 00-08, 11, 12, 14, 15
+            $non_displayables[] = '/%1[0-9a-f]/i';    // url encoded 16-31
+        }
+
+        $non_displayables[] = '/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+/S';    // 00-08, 11, 12, 14-31, 127
+
+        do {
+            $p_str = preg_replace($non_displayables, '', $p_str, -1, $count);
+        } while ($count);
+
+        return $p_str;
+    }
+
+
+    /**
+     * Extract the controller name from an uri.
+     * For web applications we expect a uri like this.
+     * http(s)://host:port/index.php/controller_name?params.......
+     *
+     * For cli aplications we expect at least:
+     *
+     * php index.php controler_name param1=value1 .......
+     *
+     * @param string $p_uri with the uri , if the call is from a cli application
+     * this parameter its ignored.
+     *
+     * @return string the controller name from the uri or the default one is not found.
+     */
+    static function uri_get_controller(string $p_uri): string {
+        $config = self::get_config();
+        $default_controller = $config['default_controller'];
+
+        if (!self::is_cli()) { // web call
+
+            if (($parsedDsn = @parse_url($p_uri)) !== false) {
+                $url_explode = explode('/', $parsedDsn['path']);
+                if (count($url_explode) <= 1) {
+                    return $default_controller;
+                } else {
+                    return $url_explode[count($url_explode) - 1];
+
+                }
+
+            }
+
+        } else {
+            // if its cli
+            $args = array_slice($_SERVER['argv'], 1);
+            if ($args && count($args) > 1 && $args[0] === 'index.php') {
+                return $args[1];
+            } else {
+                return $default_controller;
+
+            }
+
+        }
+
+    }
+
+    /**
+     * Returns the MIME types array from config/mimes.php
+     * in APPPATH.
+     *
+     * @return    array
+     */
+    static function &get_mimes(): array {
+        static $_mimes;
+
+        if (empty($_mimes)) {
+            if (file_exists(APPPATH.'config/mimes.php')) {
+                $_mimes = include(APPPATH.'config/mimes.php');
+            } else {
+                $_mimes = [];
+            }
+        }
+
+        return $_mimes;
+    }
+
 
     /**
      * @param string $p_errormsg
@@ -228,17 +396,16 @@ class flcCommon {
             // setera el header error
         }
         if (strlen($p_errormsg) > 0) {
-            echo $p_errormsg;
+            echo $p_errormsg.PHP_EOL;
         } else {
-            echo 'unknow_error';
+            echo 'unknow_error'.PHP_EOL;
         }
         exit(3);
 
     }
 
     static function log_message(string $p_type, string $p_message) {
-        echo $p_type.' : '.$p_message;
+        echo $p_type.' : '.$p_message.PHP_EOL;
     }
-
 
 }

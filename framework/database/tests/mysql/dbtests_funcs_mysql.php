@@ -26,7 +26,6 @@ function print_results($driver, $query) {
 }
 
 
-mysqli_report(MYSQLI_REPORT_ERROR);
 $driver = new flcMysqlDriver();
 $driver->initialize(null, 'localhost', 3306, 'db_tests', 'root', 'melivane');
 

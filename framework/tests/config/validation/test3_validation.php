@@ -1,6 +1,6 @@
 <?php
 $config = [
-    'signup_2' => [
+    'signup' => [
         [
             'field' => 'username',
             'label' => 'Username',
@@ -22,7 +22,7 @@ $config = [
             'rules' => 'required'
         ]
     ],
-    'email_2' => [
+    'email' => [
         [
             'field' => 'emailaddress',
             'label' => 'EmailAddress',

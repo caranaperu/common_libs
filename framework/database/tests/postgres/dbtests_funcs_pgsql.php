@@ -1,10 +1,12 @@
 <?php
 
+$system_path = '/var/www/common/framework';
+define('BASEPATH', $system_path);
+
 use framework\database\driver\postgres\flcPostgresDriver;
 
 
-include_once('../../driver/flcDriver.php');
-include_once('../../driver/postgres/flcPostgresDriver.php');
+require_once(BASEPATH.'/database/driver/postgres/flcPostgresDriver.php');
 
 function print_results($driver, $query) {
     if ($query) {

@@ -3,8 +3,8 @@
 use framework\database\driver\flcDriver;
 use framework\database\driver\mssql\flcMssqlDriver;
 
-include_once('../../driver/flcDriver.php');
-include_once('../../driver/mssql/flcMssqlDriver.php');
+require_once('../../driver/flcDriver.php');
+require_once('../../driver/mssql/flcMssqlDriver.php');
 
 //ini_set('memory_limit','256M'); // This also needs to be increased in some cases. Can be changed to a higher value as per need)
 ini_set('sqlsrv.ClientBufferMaxKBSize', '200000'); // Setting to 512M
