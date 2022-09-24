@@ -187,7 +187,7 @@ abstract class TSLBaseController extends CI_Controller {
         // Adios , nada mas que hacer.
         exit();
 
-        //$this->load->views($this->getView(), $data);
+        //$this->load->view($this->getView(), $data);
     }
 
     /**

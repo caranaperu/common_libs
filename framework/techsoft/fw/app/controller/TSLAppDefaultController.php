@@ -9,7 +9,7 @@ if (!defined('BASEPATH'))
  * Controlador base default para las aplicaciones.
  * Implementa lo minimo indispensable para que el controlador funcione , tales como
  * metodo para que parametros que llegan con 'null' sean convertidos a PHP NULL, define
- * un default views TSLDefaultDataResponseView que es usado para casos que simplemente se
+ * un default view TSLDefaultDataResponseView que es usado para casos que simplemente se
  * requiere retornar datos y no vistas reales (visuales) y basicamente implementa la carga
  * default para el response processor y el constraint processor, entre otros.
  * Adicionalmente el default para los metodos de la interface TSLISessionController.
