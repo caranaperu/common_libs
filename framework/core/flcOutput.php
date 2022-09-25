@@ -1,8 +1,11 @@
 <?php
 
-use framework\core\FLC;
+namespace framework\core;
+
+use Exception;
 use framework\flcCommon;
 
+include_once dirname(__FILE__).'/FLC.php';
 include_once dirname(__FILE__).'/../flcCommon.php';
 
 /**
@@ -61,7 +64,7 @@ class flcOutput {
      *
      * @var    string
      */
-    protected string $final_output='';
+    protected string $final_output = '';
 
 
     /**
@@ -106,7 +109,7 @@ class flcOutput {
      *
      * @var    bool
      */
-    protected static $func_override;
+    protected static bool $func_override;
 
     /**
      * Class constructor
@@ -114,6 +117,7 @@ class flcOutput {
      * Determines whether zLib output compression will be used.
      *
      * @return    void
+     * @throws Exception
      */
     public function __construct() {
         $this->_zlib_oc = (bool)ini_get('zlib.output_compression');
@@ -272,8 +276,8 @@ class flcOutput {
 
         // Count backwards, in order to get the last matching header
         for ($c = count($headers) - 1; $c > -1; $c--) {
-            if (strncasecmp($p_header, $headers[$c], $l = self::strlen($p_header)) === 0) {
-                return trim(self::substr($headers[$c], $l + 1));
+            if (strncasecmp($p_header, $headers[$c], $l = flcCommon::strlen(self::$func_override, $p_header)) === 0) {
+                return trim(flcCommon::substr(self::$func_override, $headers[$c], $l + 1));
             }
         }
 
@@ -317,6 +321,13 @@ class flcOutput {
             $p_output =& $this->final_output;
         }
 
+        // --------------------------------------------------------------------
+
+        // Is compression requested?
+        if ($this->_compress_output === true && isset($_SERVER['HTTP_ACCEPT_ENCODING']) && strpos($_SERVER['HTTP_ACCEPT_ENCODING'], 'gzip') !== false) {
+            ob_start('ob_gzhandler');
+        }
+
         // Are there any server headers to send?
         if (count($this->headers) > 0) {
             foreach ($this->headers as $header) {
@@ -328,40 +339,4 @@ class flcOutput {
     }
 
 
-
-    // --------------------------------------------------------------------
-
-    /**
-     * Byte-safe strlen()
-     *
-     * @param string $p_str
-     *
-     * @return    int
-     */
-    protected static function strlen(string $p_str) {
-        return (self::$func_override) ? mb_strlen($p_str, '8bit') : strlen($p_str);
-    }
-
-    // --------------------------------------------------------------------
-
-    /**
-     * Byte-safe substr()
-     *
-     * @param string $p_str
-     * @param int    $p_start
-     * @param int    $p_length
-     *
-     * @return    string
-     */
-    protected static function substr(string $p_str, int $p_start, ?int $p_length = null) {
-        if (self::$func_override) {
-            // mb_substr($str, $start, null, '8bit') returns an empty
-            // string on PHP 5.3
-            isset($p_length) or $p_length = ($p_start >= 0 ? self::strlen($p_str) - $p_start : -$p_start);
-
-            return mb_substr($p_str, $p_start, $p_length, '8bit');
-        }
-
-        return isset($p_length) ? substr($p_str, $p_start, $p_length) : substr($p_str, $p_start);
-    }
 }

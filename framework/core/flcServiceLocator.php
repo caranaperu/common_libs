@@ -29,8 +29,10 @@ class flcServiceLocator {
     /**
      * @param string      $p_type
      * @param string|null $p_class
+     * @param null        $p_vars
      *
-     * @return mixed|void
+     * @return Object|bool
+     * @throws ReflectionException
      * @throws Exception
      */
     public function service(string $p_type, ?string $p_class = null, $p_vars = null) {
@@ -158,14 +160,12 @@ class flcServiceLocator {
      * this params set the class name. if its null only load the base controller and the exteneded
      * controller if exist.
      *
-     * @return mixed|null if $p_class not defined return null otherwise return the class.
-     *
      * @throws Exception
      */
     private function _get_view(string $p_class, $p_vars = null) {
         static $ob_level = -1;
 
-        if ($ob_level == -1) {
+        if ($ob_level === -1) {
             $ob_level = ob_get_level();
         }
 
@@ -183,7 +183,7 @@ class flcServiceLocator {
             throw new RuntimeException("Cant load the views $view_filepath");
         }
 
-        $ob_level = /*
+        /*
          * Buffer the output
          *
          * We buffer the output for two reasons:

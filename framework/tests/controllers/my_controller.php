@@ -24,5 +24,7 @@ class my_controller extends flcController {
         $data2 = ['x'=>1000,'y'=>2000];
 
         $view = flcServiceLocator::get_instance()->service('views','my_testview',$data2);
+        $view = flcServiceLocator::get_instance()->service('views','my_testview_2',$data2);
+
     }
 }

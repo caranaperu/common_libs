@@ -3,7 +3,7 @@
 namespace framework\core;
 
 use Exception;
-use flcOutput;
+use framework\core\flcOutput;
 use framework\database\driver\flcDriver;
 use framework\flcCommon;
 use RuntimeException;

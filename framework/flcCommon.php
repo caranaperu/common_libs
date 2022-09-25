@@ -50,7 +50,7 @@ class flcCommon {
      * This method can be used to load the main config file directly
      * without the use of any other class of the library, if we need to load the other
      * config files @return array with the config options
-     * @see framework\core\flcConfig.BASEPATH
+     * @see framework/core/flcConfig.BASEPATH
      *
      * Only load the main config file in the APPPPATH directory but not in the ENVIROMENT
      * that can be defied by the aplication. use FLC otherwise in your main function.
@@ -349,6 +349,7 @@ class flcCommon {
                 }
 
             }
+            return '';
 
         } else {
             // if its cli
@@ -384,6 +385,43 @@ class flcCommon {
         return $_mimes;
     }
 
+    // --------------------------------------------------------------------
+
+    /**
+     * Byte-safe strlen()
+     *
+     * @param bool   $p_func_verride
+     * @param string $p_str
+     *
+     * @return    int
+     */
+    public  static function strlen(bool $p_func_verride,string $p_str) : int {
+        return ($p_func_verride) ? mb_strlen($p_str, '8bit') : strlen($p_str);
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Byte-safe substr()
+     *
+     * @param bool     $p_func_override
+     * @param string   $p_str
+     * @param int      $p_start
+     * @param int|null $p_length
+     *
+     * @return    string
+     */
+    public static function substr(bool $p_func_override,string $p_str, int $p_start, ?int $p_length = null) : string {
+        if ($p_func_override) {
+            // mb_substr($str, $start, null, '8bit') returns an empty
+            // string on PHP 5.3
+            isset($p_length) or $p_length = ($p_start >= 0 ? self::strlen($p_func_override,$p_str) - $p_start : -$p_start);
+
+            return mb_substr($p_str, $p_start, $p_length, '8bit');
+        }
+
+        return isset($p_length) ? substr($p_str, $p_start, $p_length) : substr($p_str, $p_start);
+    }
 
     /**
      * @param string $p_errormsg
