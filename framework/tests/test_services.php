@@ -134,10 +134,12 @@ exit();
 
 */
 
+$log = flcServiceLocator::get_instance()->service('log');
+
 $flc = \framework\core\FLC::get_instance();
 $flc->execute_request();
 
-//flcServiceLocator::get_instance()->service('views','/viewout');
+
 
 
 

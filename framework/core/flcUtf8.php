@@ -1,55 +1,29 @@
 <?php
+/**
+ * This file is part of Future Labs Code 1 framework.
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ *
+ * Based in codeigniter , all kudos for his authors
+ *
+ * @author Modified by Carlos Arana Reategui.
+ *
+ */
 
 namespace framework\core;
 
+use Exception;
 use framework\flcCommon;
 
 require_once dirname(__FILE__).'/../flcCommon.php';
-
-/**
- * FLabsCode
- *
- * An open source application development framework for PHP
- *
- * This content is released under the MIT License (MIT)
- *
- * Copyright (c) 2022 - 2022, Future Labs Corp-
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NON INFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- * @package    FLabsCode
- * @author    Carlos Arana
- * @copyright    Copyright (c) 2022 - 2022, FLabsCode
- * @license    http://opensource.org/licenses/MIT	MIT License
- * @link    https://flabscorpprods.com
- * @since    Version 1.0.0
- * @filesource
- */
+require_once dirname(__FILE__).'/../utils/flcStrUtils.php';
 
 /**
  * Utf8 Class
  *
  * Provides support for UTF-8 environments
  *
- * @package        CodeIgniter
- * @category    UTF-8
- * @author        EllisLab Dev Team (modified by carlos arana / future labs sac)
  */
 class flcUtf8 {
 
@@ -60,12 +34,12 @@ class flcUtf8 {
      * Need to be called before any utf8 or security stuff.
      *
      * @return    void
-     * @throws \Exception if config cant be loaded
+     * @throws Exception if config cant be loaded
      */
     public static function initialize() {
         if (defined('PREG_BAD_UTF8_ERROR')                // PCRE must support UTF-8
             && (ICONV_ENABLED === true or MB_ENABLED === true)    // iconv or mbstring must be installed
-            && strtoupper(FLC::get_instance()->get_config()->item('charset')) === 'UTF-8'    // Application charset must be UTF-8
+            && strtoupper(flcCommon::get_config()->item('charset')) === 'UTF-8'    // Application charset must be UTF-8
         ) {
             define('UTF8_ENABLED', true);
             flcCommon::log_message('debug', 'flcUtf8->_construct - UTF-8 Support Enabled');

@@ -1,46 +1,26 @@
 <?php
+/**
+ * This file is part of Future Labs Code 1 framework.
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ *
+ * @author Carlos Arana Reategui.
+ *
+ */
 
 namespace framework;
 
-use framework\database\driver\flcDriver;
+use Exception;
+use framework\core\flcConfig;
+use framework\core\flcServiceLocator;
+use RuntimeException;
 
-require_once dirname(__FILE__).'/database/driver/flcDriver.php';
-
+include_once dirname(__FILE__).'/core/flcConfig.php';
+include_once dirname(__FILE__).'/core/flcServiceLocator.php';
 
 /**
- * FLabsCode
- *
- * An open source application development framework for PHP
- *
- * This content is released under the MIT License (MIT)
- *
- * Copyright (c) 2022 - 2022, Future Labs Corp-
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NON INFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- * @package    FLabsCode
- * @author    Carlos Arana
- * @copyright    Copyright (c) 2022 - 2022, FLabsCode
- * @license    http://opensource.org/licenses/MIT	MIT License
- * @link    https://flabscorpprods.com
- * @since    Version 1.0.0
- * @filesource
+ * Common functions library
  */
 class flcCommon {
 
@@ -49,81 +29,47 @@ class flcCommon {
      * config directory.
      * This method can be used to load the main config file directly
      * without the use of any other class of the library, if we need to load the other
-     * config files @return array with the config options
-     * @see framework/core/flcConfig.BASEPATH
+     * config files
      *
-     * Only load the main config file in the APPPPATH directory but not in the ENVIROMENT
-     * that can be defied by the aplication. use FLC otherwise in your main function.
+     * @return flcConfig instance with the config options
+     * @throws Exception
      *
-     *
-     * if fails exit , without config is not possible to continue.
+     * if fails throw  an exception.
      *
      */
-    static function &load_config(): array {
+    static private function &_load_config(): flcConfig {
+        /**
+         * @var flcConfig $config
+         */
         static $config;
 
         // only load one time
         if (!isset($config) || !$config) {
-            if (file_exists(APPPATH.'config/config.php')) {
-                // load config file
-                require APPPATH.'config/config.php';
+            $config = new flcConfig();
 
-                //  check if the config values are ok.
-                if (!isset($config) || !$config || !is_array($config)) {
-                    self::exit_error('config->load_config : error loading the config file bad configuration', 503);
+            if ($config !== null) {
+                // load the default config.
+                if ($config->load_config() === null) {
+                    flcCommon::log_message('error', 'FLC->initialize - Cant load main config');
+                    throw new RuntimeException('flcCommon->load_config - Cant load main config - COM0002');
                 }
-
-            } else {
-                self::exit_error('->load_config : error config file doesnt exist in '.APPPATH.'config', 503);
             }
         }
-
 
         return $config;
 
     }
 
-    static function &get_config(): array {
-        return self::load_config();
-
-    }
-
     /**
-     * Load the database config file that need to be in the APPPATH defined and
-     * config directory.
-     * if fails exit , without config is not possible to continue.
-     *
-     * @return array with the databaseconfig options.
+     * @return flcConfig the config instance containing at least the main config.
+     * @throws Exception
      */
-    static function &load_database_config(): array {
-        static $db;
+    static function &get_config(): flcConfig {
+        return self::_load_config();
 
-        // only load one time
-        if (!isset($db) || !$db) {
-            echo 'loading .....'.PHP_EOL;
-            if (file_exists(APPPATH.'config/database.php')) {
-                require_once APPPATH.'config/database.php';
-
-                //  check if the config values are ok.
-                if (!isset($db) || !$db || !is_array($db)) {
-                    self::exit_error('load_database_config() : error loading the database config file, bad configuration', 503);
-                } else {
-                    // Check if active group entry exist ($active_group is in the db config file loaded)
-                    if (isset($active_group) && isset($db[$active_group])) {
-
-                        // add to the db config indicate by $active_group the active flag
-                        $db[$active_group]['active'] = true;
-                    } else {
-                        self::exit_error('load_database_config() : the active group variable not found or not entry on the db array for the active group defined', 503);
-                    }
-                }
-            } else {
-                self::exit_error('load_database_config() : error database config file doesnt exist in '.APPPATH.'config', 503);
-            }
-        }
-
-        return $db;
     }
+
+    // --------------------------------------------------------------------
 
     /**
      * Load the validation config file that need to be in the APPPATH defined and
@@ -131,8 +77,9 @@ class flcCommon {
      * The validation file will be searched on the config subdirectory 'validation'.
      *
      * @return array of rules or group of rules or null if file doesnt exist.
+     * @throws RuntimeException
      */
-    static function load_validation_config(string $p_filename): ?array {
+    static function load_validation_config(string $p_filename): array {
 
         // only load one time
         $path = APPPATH."config/validation/$p_filename.php";
@@ -142,94 +89,12 @@ class flcCommon {
                 return $config;
             }
         }
-        flcCommon::log_message('warning', "flcCommon->load_validation_config : Validation file $p_filename doesnt exist or not config variable was dedfiend");
 
-        return null;
+        throw new RuntimeException("The validation file specified [ $p_filename ] , doesnt exist or not contains a config file - COM0001");
     }
 
-    /**
-     * Load a specific database based on the group identifier $p_dbid.
-     * After that load classes , initialize and connect to the database.
-     *
-     * Always return a new connection , if called many times with the same
-     * p_dbid a new instance and connection will be created.
-     *
-     * @param string|null $p_dbid if null load the active one.
-     *
-     * @return flcDriver
-     */
-    static function load_database(?string $p_dbid = null): ?flcDriver {
-        $db = self::load_database_config();
+    // --------------------------------------------------------------------
 
-        // If required a specific database entry
-        if ($p_dbid) {
-            if (isset($db[$p_dbid])) {
-                if (isset($db[$p_dbid]['dbdriver'])) {
-                    $actgroup = $p_dbid;
-                    $drvname = $db[$p_dbid]['dbdriver'];
-
-                } else {
-                    self::exit_error("load_database() : Database config file doesnt have a 'driver' index", 503);
-                }
-            } else {
-                self::exit_error("load_database()): Database identified by $p_dbid is not on the database config file", 503);
-            }
-        } else {
-            // Otherwise find the active group.
-            foreach ($db as $group => $value) {
-                if (isset($value['active']) && $value['active']) {
-                    $actgroup = $group;
-                    $drvname = $value['dbdriver'];
-                    break;
-                }
-            }
-
-            if (!isset($actgroup)) {
-                self::exit_error("load_database() : Cant find an entry for the active group defined", 503);
-
-            }
-        }
-
-
-        // load driver an initialize
-        if (isset($drvname) && strlen(trim($drvname)) > 0) {
-            $driver = 'flc'.ucwords($drvname).'Driver';
-            $driver_class = 'framework\database\driver\\'.$drvname.'\\'.$driver;
-
-            if (!class_exists($driver_class, false)) {
-                echo 'Load class '.$driver.PHP_EOL;
-
-                require_once dirname(__FILE__)."/database/driver/flcDriver.php";
-                require_once dirname(__FILE__)."/database/driver/$drvname/$driver.php";
-            }
-
-            // Can have multiple instances if required
-            // create with options
-            $drv = new $driver_class($db[$actgroup]);
-
-
-            // initialize
-            if (!$drv->initialize($db[$actgroup]['dsn'] ?? null, $db[$actgroup]['hostname'], $db[$actgroup]['port'] ?? null, $db[$actgroup]['database'], $db[$actgroup]['username'], $db[$actgroup]['password'], $db[$actgroup]['char_set'], $db[$actgroup]['dbcollat'])) {
-                self::exit_error("Cant initialize the db group $group because some elements are bad defined", 503);
-            }
-
-            // Open a new connection (can have multiples, but only  one is the default)
-            if (!$drv->connect()) {
-                $error = $drv->error();
-                self::exit_error("Cant connect the db group '$actgroup' , verify database config, cause = {$error['message']}", 503);
-            }
-
-
-            return $drv;
-
-
-        } else {
-            self::exit_error("Database identified by '$actgroup' doesnt have a driver specified", 503);
-
-        }
-
-        return null;
-    }
 
     /**
      * Is HTTPS?
@@ -263,6 +128,8 @@ class flcCommon {
         return false;
     }
 
+    // --------------------------------------------------------------------
+
     /**
      * Is CLI?
      *
@@ -286,6 +153,8 @@ class flcCommon {
     static function is_ajax(): bool {
         return (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest');
     }
+
+    // --------------------------------------------------------------------
 
 
     /**
@@ -318,6 +187,8 @@ class flcCommon {
         return $p_str;
     }
 
+    // --------------------------------------------------------------------
+
 
     /**
      * Extract the controller name from an uri.
@@ -332,10 +203,11 @@ class flcCommon {
      * this parameter its ignored.
      *
      * @return string the controller name from the uri or the default one is not found.
+     * @throws Exception
      */
     static function uri_get_controller(string $p_uri): string {
         $config = self::get_config();
-        $default_controller = $config['default_controller'];
+        $default_controller = $config->item('default_controller');
 
         if (!self::is_cli()) { // web call
 
@@ -349,6 +221,7 @@ class flcCommon {
                 }
 
             }
+
             return '';
 
         } else {
@@ -364,6 +237,8 @@ class flcCommon {
         }
 
     }
+
+    // --------------------------------------------------------------------
 
     /**
      * Returns the MIME types array from config/mimes.php
@@ -385,65 +260,23 @@ class flcCommon {
         return $_mimes;
     }
 
-    // --------------------------------------------------------------------
-
-    /**
-     * Byte-safe strlen()
-     *
-     * @param bool   $p_func_verride
-     * @param string $p_str
-     *
-     * @return    int
-     */
-    public  static function strlen(bool $p_func_verride,string $p_str) : int {
-        return ($p_func_verride) ? mb_strlen($p_str, '8bit') : strlen($p_str);
-    }
 
     // --------------------------------------------------------------------
 
-    /**
-     * Byte-safe substr()
-     *
-     * @param bool     $p_func_override
-     * @param string   $p_str
-     * @param int      $p_start
-     * @param int|null $p_length
-     *
-     * @return    string
-     */
-    public static function substr(bool $p_func_override,string $p_str, int $p_start, ?int $p_length = null) : string {
-        if ($p_func_override) {
-            // mb_substr($str, $start, null, '8bit') returns an empty
-            // string on PHP 5.3
-            isset($p_length) or $p_length = ($p_start >= 0 ? self::strlen($p_func_override,$p_str) - $p_start : -$p_start);
 
-            return mb_substr($p_str, $p_start, $p_length, '8bit');
-        }
-
-        return isset($p_length) ? substr($p_str, $p_start, $p_length) : substr($p_str, $p_start);
-    }
 
     /**
-     * @param string $p_errormsg
-     * @param int    $p_http_error
+     *
+     * @param string $p_type The error level: 'error', 'debug' or 'info'
+     * @param string $p_message
      *
      * @return void
+     * @throws Exception
      */
-    static function exit_error(string $p_errormsg, int $p_http_error = -1) {
-        if ($p_http_error != -1) {
-            // setera el header error
-        }
-        if (strlen($p_errormsg) > 0) {
-            echo $p_errormsg.PHP_EOL;
-        } else {
-            echo 'unknow_error'.PHP_EOL;
-        }
-        exit(3);
-
-    }
-
     static function log_message(string $p_type, string $p_message) {
-        echo $p_type.' : '.$p_message.PHP_EOL;
+        //echo $p_type.' : '.$p_message.PHP_EOL;
+        flcServiceLocator::get_instance()->service('log')->write_log($p_type, $p_message);
+
     }
 
 }

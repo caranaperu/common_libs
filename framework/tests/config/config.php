@@ -1,6 +1,19 @@
 <?php
 /*
 |--------------------------------------------------------------------------
+| Default Timezone
+|--------------------------------------------------------------------------
+|
+| This determines the default timezone for the request.
+|
+| See https://www.php.net/manual/en/timezones.php for a list of supported
+| timezones.
+|
+*/
+$config['timezone'] = 'America/Lima';
+
+/*
+|--------------------------------------------------------------------------
 | Default Character Set
 |--------------------------------------------------------------------------
 |
@@ -45,6 +58,67 @@ $config['csrf_expire'] = 7200;
 $config['csrf_regenerate'] = true;
 $config['csrf_exclude_uris'] = [];
 
+
+
+/*
+|--------------------------------------------------------------------------
+| Session Variables
+|--------------------------------------------------------------------------
+|
+| 'sess_driver'
+|
+|	The storage driver to use: files only supported , the user can create your own handlers.
+|
+| 'sess_cookie_name'
+|
+|	The session cookie name, must contain only [0-9a-z_-] characters
+|
+| 'sess_expiration'
+|
+|	The number of SECONDS you want the session to last.
+|	Setting to 0 (zero) means expire when the browser is closed.
+|
+| 'sess_save_path'
+|
+|	The location to save sessions to, driver dependent.
+|
+|	For the 'files' driver, it's a path to a writable directory.
+|	WARNING: Only absolute paths are supported!
+|
+|	For the 'database' driver, it's a table name.
+|	Please read up the manual for the format with other session drivers.
+|
+|	IMPORTANT: You are REQUIRED to set a valid save path!
+|
+| 'sess_match_ip'
+|
+|	Whether to match the user's IP address when reading the session data.
+|
+|	WARNING: If you're using the database driver, don't forget to update
+|	         your session table's PRIMARY KEY when changing this setting.
+|
+| 'sess_time_to_update'
+|
+|	How many seconds between CI regenerating the session ID.
+|
+| 'sess_regenerate_destroy'
+|
+|	Whether to destroy session data associated with the old session ID
+|	when auto-regenerating the session ID. When set to FALSE, the data
+|	will be later deleted by the garbage collector.
+|
+| Other session cookie settings are shared with the rest of the application,
+| except for 'cookie_prefix' and 'cookie_httponly', which are ignored here.
+|
+*/
+$config['sess_driver'] = 'files';
+$config['sess_cookie_name'] = 'flc_session';
+$config['sess_expiration'] = 7200;
+$config['sess_save_path'] = '/var/www/flabsregs/sessions';
+$config['sess_match_ip'] = FALSE;
+$config['sess_time_to_update'] = 300;
+$config['sess_regenerate_destroy'] = FALSE;
+
 /*
 |--------------------------------------------------------------------------
 | Cookie Related Variables
@@ -65,6 +139,25 @@ $config['cookie_domain'] = '';
 $config['cookie_path'] = '/';
 $config['cookie_secure'] = false;
 $config['cookie_httponly'] = false;
+$config['cookie_same_site'] = 'lax';
+/*
+|--------------------------------------------------------------------------
+| Reverse Proxy IPs
+|--------------------------------------------------------------------------
+|
+| If your server is behind a reverse proxy, you must whitelist the proxy
+| IP addresses from which CodeIgniter should trust headers such as
+| HTTP_X_FORWARDED_FOR and HTTP_CLIENT_IP in order to properly identify
+| the visitor's IP address.
+|
+| You can use both an array or a comma-separated list of proxy addresses,
+| as well as specifying whole subnets. Here are a few examples:
+|
+| Comma-separated:	'10.0.1.200,192.168.5.0/24'
+| Array:		array('10.0.1.200', '192.168.5.0/24')
+*/
+$config['proxy_ips'] = '';
+
 
 /*
 |--------------------------------------------------------------------------

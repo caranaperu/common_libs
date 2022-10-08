@@ -1,17 +1,47 @@
 <?php
+/**
+ * This file is part of Future Labs Code 1 framework.
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ **
+ * @author Carlos Arana Reategui.
+ *
+ */
 
 namespace framework\core;
 
 use Exception;
+use framework\database\driver\flcDriver;
 use framework\flcCommon;
 use ReflectionClass;
-use ReflectionException;
 use ReflectionMethod;
 use RuntimeException;
 
+include_once dirname(__FILE__).'/flcLog.php';
+include_once dirname(__FILE__).'/../database/driver/flcDriver.php';
+
+/**
+ * Service locator class.
+ * Singleton to load instances of several common services like , controllers , views and databases.
+ */
 class flcServiceLocator {
     private static flcServiceLocator $_instance;
 
+    /**
+     *Private constructor for singleton purposes
+     */
+    private function __construct() {
+        self::$_instance = &$this;
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Get the singleton instance of the class.
+     *
+     * @return flcServiceLocator
+     */
     public static function &get_instance(): flcServiceLocator {
         static $loaded = false;
         if (!$loaded) {
@@ -22,34 +52,45 @@ class flcServiceLocator {
         return self::$_instance;
     }
 
-    private function __construct() {
-        self::$_instance = &$this;
-    }
+    // --------------------------------------------------------------------
+
 
     /**
-     * @param string      $p_type
-     * @param string|null $p_class
-     * @param null        $p_vars
      *
-     * @return Object|bool
-     * @throws ReflectionException
-     * @throws Exception
+     * @param string      $p_type
+     * @param string|null $p_service_id the controller name ,  view name or database group
+     * @param mixed|null  $p_vars variables to pass to the service if required.
+     *
+     * @return Object|bool the service instance (for views only return a boolean).
+     *
+     * @throws RuntimeException|Exception
      */
-    public function service(string $p_type, ?string $p_class = null, $p_vars = null) {
+    public function service(string $p_type, ?string $p_service_id = null, $p_vars = null) {
         $ret = false;
         switch ($p_type) {
 
             case 'controller':
-                $ret = $this->_get_controller($p_class);
+                $ret = $this->_get_controller($p_service_id);
                 break;
 
             case 'views':
-                $this->_get_view($p_class, $p_vars);
+                $this->_get_view($p_service_id, $p_vars);
                 $ret = true;
+                break;
+
+            case 'database':
+                $ret = $this->_load_database($p_service_id);
+                break;
+
+            case 'log':
+                $ret = $this->_load_log($p_vars);
+                break;
         }
 
         return $ret;
     }
+
+    // --------------------------------------------------------------------
 
     /**
      * Load the base controller and the user controller if its required.
@@ -60,16 +101,16 @@ class flcServiceLocator {
      *
      * @return flcIController|null if $p_class not defined return null otherwise return the class.
      *
-     * @throws ReflectionException
+     * @throws RuntimeException
      * @throws Exception
      */
     private function _get_controller(?string $p_class = null): ?flcIController {
-        $config = FLC::get_instance()->get_config();
+        $config = flcCommon::get_config();
 
         if ($p_class) {
             $controller_user_file = APPPATH."controllers/$p_class.php";
             if (!file_exists($controller_user_file)) {
-                throw new RuntimeException("The controller [ $p_class ] doesnt exist, terminal error (SL0001)");
+                throw new RuntimeException("The controller [ $p_class ] doesnt exist, terminal error - SL0001");
             }
 
         }
@@ -80,7 +121,7 @@ class flcServiceLocator {
             include_once $controller_base_file;
 
         } else {
-            throw new RuntimeException("Base controller [ $p_class ] doesnt exist, check deployment of library (SL0002)");
+            throw new RuntimeException("Base controller [ $p_class ] doesnt exist, check deployment of library - SL0002");
         }
 
 
@@ -97,19 +138,19 @@ class flcServiceLocator {
 
                     // Class verification
                     if (!class_exists($ns_class, false)) {
-                        throw new RuntimeException("Cant load the extended controler [ $ns_class ], terminal error (SL00003)");
+                        throw new RuntimeException("Cant load the extended controler [ $ns_class ], terminal error - SL00003");
                     }
 
                     $reflection = new ReflectionClass($ns_class);
                     if (!$reflection->isSubclassOf('framework\core\flcController')) {
-                        throw new RuntimeException("controller [ $ns_class ] need to be an instance of framework\core\\flcController (SL00008)");
+                        throw new RuntimeException("controller [ $ns_class ] need to be an instance of framework\core\\flcController - SL00008");
                     }
                 }
 
             } else {
                 // at least '' is requLired in the config.
                 // 'controller_ext' => ''
-                throw new RuntimeException("config entry for namespaces/controller_ext is not defined or bad defined (SL00006)");
+                throw new RuntimeException("config entry for namespaces/controller_ext is not defined or bad defined - SL00006");
             }
 
         }
@@ -124,45 +165,59 @@ class flcServiceLocator {
 
                 // class validation
                 if (!class_exists($ns_class, false)) {
-                    throw new RuntimeException("Cant load the controler [ $ns_class ], terminal error (SL00003)");
+                    throw new RuntimeException("Cant load the controler [ $ns_class ] - SL00009");
 
                 } elseif (!method_exists($ns_class, 'index')) {
-                    throw new RuntimeException("Cant load the controler [ $ns_class ] , index method doesnt exist, terminal error (SL00004)");
+                    throw new RuntimeException("Cant load the controler [ $ns_class ] , index method doesnt exist - SL00004");
                 } elseif (!is_callable([$p_class, 'index'])) {
-                    $reflection = new ReflectionMethod($ns_class, 'index');
-                    if (!$reflection->isPublic()) {
-                        throw new RuntimeException("The index method of [ $ns_class ] need to be public, terminal error (SL00005)");
+                    try {
+                        $reflection = new ReflectionMethod($ns_class, 'index');
+                        if (!$reflection->isPublic()) {
+                            throw new RuntimeException("The index method of [ $ns_class ] need to be public - SL00005");
+                        }
+
+                    } catch (ReflectionException $ex) {
+                        throw new RuntimeException("The index method of [ $ns_class ] doesnt exist - SL00022");
+
                     }
 
                 }
 
-                $reflection = new ReflectionClass($ns_class);
-                if ($reflection->isSubclassOf('framework\core\flcController')) {
-                    return new $ns_class;
+                try {
+                    $reflection = new ReflectionClass($ns_class);
+                    if ($reflection->isSubclassOf('framework\core\flcController')) {
+                        return new $ns_class;
 
-                } else {
-                    throw new RuntimeException("controller [ $ns_class ] need to be an instance of framework\core\\flcController (SL00007)");
+                    } else {
+                        throw new RuntimeException("controller [ $ns_class ] need to be an instance of framework\core\\flcController - SL00007");
+
+                    }
+
+                } catch (ReflectionException $ex) {
+                    throw new RuntimeException("controller [ $ns_class ] doesnt exist - SL00021");
 
                 }
 
             } else {
-                throw new RuntimeException("config entry for namespaces/controllers is not defined or bad defined (SL00006)");
+                throw new RuntimeException("config entry for namespaces/controllers is not defined or bad defined - SL00006");
             }
         }
 
         return null;
     }
 
+    // --------------------------------------------------------------------
+
     /**
-     * Load the base controller and the user controller if its required.
+     * Load the view identified by p_view_name , this will be the base name of the file
+     * that contains the view can include an extension , without the extension php will be used
      *
-     * @param string|null $p_class if its needed to load and create and specific user controller
-     * this params set the class name. if its null only load the base controller and the exteneded
-     * controller if exist.
+     * @param string|null $p_view_name the view file name , will be searhed on APPPATH/views.
+     * @param mixed|null  $p_vars the variables to pass to the view.
      *
-     * @throws Exception
+     * @throws RuntimeException
      */
-    private function _get_view(string $p_class, $p_vars = null) {
+    private function _get_view(string $p_view_name, $p_vars = null) {
         static $ob_level = -1;
 
         if ($ob_level === -1) {
@@ -171,16 +226,15 @@ class flcServiceLocator {
 
         $file_exist = false;
 
-        $_ci_ext = pathinfo($p_class, PATHINFO_EXTENSION);
-        $_ci_file = ($_ci_ext === '') ? $p_class.'.php' : $p_class;
+        // get the full file name with extension , php its not indicated.
+        $_ci_ext = pathinfo($p_view_name, PATHINFO_EXTENSION);
+        $_ci_file = ($_ci_ext === '') ? $p_view_name.'.php' : $p_view_name;
 
         // load the views
-        $view_filepath = VIEWPATH.$_ci_file;
+        $view_filepath = APPPATH.'views/'.$_ci_file;
 
-        if (file_exists($view_filepath)) {
-            flcCommon::log_message('info',"flcServiceLocator->_get_view - view in $view_filepath is loaded");
-        } else {
-            throw new RuntimeException("Cant load the views $view_filepath");
+        if (!file_exists($view_filepath)) {
+            throw new RuntimeException("Cant load the views $view_filepath - SL0010");
         }
 
         /*
@@ -191,15 +245,18 @@ class flcServiceLocator {
          * 2. So that the final rendered template can be post-processed by
          *	the output class or controller class.
          */
-            ob_start();
+        ob_start();
 
+        // convert the params from array or object to flat variables  to pass to the view.
         $vars = $p_vars;
         if (!is_array($p_vars)) {
+            // Object processing
             $vars = is_object($p_vars) ? get_object_vars($p_vars) : [];
-        }
-
-        foreach ($vars as $key => $value) {
-            $$key = $value;
+        } else {
+            // array processing
+            foreach ($vars as $key => $value) {
+                $$key = $value;
+            }
         }
 
         include($view_filepath); // include() vs include_once() allows for multiple views with the same name
@@ -223,4 +280,191 @@ class flcServiceLocator {
 
 
     }
+    /**********************************************************************
+     * DATABASE stuff
+     */
+
+
+    /**
+     * Load the database config file that need to be in the APPPATH defined and
+     * config directory.
+     * if fails throws an exception.
+     *
+     * @return array with the database config options.
+     *
+     * @throws RuntimeException
+     */
+    private function &_load_database_config(): array {
+        static $db;
+
+        // only load one time
+        if (!isset($db) || !$db) {
+            if (file_exists(APPPATH.'config/database.php')) {
+                require_once APPPATH.'config/database.php';
+
+                //  check if the config values are ok.
+                if (!isset($db) || !$db || !is_array($db)) {
+                    throw new RuntimeException("Error loading the database config file, bad configuration - SL0011");
+
+                } else {
+                    // Check if active group entry exist ($active_group is in the db config file loaded)
+                    if (isset($active_group) && isset($db[$active_group])) {
+
+                        // add to the db config indicate by $active_group the active flag
+                        $db[$active_group]['active'] = true;
+                    } else {
+                        throw new RuntimeException("the active group variable not found or not entry on the db array for the active group defined [ isset($active_group) ? $active_group : '' ] - SL0012");
+                    }
+                }
+            } else {
+                throw new RuntimeException('Error database config file doesnt exist in '.APPPATH.' config - SL0013');
+            }
+        }
+
+        return $db;
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Load a specific database based on the group identifier $p_dbid.
+     * After that load classes , initialize and connect to the database.
+     *
+     * Always return a new connection , if called many times with the same
+     * p_dbid a new instance and connection will be created.
+     *
+     * @param string|null $p_dbid if null load the active one.
+     *
+     * @return flcDriver
+     * @throws RuntimeException
+     */
+    private function _load_database(?string $p_dbid = null): flcDriver {
+        $db = $this->_load_database_config();
+
+        // If required a specific database entry
+        if ($p_dbid !== null) {
+            if (isset($db[$p_dbid])) {
+                if (isset($db[$p_dbid]['dbdriver'])) {
+                    $actgroup = $p_dbid;
+                    $drvname = $db[$p_dbid]['dbdriver'];
+
+                } else {
+                    throw new RuntimeException("Database config file doesnt have a driver index- COM0007");
+                }
+            } else {
+                throw new RuntimeException("Database identified by [ $p_dbid ] is not on the database config file - SL0014");
+            }
+        } else {
+            // Otherwise find the active group.
+            foreach ($db as $group => $value) {
+                if (isset($value['active']) && $value['active']) {
+                    $actgroup = $group;
+                    $drvname = $value['dbdriver'];
+                    break;
+                }
+            }
+
+            if (!isset($actgroup)) {
+                throw new RuntimeException("Cant find an entry for the active database  group defined - SL0015");
+            }
+        }
+
+
+        // load driver an initialize
+        if (isset($drvname) && strlen(trim($drvname)) > 0) {
+            $driver = 'flc'.ucwords($drvname).'Driver';
+            $driver_class = 'framework\database\driver\\'.$drvname.'\\'.$driver;
+
+            if (!class_exists($driver_class, false)) {
+
+                require_once dirname(__FILE__)."/../database/driver/flcDriver.php";
+                require_once dirname(__FILE__)."/../database/driver/$drvname/$driver.php";
+            }
+
+            // Can have multiple instances if required
+            // create with options
+            $drv = new $driver_class($db[$actgroup]);
+
+
+            // initialize
+            if (!$drv->initialize($db[$actgroup]['dsn'] ?? null, $db[$actgroup]['hostname'], $db[$actgroup]['port'] ?? null, $db[$actgroup]['database'], $db[$actgroup]['username'], $db[$actgroup]['password'], $db[$actgroup]['char_set'], $db[$actgroup]['dbcollat'])) {
+                throw new RuntimeException("Cant initialize db group [ $actgroup ] because some elements are bad defined - SL0016");
+
+            }
+
+            // Open a new connection (can have multiples, but only  one is the default)
+            if (!$drv->connect()) {
+                $error = $drv->error();
+                throw new RuntimeException("Cant connect the db group [ $actgroup ] , verify database config, cause = {$error['message']} - SL0017");
+            }
+
+
+            return $drv;
+
+
+        } else {
+            throw new RuntimeException("Database identified by [ $actgroup ] doesnt have a driver specified - SL0018");
+
+        }
+
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Load the log config file that need to be in the APPPATH defined and
+     * config directory. This will be called one time by _load_log
+     * if fails throws an exception.
+     *
+     * @return array with the log config options.
+     * @throws RuntimeException
+     * @see flcServiceLocator::_load_log()
+     */
+    private function &_load_log_config(): array {
+
+        // only load one time
+        if (file_exists(APPPATH.'config/log.php')) {
+            require_once APPPATH.'config/log.php';
+
+            //  check if the log values are ok.
+            if (!isset($log_config) || !$log_config || !is_array($log_config)) {
+                throw new RuntimeException("Error loading the log config file, bad configuration - SL0019");
+
+            }
+        } else {
+            throw new RuntimeException('Error log config file doesnt exist in '.APPPATH.' log - SL0020');
+        }
+
+        return $log_config;
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Load load config and create the class, return the unique instance.
+     * If $p_log_config is null load the config from APPPATH/config/log.php
+     *
+     * @param array|null $p_log_config config options or null
+     *
+     * @return flcLog
+     * @throws RuntimeException
+     */
+    private function _load_log(?array $p_log_config): flcLog {
+        static $log;
+
+        if (!isset($log) || !$log) {
+            if ($p_log_config !== null) {
+                $log_config = $p_log_config;
+            } else {
+                $log_config = $this->_load_log_config();
+            }
+
+            $log = new flcLog($log_config);
+        }
+
+        return $log;
+    }
+    // --------------------------------------------------------------------
+
+
 }

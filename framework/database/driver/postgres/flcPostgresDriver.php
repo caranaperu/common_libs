@@ -46,9 +46,7 @@ use framework\database\flcDbResults;
 use stdClass;
 
 require_once dirname(__FILE__).'/../flcDriver.php';
-require_once dirname(__FILE__).'/../../flcDbResult.php';
-require_once dirname(__FILE__).'/../../flcDbResultOutParams.php';
-require_once dirname(__FILE__).'/../../flcDbResults.php';
+
 
 /**
  * Postgres Driver Class
@@ -225,7 +223,7 @@ class flcPostgresDriver extends flcDriver {
     /**
      * @inheritdoc
      */
-    protected function _open() {
+    protected function _open()  {
         // Never reuse a connection
         return pg_connect($this->_dsn, PGSQL_CONNECT_FORCE_NEW);
     }
@@ -748,7 +746,7 @@ class flcPostgresDriver extends flcDriver {
 
 
             } else {
-                $this->display_error("execute stored procedure  $p_fn_name fail ", 'E');
+                $this->display_error("execute stored procedure  $p_fn_name fail", 'E');
                 $results = null;
             }
 

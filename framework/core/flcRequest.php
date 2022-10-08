@@ -1,4 +1,15 @@
 <?php
+/**
+ * This file is part of Future Labs Code 1 framework.
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ *
+ * Based in codeigniter , all kudos for his authors
+ *
+ * @author Codeigniter Team, modified by Carlos Arana Reategui.
+ *
+ */
 
 namespace framework\core;
 
@@ -9,51 +20,10 @@ require_once dirname(__FILE__).'/../flcCommon.php';
 
 
 /**
- * FLabsCode
- *
- * An open source application development framework for PHP
- *
- * This content is released under the MIT License (MIT)
- *
- * Copyright (c) 2022 - 2022, Future Labs Corp-
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NON INFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- * @package    FLabsCode
- * @author    Carlos Arana
- * @copyright    Copyright (c) 2022 - 2022, FLabsCode
- * @license    http://opensource.org/licenses/MIT	MIT License
- * @link    https://flabscorpprods.com
- * @since    Version 1.0.0
- * @filesource
- *
- */
-defined('BASEPATH') or exit('No direct script access allowed');
-
-/**
  * Request Class
  *
  * Pre-processes global input data for security
  *
- * @package        Flabscode
- * @category    Input
- * @author        EllisLab Dev Team (codeigniter) / Modified by carlos Arana
  */
 class flcRequest {
 
@@ -62,7 +32,7 @@ class flcRequest {
      *
      * @var    string
      */
-    protected $ip_address = false;
+    protected string $ip_address = '';
 
 
     /**
@@ -98,7 +68,7 @@ class flcRequest {
      *
      * @var    array
      */
-    protected array $_input_stream;
+    protected array $_input_stream = [];
 
 
     // --------------------------------------------------------------------
@@ -114,7 +84,7 @@ class flcRequest {
      */
     public function __construct() {
 
-        $this->_enable_csrf = (FLC::get_instance()->get_config()->item('csrf_protection') === true);
+        $this->_enable_csrf = (flcCommon::get_config()->item('csrf_protection') === true);
 
 
         // Sanitize global arrays
@@ -271,74 +241,11 @@ class flcRequest {
      * @return    mixed
      */
     public function input_stream(?string $p_index = null) {
-        // Prior to PHP 5.6, the input stream can only be read once,
-        // so we'll need to check if we have already done that first.
-        if (!is_array($this->_input_stream)) {
-            // $this->raw_input_stream will trigger __get().
-            parse_str($this->_raw_input_stream, $this->_input_stream);
-            is_array($this->_input_stream) or $this->_input_stream = [];
-        }
 
         return $this->_fetch_from_array($this->_input_stream, $p_index);
     }
 
-    // ------------------------------------------------------------------------
 
-    /**
-     * Set cookie
-     *
-     * Accepts an arbitrary number of parameters (up to 7) or an associative
-     * array in the first parameter containing all the values.
-     *
-     * @param string|array[] $p_name Cookie name or an array containing parameters
-     * @param string         $p_value Cookie value
-     * @param int            $p_expire Cookie expiration time in seconds
-     * @param string         $p_domain Cookie domain (e.g.: '.yourdomain.com')
-     * @param string         $p_path Cookie path (default: '/')
-     * @param string         $p_prefix Cookie name prefix
-     * @param bool           $p_secure Whether to only transfer cookies via SSL
-     * @param bool           $p_httponly Whether to only makes the cookie accessible via HTTP (no javascript)
-     *
-     * @return    void
-     */
-    public function set_cookie($p_name, string $p_value = '', int $p_expire = 0, string $p_domain = '', string $p_path = '/', string $p_prefix = '', bool $p_secure = false, bool $p_httponly = false) {
-        if (is_array($p_name)) {
-            // always leave 'name' in last place, as the loop will break otherwise, due to $$item
-            foreach (['value', 'expire', 'domain', 'path', 'prefix', 'secure', 'httponly', 'name'] as $item) {
-                if (isset($p_name[$item])) {
-                    $$item = $p_name[$item];
-                }
-            }
-        }
-
-        if ($p_prefix === '' && config_item('cookie_prefix') !== '') {
-            $p_prefix = config_item('cookie_prefix');
-        }
-
-        if ($p_domain == '' && config_item('cookie_domain') != '') {
-            $p_domain = config_item('cookie_domain');
-        }
-
-        if ($p_path === '/' && config_item('cookie_path') !== '/') {
-            $p_path = config_item('cookie_path');
-        }
-
-        if ($p_secure === false && config_item('cookie_secure') === true) {
-            $p_secure = config_item('cookie_secure');
-        }
-
-        if ($p_httponly === false && config_item('cookie_httponly') !== false) {
-            $p_httponly = config_item('cookie_httponly');
-        }
-
-        if (!is_numeric($p_expire)) {
-            $p_expire = time() - 86500;
-        } else {
-            $p_expire = ($p_expire > 0) ? time() + $p_expire : 0;
-        }
-
-        setcookie($p_prefix.$p_name, $p_value, $p_expire, $p_path, $p_domain, $p_secure, $p_httponly);
-    }
 
     // --------------------------------------------------------------------
 
@@ -350,7 +257,7 @@ class flcRequest {
      * @return    string    IP address
      */
     public function ip_address(): string {
-        if ($this->ip_address !== false) {
+        if ($this->ip_address !== '') {
             return $this->ip_address;
         }
 
@@ -501,6 +408,7 @@ class flcRequest {
      *    - Standardizes newline characters to PHP_EOL
      *
      * @return    void
+     * @throws Exception
      */
     protected function _sanitize_globals() {
         if (is_array($_GET)) {

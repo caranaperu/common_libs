@@ -4,7 +4,6 @@ use framework\core\FLC;
 //use framework\core\flcConfig;
 use framework\core\flcLanguage;
 use framework\core\flcValidation;
-use framework\flcCommon;
 
 $application_folder = dirname(__FILE__);
 $system_path = '/var/www/common/framework';
@@ -15,6 +14,7 @@ define('BASEPATH', $system_path);
 
 // views paths
 define('VIEWPATH', APPPATH.'views'.DIRECTORY_SEPARATOR);
+define('WRITEPATH', APPPATH.'writable'.DIRECTORY_SEPARATOR);
 
 /*
  *---------------------------------------------------------------
@@ -161,15 +161,12 @@ $flc = FLC::get_instance();
 // Inicializacion
 //$flc->config = new flcConfig();
 //$configs = $flc->config->load_config();
-$flc->initialize();
-print_r($flc->get_config()).PHP_EOL;
+//print_r($flc->get_config()).PHP_EOL;
 
 
-$flc->DB = flcCommon::load_database();
-print_r($flc->DB);
+$flc->db = \framework\core\flcServiceLocator::get_instance()->service('database');
+print_r($flc->db);
 
-//$flc->DB = flcCommon::load_database('sql_server');
-//print_r($flc->DB);
 
 $flc->lang = new flcLanguage();
 if (!$flc->lang->load(['email', 'calendar'], 'es')) {

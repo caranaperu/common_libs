@@ -1,48 +1,28 @@
 <?php
 
-namespace framework\database\driver\mssql;
-
 
 /**
- * FLabsCode
+ * This file is part of Future Labs Code 1 framework.
  *
- * An open source application development framework for PHP
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
  *
- * This content is released under the MIT License (MIT)
+ * Inspired in codeigniter , all kudos for his authors
  *
- * Copyright (c) 2022 - 2022, Future Labs Corp-
+ * @author Carlos Arana Reategui.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NON INFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- * @package    FLabsCode
- * @author    Carlos Arana
- * @copyright    Copyright (c) 2022 - 2022, FLabsCode
- * @license    http://opensource.org/licenses/MIT	MIT License
- * @link    https://flabscorpprods.com
- * @since    Version 1.0.0
- * @filesource
  */
+
+namespace framework\database\driver\mssql;
 
 use framework\database\driver\flcDriver;
 use framework\database\flcDbResult;
 use framework\database\flcDbResultOutParams;
 use framework\database\flcDbResults;
+use stdClass;
+
+include_once dirname(__FILE__).'/../flcDriver.php';
+
 
 
 /**
@@ -54,12 +34,6 @@ use framework\database\flcDbResults;
  * Important : Part of this class is a modified one of driver class from codeigniter
  * all credits for his authors.
  *
- *
- * @package        Database
- * @subpackage    Drivers
- * @category    Database
- * @author       Carlos Arana Reategui
- * @link        https://flabscorpprods.com
  */
 class flcMssqlDriver extends flcDriver {
 
@@ -179,9 +153,12 @@ class flcMssqlDriver extends flcDriver {
     /**
      * Class constructor
      *
+     * @param array|null $p_options if null take defaults
+     *
      * @return    void
      */
-    public function __construct() {
+    public function __construct(?array $p_options = null) {
+        parent::__construct($p_options);
         //ini_set('memory_limit','256M'); // This also needs to be increased in some cases. Can be changed to a higher value as per need)
 
 
@@ -199,7 +176,7 @@ class flcMssqlDriver extends flcDriver {
     // --------------------------------------------------------------------
 
     /**
-     * For mysql the dsn prototype will be : 'driver://username:password@hostname/database'
+     * For mssql the dsn prototype will be : 'driver://username:password@hostname/database'
      *
      * @inheritDoc
      */
@@ -358,7 +335,7 @@ class flcMssqlDriver extends flcDriver {
             return true;
         }
 
-        $this->display_error("Select database for $p_database ", 'E');
+        $this->display_error("Select database for $p_database fail", 'E');
 
         return false;
     }
@@ -482,7 +459,7 @@ class flcMssqlDriver extends flcDriver {
 
         $retval = [];
         for ($i = 0, $c = count($ans); $i < $c; $i++) {
-            $retval[$i] = new \stdClass();
+            $retval[$i] = new stdClass();
             $retval[$i]->name = $ans[$i]->COLUMN_NAME;
             $retval[$i]->type = $ans[$i]->DATA_TYPE;
             $retval[$i]->max_length = ($ans[$i]->CHARACTER_MAXIMUM_LENGTH > 0) ? $ans[$i]->CHARACTER_MAXIMUM_LENGTH : $ans[$i]->NUMERIC_PRECISION;
@@ -524,6 +501,8 @@ class flcMssqlDriver extends flcDriver {
     protected function _version_qry(): string {
         return 'SELECT @@VERSION AS ver';
     }
+
+    // --------------------------------------------------------------------
 
     /**
      * @inheritdoc
@@ -667,7 +646,7 @@ class flcMssqlDriver extends flcDriver {
             sqlsrv_free_stmt($res);
             unset($res);
         } else {
-            $this->display_error("execute function $p_fn_name fail ", 'E');
+            $this->display_error("execute function $p_fn_name fail", 'E');
 
             return null;
         }
@@ -683,6 +662,8 @@ class flcMssqlDriver extends flcDriver {
         return $this->execute_query($sqlfunc);
 
     }
+
+    // --------------------------------------------------------------------
 
     /**
      * @inheritdoc
@@ -767,7 +748,7 @@ class flcMssqlDriver extends flcDriver {
             if ($res = $this->execute_query($sqlfunc)) {
                 $results->add_resultset_result($res);
             } else {
-                $this->display_error("execute stored procedure $p_fn_name fail ", 'E');
+                $this->display_error("execute stored procedure $p_fn_name fail", 'E');
             }
 
         } // For stores procedures with output parameters o resultset or both
@@ -825,7 +806,7 @@ class flcMssqlDriver extends flcDriver {
 
 
             } else {
-                $this->display_error("execute stored procedure $p_fn_name fail ", 'E');
+                $this->display_error("execute stored procedure $p_fn_name fail", 'E');
 
                 return null;
             }

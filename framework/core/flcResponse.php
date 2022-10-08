@@ -1,63 +1,34 @@
 <?php
 
+/**
+ * This file is part of Future Labs Code 1 framework.
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ *
+ * Based in codeigniter , all kudos for his authors
+ *
+ * @author Codeigniter Team, modified by Carlos Arana Reategui.
+ *
+ */
+
 namespace framework\core;
 
 use Exception;
 use framework\flcCommon;
+use framework\utils\flcStrUtils;
 
-include_once dirname(__FILE__).'/FLC.php';
 include_once dirname(__FILE__).'/../flcCommon.php';
+include_once dirname(__FILE__).'/../utils/flcStrUtils.php';
 
-/**
- * CodeIgniter
- *
- * An open source application development framework for PHP
- *
- * This content is released under the MIT License (MIT)
- *
- * Copyright (c) 2014 - 2017, British Columbia Institute of Technology
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- * @package    CodeIgniter
- * @author    EllisLab Dev Team
- * @copyright    Copyright (c) 2008 - 2014, EllisLab, Inc. (https://ellislab.com/)
- * @copyright    Copyright (c) 2014 - 2017, British Columbia Institute of Technology (http://bcit.ca/)
- * @license    http://opensource.org/licenses/MIT	MIT License
- * @link    https://codeigniter.com
- * @since    Version 1.0.0
- * @filesource
- */
-defined('BASEPATH') or exit('No direct script access allowed');
 
 /**
  * Output Class
  *
  * Responsible for sending final output to the browser.
  *
- * @package        CodeIgniter
- * @subpackage    Libraries
- * @category    Output
- * @author        EllisLab Dev Team
- * @link        https://codeigniter.com/user_guide/libraries/output.html
  */
-class flcOutput {
+class flcResponse {
 
     /**
      * Final output string
@@ -121,14 +92,14 @@ class flcOutput {
      */
     public function __construct() {
         $this->_zlib_oc = (bool)ini_get('zlib.output_compression');
-        $this->_compress_output = ($this->_zlib_oc === false && FLC::get_instance()->get_config()->item('compress_output') === true && extension_loaded('zlib'));
+        $this->_compress_output = ($this->_zlib_oc === false && flcCommon::get_config()->item('compress_output') === true && extension_loaded('zlib'));
 
         isset(self::$func_override) or self::$func_override = (extension_loaded('mbstring') && ini_get('mbstring.func_override'));
 
         // Get mime types for later
         $this->mimes =& flcCommon::get_mimes();
 
-        flcCommon::log_message('info', 'flcOutput->_construct - Output class initialized');
+        flcCommon::log_message('info', 'flcResponse->_construct - Response class initialized');
     }
 
     // --------------------------------------------------------------------
@@ -230,7 +201,7 @@ class flcOutput {
         $this->mime_type = $p_mime_type;
 
         if (empty($p_charset)) {
-            $p_charset = FLC::get_instance()->get_config()->item('charset');
+            $p_charset = flcCommon::get_config()->item('charset');
         }
 
         $header = 'Content-Type: '.$p_mime_type.(empty($p_charset) ? '' : '; charset='.$p_charset);
@@ -276,8 +247,8 @@ class flcOutput {
 
         // Count backwards, in order to get the last matching header
         for ($c = count($headers) - 1; $c > -1; $c--) {
-            if (strncasecmp($p_header, $headers[$c], $l = flcCommon::strlen(self::$func_override, $p_header)) === 0) {
-                return trim(flcCommon::substr(self::$func_override, $headers[$c], $l + 1));
+            if (strncasecmp($p_header, $headers[$c], $l = flcStrUtils::strlen(self::$func_override, $p_header)) === 0) {
+                return trim(flcStrUtils::substr(self::$func_override, $headers[$c], $l + 1));
             }
         }
 
@@ -301,10 +272,68 @@ class flcOutput {
         set_status_header($p_code, $p_text);
     }
 
+    // ------------------------------------------------------------------------
+
+    /**
+     * Set cookie
+     *
+     * Accepts an arbitrary number of parameters (up to 7) or an associative
+     * array in the first parameter containing all the values.
+     *
+     * @param string|array[] $p_name Cookie name or an array containing parameters
+     * @param string         $p_value Cookie value
+     * @param int            $p_expire Cookie expiration time in seconds
+     * @param string         $p_domain Cookie domain (e.g.: '.yourdomain.com')
+     * @param string         $p_path Cookie path (default: '/')
+     * @param string         $p_prefix Cookie name prefix
+     * @param bool           $p_secure Whether to only transfer cookies via SSL
+     * @param bool           $p_httponly Whether to only makes the cookie accessible via HTTP (no javascript)
+     *
+     * @return    void
+     */
+    public function set_cookie($p_name, string $p_value = '', int $p_expire = 0, string $p_domain = '', string $p_path = '/', string $p_prefix = '', bool $p_secure = false, bool $p_httponly = false) {
+        if (is_array($p_name)) {
+            // always leave 'name' in last place, as the loop will break otherwise, due to $$item
+            foreach (['value', 'expire', 'domain', 'path', 'prefix', 'secure', 'httponly', 'name'] as $item) {
+                if (isset($p_name[$item])) {
+                    $$item = $p_name[$item];
+                }
+            }
+        }
+
+        if ($p_prefix === '' && config_item('cookie_prefix') !== '') {
+            $p_prefix = config_item('cookie_prefix');
+        }
+
+        if ($p_domain == '' && config_item('cookie_domain') != '') {
+            $p_domain = config_item('cookie_domain');
+        }
+
+        if ($p_path === '/' && config_item('cookie_path') !== '/') {
+            $p_path = config_item('cookie_path');
+        }
+
+        if ($p_secure === false && config_item('cookie_secure') === true) {
+            $p_secure = config_item('cookie_secure');
+        }
+
+        if ($p_httponly === false && config_item('cookie_httponly') !== false) {
+            $p_httponly = config_item('cookie_httponly');
+        }
+
+        if (!is_numeric($p_expire)) {
+            $p_expire = time() - 86500;
+        } else {
+            $p_expire = ($p_expire > 0) ? time() + $p_expire : 0;
+        }
+
+        setcookie($p_prefix.$p_name, $p_value, $p_expire, $p_path, $p_domain, $p_secure, $p_httponly);
+    }
+
     // --------------------------------------------------------------------
 
     /**
-     * Return Display Output
+     * Return output buffer
      *
      * Processes and return finalized output data along
      * with any server headers.
@@ -312,7 +341,6 @@ class flcOutput {
      * @param string $p_output Output data override
      *
      * @return    string with the buffered final output.
-     * @uses    CI_Output::$final_output
      */
     public function get_final_output(string $p_output = ''): string {
 
@@ -320,8 +348,6 @@ class flcOutput {
         if ($p_output === '') {
             $p_output =& $this->final_output;
         }
-
-        // --------------------------------------------------------------------
 
         // Is compression requested?
         if ($this->_compress_output === true && isset($_SERVER['HTTP_ACCEPT_ENCODING']) && strpos($_SERVER['HTTP_ACCEPT_ENCODING'], 'gzip') !== false) {
@@ -338,5 +364,6 @@ class flcOutput {
         return $p_output;
     }
 
+    // --------------------------------------------------------------------
 
 }

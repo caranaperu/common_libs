@@ -1,8 +1,19 @@
 <?php
-
+/**
+ * This file is part of Future Labs Code 1 framework.
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ *
+ * Inspired in codeigniter , all kudos for his authors
+ *
+ * @author Carlos Arana Reategui.
+ *
+ */
 
 namespace framework\core;
 
+use Exception;
 use framework\flcCommon;
 use framework\utils\flcStrUtils;
 
@@ -10,49 +21,9 @@ require_once dirname(__FILE__).'/../flcCommon.php';
 require_once dirname(__FILE__).'/../utils/flcStrUtils.php';
 require_once dirname(__FILE__).'/flcLanguage.php';
 
-/**
- * FLabsCode
- *
- * An open source application development framework for PHP
- *
- * This content is released under the MIT License (MIT)
- *
- * Copyright (c) 2022 - 2022, Future Labs Corp-
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NON INFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- * @package    FLabsCode
- * @author    Carlos Arana
- * @copyright    Copyright (c) 2022 - 2022, FLabsCode
- * @license    http://opensource.org/licenses/MIT	MIT License
- * @link    https://flabscorpprods.com
- * @since    Version 1.0.0
- * @filesource
- */
-
-defined('BASEPATH') or exit('No direct script access allowed');
 
 /**
  * Validation class based on a set of rules associated to a fields.
- * @category  Validation
- * @author       Carlos Arana Reategui
- * @link        https://flabscorpprods.com
  *
  * Important : This class is a modified one of Form_validation from codeigniter
  * all credits for his authors.
@@ -89,7 +60,7 @@ class flcValidation {
     /**
      * @var mixed a class instance that hold the csllback functions
      */
-    private $_controller;
+    private $_callback_class;
 
     /**
      * @var flcLanguage that contains the translation for the field names
@@ -103,14 +74,25 @@ class flcValidation {
      * @param flcLanguage $p_lang that contains the translation for the field names
      * and also will hold the validation messages.
      *
-     * @param mixed       $p_controller a class instance that hold the csllback functions
+     * @param object|null $p_callback_class a class instance that hold the callback functions
+     * for validations with callbacks..
      */
-    public function __construct(flcLanguage $p_lang, $p_controller = null) {
-        if (isset($p_controller)) {
-            $this->_controller = $p_controller;
-        }
-
+    public function __construct(flcLanguage $p_lang, object $p_callback_class = null) {
+        $this->set_callbacks_class($p_callback_class);
         $this->_lang = $p_lang;
+    }
+
+    /**
+     * Set the class instance that hold the callback functions for validations.
+     *
+     * @param object|null $p_callback_class
+     *
+     * @return void
+     */
+    public function set_callbacks_class(?object $p_callback_class) {
+        if ($p_callback_class !== null) {
+            $this->_callback_class = $p_callback_class;
+        }
     }
 
 
@@ -285,6 +267,7 @@ class flcValidation {
      * Validate each one of the fields on the data with field => values
      *
      * @return bool true if all validations are ok, false otherwise
+     * @throws Exception
      */
     public function run(): bool {
         // no fields to verify
@@ -336,6 +319,7 @@ class flcValidation {
      * @param string $p_postdata the field value send to validate.
      *
      * @return void
+     * @throws Exception
      */
     protected function _execute($p_row, string $p_postdata): void {
         $result = false;
@@ -397,15 +381,15 @@ class flcValidation {
             // if callback or standar function
             if ($callback || $callable !== false) {
                 if ($callback) {
-                    if (isset($this->_controller)) {
+                    if (isset($this->_callback_class)) {
                         // if callback  search  on the controller , if exist call
-                        if (!method_exists($this->_controller, $rule)) {
+                        if (!method_exists($this->_callback_class, $rule)) {
                             flcCommon::log_message('info', "flcValidation->_execute : unable to find callback method $rule");
 
                             $result = false;
                         } else {
                             // execute a callback
-                            $result = $this->_controller->$rule($p_postdata);
+                            $result = $this->_callback_class->$rule($p_postdata);
                         }
 
                     }
@@ -537,14 +521,9 @@ class flcValidation {
             return $this->_error_messages[$p_rule];
         } else {
             // callable ? only if it is an array
-            if (is_array($p_rule)) {
-                if (false !== ($line = $this->_lang->line('validation_'.$p_rule[0]))) {
-                    return $line;
-                }
-            } elseif (false !== ($line = $this->_lang->line('validation_'.$p_rule))) {
-                return $line;
-            } // DEPRECATED support for non-prefixed keys, lang file again
-            elseif (false !== ($line = $this->_lang->line($p_rule))) {
+            $rulecheck = is_array($p_rule)  ?  $p_rule[0] : $p_rule;
+            $line = $this->_lang->line('validation_'.$rulecheck);
+            if (substr( $line, 0, 18 ) !== "No translation for") {
                 return $line;
             }
         }
@@ -557,15 +536,18 @@ class flcValidation {
     /**
      * Translate a field name
      *
-     * @param string    the field name
+     * @param string $p_fieldname the field name
      *
      * @return    string
      */
     protected function _translate_fieldname(string $p_fieldname): string {
         // Do we need to translate the field name? We look for the prefix 'lang:' to determine this
         // If we find one, but there's no translation for the string - just return it
-        if (sscanf($p_fieldname, 'lang:%s', $line) === 1 && false === ($p_fieldname = $this->_lang->line($line))) {
-            return $line;
+        if (sscanf($p_fieldname, 'lang:%s', $line) === 1 ) {
+            $p_fieldname = $this->_lang->line($line);
+            if (substr( $p_fieldname, 0, 18 ) !== "No translation for") {
+                return $line;
+            }
         }
 
         return $p_fieldname;
@@ -630,7 +612,7 @@ class flcValidation {
      * @return    bool true if the rule is ok otherwise false.
      */
     public function required(string $p_str): bool {
-        return is_array($p_str) ? (empty($p_str) === false) : (trim($p_str) !== '');
+        return (trim($p_str) !== '');
     }
 
     // --------------------------------------------------------------------
@@ -839,7 +821,7 @@ class flcValidation {
      * @return    bool
      */
     public function alpha_numeric(string $p_str): bool {
-        return ctype_alnum((string)$p_str);
+        return ctype_alnum($p_str);
     }
 
     // --------------------------------------------------------------------
@@ -919,7 +901,7 @@ class flcValidation {
      * @return    bool
      */
     public function greater_than(string $p_str, string $p_min): bool {
-        return is_numeric($p_str) ? ($p_str > $p_min) : false;
+        return is_numeric($p_str) && $p_str > $p_min;
     }
 
 
@@ -934,8 +916,8 @@ class flcValidation {
      *
      * @return    bool
      */
-    public function greater_than_equal_to(string $p_str, string $p_min): bool {
-        return is_numeric($p_str) ? ($p_str >= $p_min) : false;
+    public function greater_than_equal_to(string $p_str, int $p_min): bool {
+        return is_numeric($p_str) && $p_str >= $p_min;
     }
 
     // --------------------------------------------------------------------
@@ -949,7 +931,7 @@ class flcValidation {
      * @return    bool
      */
     public function less_than(string $p_str, int $p_max): bool {
-        return is_numeric($p_str) ? ($p_str < $p_max) : false;
+        return is_numeric($p_str) && $p_str < $p_max;
     }
 
     // --------------------------------------------------------------------
@@ -963,7 +945,7 @@ class flcValidation {
      * @return    bool
      */
     public function less_than_equal_to(string $p_str, int $p_max): bool {
-        return is_numeric($p_str) ? ($p_str <= $p_max) : false;
+        return is_numeric($p_str) && $p_str <= $p_max;
     }
 
     // --------------------------------------------------------------------
@@ -990,7 +972,7 @@ class flcValidation {
      * @return    bool
      */
     public function is_natural(string $p_str): bool {
-        return ctype_digit((string)$p_str);
+        return ctype_digit($p_str);
     }
 
     // --------------------------------------------------------------------
@@ -1003,7 +985,7 @@ class flcValidation {
      * @return    bool
      */
     public function is_natural_no_zero(string $p_str): bool {
-        return ($p_str != 0 && ctype_digit((string)$p_str));
+        return ($p_str != 0 && ctype_digit($p_str));
     }
 
     // --------------------------------------------------------------------
@@ -1182,7 +1164,7 @@ class flcValidation {
         $check_date = strtotime($p_str);
         echo 'f1= '.$check_date.' and f2= '.$limit_date.PHP_EOL;
 
-        if ($limit_date == false || $check_date == false) {
+        if (!$limit_date || $check_date == false) {
             return false;
         }
 
@@ -1211,7 +1193,7 @@ class flcValidation {
 
         $limit_date = strtotime($this->_data[$p_field]);
         $check_date = strtotime($p_str);
-        if ($limit_date == false || $check_date == false) {
+        if (!$limit_date || $check_date == false) {
             return false;
         }
 

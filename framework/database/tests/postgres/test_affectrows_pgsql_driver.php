@@ -1,6 +1,5 @@
 <?php
 
-use framework\database\driver\flcDriver;
 use framework\database\driver\postgres\flcPostgresConnection;
 use framework\database\driver\postgres\flcPostgresDriver;
 

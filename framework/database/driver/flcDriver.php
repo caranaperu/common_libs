@@ -1,47 +1,27 @@
 <?php
 
-namespace framework\database\driver;
-
 /**
- * FLabsCode
+ * This file is part of Future Labs Code 1 framework.
  *
- * An open source application development framework for PHP
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
  *
- * This content is released under the MIT License (MIT)
+ * Inspired in codeigniter , all kudos for his authors
  *
- * Copyright (c) 2022 - 2022, Future Labs Corp-
+ * @author Carlos Arana Reategui.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NON INFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- * @package    FLabsCode
- * @author    Carlos Arana
- * @copyright    Copyright (c) 2022 - 2022, FLabsCode
- * @license    http://opensource.org/licenses/MIT	MIT License
- * @link    https://flabscorpprods.com
- * @since    Version 1.0.0
- * @filesource
  */
 
+namespace framework\database\driver;
+
+
+use Exception;
 use framework\database\flcDbResult;
 use framework\database\flcDbResults;
-use framework\utils\flcStrUtils;
+use framework\flcCommon;
+use RuntimeException;
 
+require_once dirname(__FILE__).'/../../flcCommon.php';
 require_once dirname(__FILE__).'/../flcDbResult.php';
 require_once dirname(__FILE__).'/../flcDbResults.php';
 require_once dirname(__FILE__).'/../../utils/flcStrUtils.php';
@@ -115,11 +95,6 @@ require_once dirname(__FILE__).'/../../utils/flcStrUtils.php';
  * Important : Part of this class is a modified one of driver class from codeigniter
  * all credits for his authors.
  *
- * @package        Database
- * @subpackage    Drivers
- * @category    Database
- * @author       Carlos Arana Reategui
- * @link        https://flabscorpprods.com
  */
 abstract class flcDriver {
 
@@ -352,7 +327,7 @@ abstract class flcDriver {
     public function __construct(?array $p_options = null) {
         // if the options are sended we take their values if exists on the
         // array , otherwise set defaults.
-        if (isset($p_options) && is_array($p_options)) {
+        if (isset($p_options)) {
             $this->debug = $p_options['db_debug'] ?? false;
             $this->trans_strict = $p_options['stricton'] ?? false;
             $this->encrypt = $p_options['encrypt'] ?? false;
@@ -400,7 +375,7 @@ abstract class flcDriver {
 
             $conn = $this->_open();
 
-            if (!$conn) {
+            if ($conn === false) {
                 return false;
             }
 
@@ -690,7 +665,7 @@ abstract class flcDriver {
      * @return    int
      */
     public function count_all(string $p_table = ''): int {
-        if ($p_table === '') {
+        if (trim($p_table) === '') {
 
             $this->display_error("Count all required a table name");
 
@@ -891,7 +866,7 @@ abstract class flcDriver {
     /**
      * Determines if a query is a "write" type.
      *
-     * @param string    An SQL query string
+     * @param string $sql An SQL query string
      *
      * @return    bool
      */
@@ -925,7 +900,7 @@ abstract class flcDriver {
      *      [2] => 550
      *     )
      *
-     * @param mixed
+     * @param mixed $p_to_escape
      *
      * @return    mixed
      */
@@ -1450,7 +1425,7 @@ abstract class flcDriver {
     // --------------------------------------------------------------------
 
     /**
-     * @return object|null basically a resource from the db
+     * @return resource|false basically a resource from the db
      */
     protected abstract function _open();
 
@@ -1633,7 +1608,7 @@ abstract class flcDriver {
      * @return    string
      */
     protected function _escape_str(string $p_to_escape): string {
-        return str_replace("'", "''", flcStrUtils::remove_invisible_characters($p_to_escape));
+        return str_replace("'", "''", flcCommon::remove_invisible_characters($p_to_escape));
     }
 
     // --------------------------------------------------------------------
@@ -1980,17 +1955,28 @@ abstract class flcDriver {
      *
      * @param string $p_error the error message
      * @param string $p_type W-'warning' or E-'error'
-     * @param string $p_swap any "swap" values
      *
      */
-    public function display_error(string $p_error, string $p_type = 'W', string $p_swap = '') {
-        if ($this->debug) {
-            echo $p_error.PHP_EOL;
+    public function display_error(string $p_error, string $p_type = 'W') {
+        echo $p_error.PHP_EOL;
+        try {
             if ($p_type == 'E') {
                 $error = $this->error();
-                print_r($error);
+                flcCommon::log_message('error', $p_error.' - '.$error['message'].'('.$error['code'].')');
+            } else {
+                flcCommon::log_message('info', $p_error);
             }
+
+        } catch (Exception $ex) {
+            $msg = 'Imposible to log a message , check your log config ,'.$ex->getMessage();
+            if ($p_type == 'E') {
+                $msg .= ' - '.$error['message'].'('.$error['code'].')';
+                echo $msg;
+            }
+            // is expected is handled befrore send results to the http server , for cli will be appear in screen.
+            throw new RuntimeException($msg);
         }
+
     }
 }
 

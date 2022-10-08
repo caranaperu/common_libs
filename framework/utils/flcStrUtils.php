@@ -1,36 +1,58 @@
 <?php
+/**
+ * This file is part of Future Labs Code 1 framework.
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ *
+ * Inspired in codeigniter , all kudos for his authors
+ *
+ * @author Carlos Arana Reategui.
+ *
+ */
 
 namespace framework\utils;
 
+/**
+ * Common string utilities class.
+ */
 class flcStrUtils {
+    // --------------------------------------------------------------------
+
     /**
-     * Remove Invisible Characters
+     * Byte-safe strlen()
      *
-     * This prevents sandwiching null characters
-     * between ascii characters, like Javascript.
+     * @param bool   $p_func_verride
+     * @param string $p_str
      *
-     * @param string
-     * @param bool
+     * @return    int
+     */
+    public  static function strlen(bool $p_func_verride,string $p_str) : int {
+        return ($p_func_verride) ? mb_strlen($p_str, '8bit') : strlen($p_str);
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Byte-safe substr()
+     *
+     * @param bool     $p_func_override
+     * @param string   $p_str
+     * @param int      $p_start
+     * @param int|null $p_length
      *
      * @return    string
      */
-    public static function remove_invisible_characters(string $str, bool $url_encoded = true): string {
-        $non_displayables = [];
+    public static function substr(bool $p_func_override,string $p_str, int $p_start, ?int $p_length = null) : string {
+        if ($p_func_override) {
+            // mb_substr($str, $start, null, '8bit') returns an empty
+            // string on PHP 5.3
+            isset($p_length) or $p_length = ($p_start >= 0 ? self::strlen(true,$p_str) - $p_start : -$p_start);
 
-        // every control character except newline (dec 10),
-        // carriage return (dec 13) and horizontal tab (dec 09)
-        if ($url_encoded) {
-            $non_displayables[] = '/%0[0-8bcef]/i';    // url encoded 00-08, 11, 12, 14, 15
-            $non_displayables[] = '/%1[0-9a-f]/i';    // url encoded 16-31
+            return mb_substr($p_str, $p_start, $p_length, '8bit');
         }
 
-        $non_displayables[] = '/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+/S';    // 00-08, 11, 12, 14-31, 127
-
-        do {
-            $str = preg_replace($non_displayables, '', $str, -1, $count);
-        } while ($count);
-
-        return $str;
+        return isset($p_length) ? substr($p_str, $p_start, $p_length) : substr($p_str, $p_start);
     }
 
     // --------------------------------------------------------------------

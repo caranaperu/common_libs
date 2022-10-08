@@ -2,8 +2,8 @@
 
 namespace framework\tests\controllers;
 
+use framework\core\FLC;
 use framework\core\flcController;
-use framework\core\flcServiceLocator;
 
 
 class my_controller extends flcController {
@@ -23,8 +23,9 @@ class my_controller extends flcController {
 
         $data2 = ['x'=>1000,'y'=>2000];
 
-        $view = flcServiceLocator::get_instance()->service('views','my_testview',$data2);
-        $view = flcServiceLocator::get_instance()->service('views','my_testview_2',$data2);
+        FLC::get_instance()->view('my_testview',$data2);
+        FLC::get_instance()->view('my_testview_2',$data2);
+
 
     }
 }

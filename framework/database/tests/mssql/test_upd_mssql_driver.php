@@ -57,7 +57,7 @@ function print_resultsets($driver, $query) {
 }
 
 if ($driver->open()) {
-    $driver = new flcMssqlDriver($driver);
+    $driver = new flcMssqlDriver();
 
     $updstr = $driver->update_string('schtest.tb_test', [
         'char_col' => "'Soy charcol'", 'money_col' => 35.10

@@ -43,7 +43,10 @@ use framework\database\driver\flcDriver;
 use framework\database\flcDbResult;
 use framework\database\flcDbResultOutParams;
 use framework\database\flcDbResults;
+use mysqli;
+use stdClass;
 
+include_once dirname(__FILE__).'/../flcDriver.php';
 
 /**
  * Mysql Driver Class
@@ -91,9 +94,9 @@ class flcMysqlDriver extends flcDriver {
      *
      * Has to be preserved without being assigned to $conn_id.
      *
-     * @var \mysqli|null $_mysqli
+     * @var mysqli|null $_mysqli
      */
-    protected ?\mysqli $_mysqli = null;
+    protected ?mysqli $_mysqli = null;
 
 
 
@@ -151,7 +154,7 @@ class flcMysqlDriver extends flcDriver {
      */
     public function initialize(?string $p_dsn, ?string $p_host, ?int $p_port, ?string $p_database, ?string $p_user, ?string $p_password, string $p_charset = 'utf8', string $p_collation = 'utf8_general_ci'): bool {
         // For receive exceptions on errors
-        mysqli_report(MYSQLI_REPORT_ERROR);
+        mysqli_report(MYSQLI_REPORT_STRICT);
 
 
         // Extract dsn parts if well defined, if the values are on dsn they are taken otherwise extract
@@ -290,12 +293,12 @@ class flcMysqlDriver extends flcDriver {
 
                 $this->display_error('Open failed , cant mantain an SSL connection','W');
 
-                return false;
+                return null;
             }
 
             return $this->_mysqli;
         } else {
-            return false;
+            return null;
         }
 
 
@@ -344,7 +347,7 @@ class flcMysqlDriver extends flcDriver {
             return true;
         }
 
-        $this->display_error("Select database for $p_database ",'E');
+        $this->display_error("Select database for $p_database fail",'E');
 
         return false;
     }
@@ -431,7 +434,7 @@ class flcMysqlDriver extends flcDriver {
 
         $retval = [];
         for ($i = 0, $c = count($query); $i < $c; $i++) {
-            $retval[$i] = new \stdClass();
+            $retval[$i] = new stdClass();
             $retval[$i]->name = $query[$i]->COLUMN_NAME;
             $retval[$i]->type = $query[$i]->DATA_TYPE;
             $retval[$i]->max_length = ($query[$i]->CHARACTER_MAXIMUM_LENGTH > 0) ? $query[$i]->CHARACTER_MAXIMUM_LENGTH : $query[$i]->NUMERIC_PRECISION;

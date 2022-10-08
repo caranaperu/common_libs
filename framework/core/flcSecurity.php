@@ -1,4 +1,15 @@
 <?php
+/**
+ * This file is part of Future Labs Code 1 framework.
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ *
+ * Based in codeigniter , all kudos for his authors
+ *
+ * @author Carlos Arana Reategui.
+ *
+ */
 
 namespace framework\core;
 
@@ -7,6 +18,9 @@ use framework\flcCommon;
 
 require_once dirname(__FILE__).'/../flcCommon.php';
 
+/**
+ * Security class
+ */
 class flcSecurity {
 
     /**
@@ -52,10 +66,11 @@ class flcSecurity {
      * Class constructor
      *
      * @return    void
-     * @throws Exception config problems
+     * @throws Exception
+     * @throws RuntimeException config problems
      */
     public function __construct() {
-        $config = FLC::get_instance()->get_config();
+        $config = flcCommon::get_config();
 
         // Is CSRF protection enabled?
         if ($config->item('csrf_protection')) {
@@ -84,10 +99,11 @@ class flcSecurity {
      * CSRF Verify
      *
      * @return bool
-     * @throws Exception when the operation is not allowed
+     * @throws RuntimeException when the operation is not allowed
+     * @throws Exception
      */
     public function csrf_verify(): bool {
-        $config = FLC::get_instance()->get_config();
+        $config = flcCommon::get_config();
         // If it's not a POST request we will set the CSRF cookie
         if (strtoupper($_SERVER['REQUEST_METHOD']) !== 'POST') {
             return $this->csrf_set_cookie();
@@ -111,7 +127,7 @@ class flcSecurity {
         $this->csrf_set_cookie();
 
         if ($valid !== true) {
-            throw new Exception('The action you have requested is not allowed.');
+            throw new RuntimeException('The action you have requested is not allowed. - SEC0001');
         }
 
         log_message('info', 'CSRF token verified');
@@ -129,7 +145,7 @@ class flcSecurity {
      * @throws Exception when set cookie fails
      */
     public function csrf_set_cookie(): bool {
-        $config = FLC::get_instance()->get_config();
+        $config = flcCommon::get_config();
 
         $expire = time() + $this->_csrf_expire;
         $secure_cookie = (bool)$config->item('cookie_secure');
@@ -151,6 +167,7 @@ class flcSecurity {
      * Set CSRF Hash and Cookie
      *
      * @return    string
+     * @throws Exception
      */
     protected function _csrf_set_hash(): string {
         if ($this->_csrf_hash === null) {
@@ -178,6 +195,7 @@ class flcSecurity {
      * @param int $p_length Output length
      *
      * @return    string|null
+     * @throws Exception
      */
     public function get_random_bytes(int $p_length): ?string {
         if (empty($p_length) or !ctype_digit((string)$p_length)) {
