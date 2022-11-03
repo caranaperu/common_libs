@@ -6,10 +6,14 @@ define('APPPATH', $application_folder.DIRECTORY_SEPARATOR);
 // Path to the system directory
 define('BASEPATH', $system_path);
 
+
+include_once BASEPATH.'/flcAutoloader.php';
+
+
+use framework\core\flcServiceLocator;
 use framework\database\driver\mysql\flcMysqlDriver;
 
 
-include_once('../../driver/mysql/flcMysqlDriver.php');
 
 $log_config = [
     'log_threshold' => 2,
@@ -21,7 +25,6 @@ $log_config = [
 ];
 
 date_default_timezone_set('America/Lima');
-
 
 
 function print_results($driver, $query) {
@@ -43,7 +46,7 @@ function print_results($driver, $query) {
 
 }
 
-\framework\core\flcServiceLocator::get_instance()->service('log',null,$log_config);
+flcServiceLocator::get_instance()->service('log', null, $log_config);
 
 
 $driver = new flcMysqlDriver();
@@ -54,8 +57,9 @@ if ($driver->open()) {
 
     echo PHP_EOL.'---------------------------- Devuelve un solo valor in parameters ------------------------'.PHP_EOL;
 
-    $query = $driver->execute_function('fn_test_suma',  [
-            100, 20
+    $query = $driver->execute_function('fn_test_suma', [
+        100,
+        20
     ], /*[[0=>'string','(10)']]*/);
     print_results($driver, $query);
 

@@ -1,5 +1,6 @@
 <?php
 
+
 /*
  n practice there is another difference I don't see in other answers.
 You could need to use mysqli_real_query() for a CALL statement.

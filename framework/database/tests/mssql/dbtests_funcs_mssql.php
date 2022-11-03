@@ -1,9 +1,12 @@
 <?php
+$system_path = '/var/www/common/framework';
 
-use framework\database\driver\mssql\flcMssqlDriver;
+// Path to the system directory
+define('BASEPATH', $system_path);
+include_once BASEPATH.'/flcAutoloader.php';
 
+use framework\core\accessor\core\model\database\driver\mssql\flcMssqlDriver;
 
-require_once('../../driver/mssql/flcMssqlDriver.php');
 
 function print_results($driver, $query) {
     if ($query) {

@@ -1,12 +1,14 @@
 <?php
 
 $system_path = '/var/www/common/framework';
+
+// Path to the system directory
 define('BASEPATH', $system_path);
+include_once BASEPATH.'/flcAutoloader.php';
 
-use framework\database\driver\postgres\flcPostgresDriver;
 
+use framework\core\accessor\core\model\database\driver\postgres\flcPostgresDriver;
 
-require_once(BASEPATH.'/database/driver/postgres/flcPostgresDriver.php');
 
 function print_results($driver, $query) {
     if ($query) {
@@ -14,7 +16,7 @@ function print_results($driver, $query) {
             foreach ($query->result_array() as $row) {
                 print_r($row);
             }
-            $query->free_result();;
+            $query->free_result();
         }
     } else {
         echo 'Error';

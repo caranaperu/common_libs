@@ -1,16 +1,19 @@
 <?php
+$system_path = '/var/www/common/framework';
+$application_folder = dirname(__FILE__);
 
-use framework\database\driver\mssql\flcMssqlDriver;
-use framework\database\driver\postgres\flcPostgresDriver;
-use framework\database\driver\mysql\flcMysqlDriver;
+define('APPPATH', $application_folder.DIRECTORY_SEPARATOR);
+
+// Path to the system directory
+define('BASEPATH', $system_path);
+include_once BASEPATH.'/flcAutoloader.php';
+
+use framework\core\accessor\core\model\database\driver\mssql\flcMssqlDriver;
+use framework\core\accessor\core\model\database\driver\postgres\flcPostgresDriver;
+use framework\core\accessor\core\model\database\driver\mysql\flcMysqlDriver;
 
 
-require_once('../../driver/flcDriver.php');
-require_once('../../driver/postgres/flcPostgresDriver.php');
-require_once('../../driver/mysql/flcMysqlDriver.php');
-require_once('../../driver/mssql/flcMssqlDriver.php');
-
-$_g_use_pgsql = 'mssql';
+$_g_use_pgsql = 'pgsql';
 
 
 if ($_g_use_pgsql == 'pgsql') {

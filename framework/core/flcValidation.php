@@ -17,10 +17,6 @@ use Exception;
 use framework\flcCommon;
 use framework\utils\flcStrUtils;
 
-require_once dirname(__FILE__).'/../flcCommon.php';
-require_once dirname(__FILE__).'/../utils/flcStrUtils.php';
-require_once dirname(__FILE__).'/flcLanguage.php';
-
 
 /**
  * Validation class based on a set of rules associated to a fields.
@@ -1164,7 +1160,7 @@ class flcValidation {
         $check_date = strtotime($p_str);
         echo 'f1= '.$check_date.' and f2= '.$limit_date.PHP_EOL;
 
-        if (!$limit_date || $check_date == false) {
+        if (!$limit_date || !$check_date) {
             return false;
         }
 
@@ -1193,7 +1189,7 @@ class flcValidation {
 
         $limit_date = strtotime($this->_data[$p_field]);
         $check_date = strtotime($p_str);
-        if (!$limit_date || $check_date == false) {
+        if (!$limit_date || !$check_date) {
             return false;
         }
 

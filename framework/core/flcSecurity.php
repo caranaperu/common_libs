@@ -15,8 +15,8 @@ namespace framework\core;
 
 use Exception;
 use framework\flcCommon;
+use RuntimeException;
 
-require_once dirname(__FILE__).'/../flcCommon.php';
 
 /**
  * Security class

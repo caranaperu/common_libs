@@ -139,7 +139,8 @@ class flcMysqlResult extends flcDbResult {
      * @inheritdoc
      */
     public function free_result(): void {
-        if (is_resource($this->result_id)) {
+        // mysqli return objects not resources , dont us is_resource here
+        if ($this->result_id instanceof \mysqli_result) {
             $this->result_id->free();
             $this->result_id = null;
         }

@@ -46,7 +46,6 @@ use framework\database\flcDbResults;
 use mysqli;
 use stdClass;
 
-include_once dirname(__FILE__).'/../flcDriver.php';
 
 /**
  * Mysql Driver Class
@@ -291,14 +290,14 @@ class flcMysqlDriver extends flcDriver {
             if (($this->_client_flags & MYSQLI_CLIENT_SSL) && version_compare($this->_mysqli->client_info, '5.7.3', '<=') && empty($this->_mysqli->query("SHOW STATUS LIKE 'ssl_cipher'")->fetch_object()->Value)) {
                 $this->_mysqli->close();
 
-                $this->display_error('Open failed , cant mantain an SSL connection','W');
+                $this->log_error('Open failed , cant mantain an SSL connection','W');
 
-                return null;
+                return false;
             }
 
             return $this->_mysqli;
         } else {
-            return null;
+            return false;
         }
 
 
@@ -347,7 +346,7 @@ class flcMysqlDriver extends flcDriver {
             return true;
         }
 
-        $this->display_error("Select database for $p_database fail",'E');
+        $this->log_error("Select database for $p_database fail",'E');
 
         return false;
     }
@@ -591,7 +590,7 @@ class flcMysqlDriver extends flcDriver {
         if ($ret) {
             $this->_connId->autocommit(false);
         } else {
-            $this->display_error("Rollback fail for $p_savepoint",'E');
+            $this->log_error("Rollback fail for $p_savepoint",'E');
 
         }
 
@@ -747,7 +746,7 @@ class flcMysqlDriver extends flcDriver {
             return $results;
 
         } else {
-            $this->display_error("execute_stored_procedure fail for $sqlfunc",'E');
+            $this->log_error("execute_stored_procedure fail for $sqlfunc",'E');
             return null;
         }
 

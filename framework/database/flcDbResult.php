@@ -601,7 +601,10 @@ class flcDbResult {
      * Need to be override by each specific driver.
      *
      * For select querys use from the results  the num_rows() function
-     **
+     * Warning : use inmediatly after execute_wuery/function etc because
+     * in some databases this value its obtained from the connection and is global.
+     * Allways get this value befre any other operation on the db.
+     *
      * @return	int with the number of affected rows.
      */
     public function affected_rows() : int {

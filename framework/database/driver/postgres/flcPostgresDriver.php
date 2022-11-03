@@ -45,8 +45,6 @@ use framework\database\flcDbResultOutParams;
 use framework\database\flcDbResults;
 use stdClass;
 
-require_once dirname(__FILE__).'/../flcDriver.php';
-
 
 /**
  * Postgres Driver Class
@@ -153,6 +151,18 @@ class flcPostgresDriver extends flcDriver {
      * @var string
      */
     protected string $_callable_function_call_string_scalar = 'select';
+
+    /**
+     * Class constructor
+     *
+     * @param array|null $p_options if null take defaults
+     *
+     * @return    void
+     */
+    public function __construct(?array $p_options = null) {
+        parent::__construct($p_options);
+        $this->rowversion_field = 'xmin';
+    }
 
     /**
      * For postgres the dsn prototype will be : 'driver://username:password@hostname/database'
@@ -746,7 +756,7 @@ class flcPostgresDriver extends flcDriver {
 
 
             } else {
-                $this->display_error("execute stored procedure  $p_fn_name fail", 'E');
+                $this->log_error("execute stored procedure  $p_fn_name fail", 'E');
                 $results = null;
             }
 

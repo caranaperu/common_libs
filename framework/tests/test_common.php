@@ -1,9 +1,9 @@
 <?php
 
-use framework\core\FLC;
-//use framework\core\flcConfig;
-use framework\core\flcLanguage;
-use framework\core\flcValidation;
+use framework\core\accessor\core\model\core\FLC;
+
+use framework\core\accessor\core\model\core\flcLanguage;
+use framework\core\accessor\core\model\core\flcValidation;
 
 $application_folder = dirname(__FILE__);
 $system_path = '/var/www/common/framework';
@@ -15,6 +15,9 @@ define('BASEPATH', $system_path);
 // views paths
 define('VIEWPATH', APPPATH.'views'.DIRECTORY_SEPARATOR);
 define('WRITEPATH', APPPATH.'writable'.DIRECTORY_SEPARATOR);
+
+include_once BASEPATH.'/flcAutoloader.php';
+
 
 /*
  *---------------------------------------------------------------
@@ -37,20 +40,19 @@ define('ENVIRONMENT', 'development');
 
 ini_set('display_errors', 0);
 error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED & ~E_STRICT & ~E_USER_NOTICE & ~E_USER_DEPRECATED);
+//error_reporting(E_ALL);
 
 
 // flush any preconfigured buffering
-if (ob_get_level()) ob_end_clean();
+if (ob_get_level()) {
+    ob_end_clean();
+}
+
+
 
 const WEBAPP = false;
 const LOADDB = true;
 
-
-include_once BASEPATH."/flcCommon.php";
-include_once BASEPATH."/core/FLC.php";
-//include_once BASEPATH."/core/flcLanguage.php";
-include_once BASEPATH."/core/flcValidation.php";
-//include_once BASEPATH."/core/flcConfig.php";
 
 
 function _my_error_handler(int $severity, string $message, string $filepath, int $line) {
@@ -101,10 +103,10 @@ if (!function_exists('_error_handler')) {
      * based on the current error_reporting level.
      * We do that with the use of a PHP error template.
      *
-     * @param int $severity
+     * @param int    $severity
      * @param string $message
      * @param string $filepath
-     * @param int $line
+     * @param int    $line
      *
      * @return    void
      */
@@ -150,9 +152,9 @@ function valid_username($name) {
     return true;
 }
 
-set_error_handler('_my_error_handler');
-set_exception_handler('my_exception_handler');
-register_shutdown_function('_shutdown_handler');
+//set_error_handler('_my_error_handler');
+//set_exception_handler('my_exception_handler');
+//register_shutdown_function('_shutdown_handler');
 
 $flc = FLC::get_instance();
 
@@ -164,7 +166,7 @@ $flc = FLC::get_instance();
 //print_r($flc->get_config()).PHP_EOL;
 
 
-$flc->db = \framework\core\flcServiceLocator::get_instance()->service('database');
+$flc->db = \framework\core\accessor\core\model\core\flcServiceLocator::get_instance()->service('database');
 print_r($flc->db);
 
 

@@ -16,8 +16,6 @@ namespace framework\core;
 use Exception;
 use framework\flcCommon;
 
-require_once dirname(__FILE__).'/../flcCommon.php';
-require_once dirname(__FILE__).'/../utils/flcStrUtils.php';
 
 /**
  * Utf8 Class

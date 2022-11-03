@@ -16,8 +16,6 @@ use framework\core\flcConfig;
 use framework\core\flcServiceLocator;
 use RuntimeException;
 
-include_once dirname(__FILE__).'/core/flcConfig.php';
-include_once dirname(__FILE__).'/core/flcServiceLocator.php';
 
 /**
  * Common functions library
@@ -216,7 +214,12 @@ class flcCommon {
                 if (count($url_explode) <= 1) {
                     return $default_controller;
                 } else {
-                    return $url_explode[count($url_explode) - 1];
+                    $controller = $url_explode[count($url_explode) - 1];
+                    // is truly a controller name or a php file
+                    if (stripos($controller, '.php')) {
+                        return $default_controller;
+                    }
+                    return $controller;
 
                 }
 
@@ -237,6 +240,7 @@ class flcCommon {
         }
 
     }
+
 
     // --------------------------------------------------------------------
 

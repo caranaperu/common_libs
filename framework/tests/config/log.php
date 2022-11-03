@@ -59,8 +59,8 @@
 */
 
 $log_config = [
-    'log_threshold' => 2,
-    'log_path' => '',
+    'log_threshold' => 4,
+    'log_path' => '/var/www/common/framework/tests/writable/logs/',
     'log_file_extension' => '',
     'log_file_permissions' => 0644,
     'log_date_format' => 'Y-m-d H:i:s',

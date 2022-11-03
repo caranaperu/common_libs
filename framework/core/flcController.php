@@ -15,9 +15,6 @@
 namespace framework\core;
 
 
-require_once dirname(__FILE__).'/flcIController.php';
-
-
 /**
  * Controller abstract class, define the methods that neeed to be override to
  * manipulate the request.

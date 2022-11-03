@@ -1,9 +1,12 @@
 <?php
+$system_path = '/var/www/common/framework';
 
-use framework\database\driver\mysql\flcMysqlDriver;
+// Path to the system directory
+define('BASEPATH', $system_path);
 
-include_once('../../driver/flcDriver.php');
-include_once('../../driver/mysql/flcMysqlDriver.php');
+
+include_once BASEPATH.'/flcAutoloader.php';
+use framework\core\accessor\core\model\database\driver\mysql\flcMysqlDriver;
 
 
 $driver = new flcMysqlDriver();

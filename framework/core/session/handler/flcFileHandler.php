@@ -20,13 +20,12 @@ use Exception;
 use framework\flcCommon;
 use RuntimeException;
 
-include_once dirname(__FILE__).'/../../../flcCommon.php';
 
 
 /**
  * Session handler using file system for storage
  */
-class flcFileHandler extends BaseHandler {
+class flcFileHandler extends flcBaseHandler {
     /**
      * Where to save the session files to.
      *
@@ -96,23 +95,23 @@ class flcFileHandler extends BaseHandler {
     /**
      * Re-initialize existing session, or creates a new one.
      *
-     * @param string $path The path where to store/retrieve the session
-     * @param string $name The session name
+     * @param string $p_save_path The path where to store/retrieve the session
+     * @param string $p_session_name The session name
      *
      */
-    public function open($path, $name): bool {
-        if (!is_dir($path) && !mkdir($path, 0700, true)) {
+    public function open($p_save_path, $p_session_name): bool {
+        if (!is_dir($p_save_path) && !mkdir($p_save_path, 0700, true)) {
             throw new RuntimeException('Invalid save path for file session - SES0001');
         }
 
-        if (!is_writable($path)) {
+        if (!is_writable($p_save_path)) {
             throw new RuntimeException('save path for file session is write protected - SES0002');
         }
 
-        $this->save_path = $path;
+        $this->save_path = $p_save_path;
 
         // we'll use the session name as prefix to avoid collisions
-        $this->file_path = $this->save_path.'/'.$name.($this->match_ip ? md5($this->ip_address) : '');
+        $this->file_path = $this->save_path.'/'.$p_session_name.($this->match_ip ? md5($this->ip_address) : '');
 
         return true;
     }
@@ -128,7 +127,7 @@ class flcFileHandler extends BaseHandler {
      *                      If nothing was read, it must return false.
      * @throws Exception
      */
-    public function read(string $p_session_id) {
+    public function read($p_session_id) {
         // This might seem weird, but PHP 5.6 introduced session_reset(),
         // which re-reads session data
         if ($this->file_handle === null) {
@@ -185,11 +184,12 @@ class flcFileHandler extends BaseHandler {
      * Writes the session data to the session storage.
      *
      * @param string $p_session_id The session ID
-     * @param string $p_session_data The encoded session data
+     * @param string $p_data The encoded session data
      *
+     * @return bool if no problems
      * @throws Exception
      */
-    public function write(string $p_session_id, string $p_session_data): bool {
+    public function write($p_session_id, $p_data): bool {
         // If the two IDs don't match, we have a session_regenerate_id() call
         if ($p_session_id !== $this->session_id) {
             $this->session_id = $p_session_id;
@@ -199,7 +199,7 @@ class flcFileHandler extends BaseHandler {
             return false;
         }
 
-        if ($this->finger_print === md5($p_session_data)) {
+        if ($this->finger_print === md5($p_data)) {
             return ($this->file_new) ? true : touch($this->file_path.$p_session_id);
         }
 
@@ -208,23 +208,23 @@ class flcFileHandler extends BaseHandler {
             rewind($this->file_handle);
         }
 
-        if (($length = strlen($p_session_data)) > 0) {
+        if (($length = strlen($p_data)) > 0) {
             $result = null;
 
             for ($written = 0; $written < $length; $written += $result) {
-                if (($result = fwrite($this->file_handle, substr($p_session_data, $written))) === false) {
+                if (($result = fwrite($this->file_handle, substr($p_data, $written))) === false) {
                     break;
                 }
             }
 
             if (!is_int($result)) {
-                $this->finger_print = md5(substr($p_session_data, 0, $written));
+                $this->finger_print = md5(substr($p_data, 0, $written));
                 flcCommon::log_message('error','Session: Unable to write data.');
                 return false;
             }
         }
 
-        $this->finger_print = md5($p_session_data);
+        $this->finger_print = md5($p_data);
 
         return true;
     }
@@ -253,7 +253,7 @@ class flcFileHandler extends BaseHandler {
      *
      * @param string $p_session_id The session ID being destroyed
      */
-    public function destroy(string $p_session_id): bool {
+    public function destroy( $p_session_id): bool {
         if ($this->close()) {
             return is_file($this->file_path.$p_session_id) ? (unlink($this->file_path.$p_session_id) && $this->destroy_cookie()) : true;
         }
@@ -279,7 +279,7 @@ class flcFileHandler extends BaseHandler {
      * @return false|int Returns the number of deleted sessions on success, or false on failure.
      * @throws Exception
      */
-    public function gc(int $p_max_lifetime) {
+    public function gc( $p_max_lifetime) {
         if (!is_dir($this->save_path) || ($directory = opendir($this->save_path)) === false) {
             flcCommon::log_message('debug',"Session: Garbage collector couldn't list files under directory '".$this->save_path."'.");
 

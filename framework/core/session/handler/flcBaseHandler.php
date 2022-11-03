@@ -15,15 +15,14 @@ namespace framework\core\session\handler;
 
 use Exception;
 use framework\flcCommon;
-use SessionHandlerInterface;
+use \SessionHandlerInterface;
 
-include_once dirname(__FILE__).'/../../../flcCommon.php';
 
 
 /**
  * Base class for session handling
  */
-abstract class BaseHandler implements SessionHandlerInterface {
+abstract class flcBaseHandler implements \SessionHandlerInterface {
 
     /**
      * The Data fingerprint.

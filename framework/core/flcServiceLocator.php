@@ -12,14 +12,14 @@
 namespace framework\core;
 
 use Exception;
+use framework\core\session\flcSession;
 use framework\database\driver\flcDriver;
 use framework\flcCommon;
 use ReflectionClass;
+use ReflectionException;
 use ReflectionMethod;
 use RuntimeException;
 
-include_once dirname(__FILE__).'/flcLog.php';
-include_once dirname(__FILE__).'/../database/driver/flcDriver.php';
 
 /**
  * Service locator class.
@@ -85,6 +85,9 @@ class flcServiceLocator {
             case 'log':
                 $ret = $this->_load_log($p_vars);
                 break;
+
+            case 'session':
+                $ret = $this->_get_session($p_vars);
         }
 
         return $ret;
@@ -126,7 +129,7 @@ class flcServiceLocator {
 
 
         // first check if the user overload the class with extension
-        $controller_base_file = APPPATH."/flc/core/flcControllerExt.php";
+        $controller_base_file = APPPATH."/controllers/flcControllerExt.php";
         if (file_exists($controller_base_file)) {
             include_once $controller_base_file;
 
@@ -274,7 +277,7 @@ class flcServiceLocator {
         if (ob_get_level() > $ob_level + 1) {
             ob_end_flush();
         } else {
-            FLC::get_instance()->output->append_output(ob_get_contents());
+            flcResponse::get_instance()->append_output(ob_get_contents());
             @ob_end_clean();
         }
 
@@ -466,5 +469,101 @@ class flcServiceLocator {
     }
     // --------------------------------------------------------------------
 
+
+    /**
+     * @throws Exception
+     */
+    public function _get_session($p_ip_address) : flcSession {
+        static $session;
+
+        $user_handler = false;
+        if (!isset($$session) || !$session) {
+            $config = flcCommon::get_config();
+            $handler = $config->item('sess_driver');
+
+
+            // always include the base standard controller
+            $handler_base_file = BASEPATH."/core/session/handler/flcBaseHandler.php";
+            if (file_exists($handler_base_file)) {
+                include_once $handler_base_file;
+            } else {
+                throw new RuntimeException("Base session handler doesnt exist, check deployment of library - SL00024");
+            }
+
+
+            if (isset($handler) && strlen($handler) > 0) {
+                $handler_filepath = APPPATH."handlers/$handler.php";
+                if (file_exists($handler_filepath)) {
+                    $user_handler = true;
+                }
+
+            } else {
+                // default is file handler
+                $handler = 'file';
+            }
+
+            if (!$user_handler) {
+                // try on our own lib directory
+                $handler_driver = 'flc'.ucwords($handler).'Handler';
+                $handler_filepath = BASEPATH."/core/session/handler/$handler_driver.php";
+
+                if (file_exists($handler_filepath)) {
+                    include_once $handler_filepath;
+                    $handler_driver = "\\framework\core\session\handler\\$handler_driver";
+
+                    $handler_instance = new $handler_driver($p_ip_address);
+
+                    $session =   new flcSession($handler_instance, $config);
+                } else {
+                    throw new RuntimeException("Session handler [ $handler_driver ] doesnt exist, check deployment of library - SL00025");
+                }
+
+
+            } else {
+                // validate user handler
+                $ns = $config->item('handlers', 'namespaces');
+                if (isset($ns) && trim($ns) !== '') {
+
+                    include_once $handler_filepath;
+                    $ns_class = "$ns\\$handler";
+
+                    // class validation
+                    if (!class_exists($ns_class, false)) {
+                        throw new RuntimeException("Cant load the user session handler [ $ns_class ] - SL00026");
+
+                    }
+
+                    try {
+                        $reflection = new ReflectionClass($ns_class);
+                        if ($reflection->isSubclassOf('framework\core\session\handler\flcBaseHandler')) {
+                            $handler_instance = new $ns_class($p_ip_address);
+
+                            $session =  new flcSession($handler_instance, $config);
+
+                        } else {
+                            throw new RuntimeException("User session handler [ $ns_class ] need to be an instance of framework\core\session\handler\\flcBaseHandler - SL00027");
+
+                        }
+
+                    } catch (ReflectionException $ex) {
+                        throw new RuntimeException("User session handler [ $ns_class ] doesnt exist - SL00028");
+
+                    }
+
+
+
+                } else {
+                    throw new RuntimeException("config entry for namespaces/handlers is not defined or bad defined - SL00029");
+                }
+            }
+
+        }
+
+        if (session_status() === PHP_SESSION_NONE) {
+            $session->start();
+        }
+
+        return $session;
+    }
 
 }

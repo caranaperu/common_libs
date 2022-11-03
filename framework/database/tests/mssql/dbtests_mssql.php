@@ -1,7 +1,12 @@
 <?php
 
+$system_path = '/var/www/common/framework';
 
-include_once('../../driver/mssql/flcMssqlDriver.php');
+// Path to the system directory
+define('BASEPATH', $system_path);
+include_once BASEPATH.'/flcAutoloader.php';
+
+use framework\core\accessor\core\model\database\driver\mssql\flcMssqlDriver;
 
 
 class clase {
@@ -24,7 +29,7 @@ $port = parse_url($dsn, PHP_URL_PORT);
 print_r('El port es : '.$port);*/
 
 
-$driver = new \framework\database\driver\mssql\flcMssqlDriver();
+$driver = new flcMssqlDriver();
 
 $driver->initialize(null, '192.168.18.9', 1532, 'veritrade', 'sa', 'melivane', $p_charset = 'utf8');
 

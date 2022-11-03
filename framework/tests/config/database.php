@@ -56,13 +56,12 @@
 |							- good for ensuring strict SQL while developing
 |	['ssl_options']	Used to set various SSL options that can be used when making SSL connections.
 |	['failover'] array - A array with 0 or more data for connections if the main should fail.
-|	['save_queries'] TRUE/FALSE - Whether to "save" all executed queries.
-| 				NOTE: Disabling this will also effectively disable both
-| 				$this->db->last_query() and profiling of DB queries.
-| 				When you run a query, with this setting set to TRUE (default),
-| 				CodeIgniter will store the SQL statement for debugging purposes.
-| 				However, this may cause high memory usage, especially if you run
-| 				a lot of SQL queries ... disable this to avoid that problem.
+|	['rowversion_field'] A field name that the database support for row versioning, this field can be used
+|                       if a record is modified previous an update or delete for example.
+|                       Postgresql have xmin allways accesible , sql server allow to define one field in each table
+|                       named rowversion for this usage , mysql need help from developers doesnt have a dedicated one.
+|                       If the programmer require a rowversion check define this field , otherwise remove this key
+|                       from the options array.
 |
 | The $active_group variable lets you choose which connection group to
 | make active.  By default there is only one group (the 'default' group).
@@ -87,7 +86,8 @@ $db['default'] = [
     'dbcollat' => 'utf8_general_ci',
     'encrypt' => false,
     'compress' => false,
-    'stricton' => false
+    'stricton' => false,
+    'rowversion_field' => 'xmin'
 ];
 
 $db['sql_server'] = [
@@ -105,5 +105,6 @@ $db['sql_server'] = [
     'dbcollat' => 'utf8_general_ci',
     'encrypt' => false,
     'compress' => false,
-    'stricton' => false
+    'stricton' => false,
+    'rowversion_field'  => 'rowversion'
 ];

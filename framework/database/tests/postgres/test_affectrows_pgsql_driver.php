@@ -1,11 +1,12 @@
 <?php
+$system_path = '/var/www/common/framework';
 
-use framework\database\driver\postgres\flcPostgresConnection;
-use framework\database\driver\postgres\flcPostgresDriver;
+// Path to the system directory
+define('BASEPATH', $system_path);
+include_once BASEPATH.'/flcAutoloader.php';
 
-include_once('../../driver/flcDriver.php');
-include_once('../../driver/postgres/flcPostgresDriver.php');
-
+use framework\core\accessor\core\model\database\driver\postgres\flcPostgresConnection;
+use framework\core\accessor\core\model\database\driver\postgres\flcPostgresDriver;
 
 
 $driver = new flcPostgresDriver();

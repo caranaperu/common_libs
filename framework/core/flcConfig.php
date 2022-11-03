@@ -15,7 +15,6 @@ namespace framework\core;
 use Exception;
 use framework\flcCommon;
 
-require_once dirname(__FILE__).'/../flcCommon.php';
 
 /**
  * Config manager class.

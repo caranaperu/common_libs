@@ -21,7 +21,6 @@ use framework\database\flcDbResultOutParams;
 use framework\database\flcDbResults;
 use stdClass;
 
-include_once dirname(__FILE__).'/../flcDriver.php';
 
 
 
@@ -335,7 +334,7 @@ class flcMssqlDriver extends flcDriver {
             return true;
         }
 
-        $this->display_error("Select database for $p_database fail", 'E');
+        $this->log_error("Select database for $p_database fail", 'E');
 
         return false;
     }
@@ -347,7 +346,7 @@ class flcMssqlDriver extends flcDriver {
      */
     public function error(): array {
         $error = [
-            'code' => '00000',
+            'code' => 0,
             'message' => ''
         ];
         $sqlsrv_errors = sqlsrv_errors(SQLSRV_ERR_ERRORS);
@@ -646,7 +645,7 @@ class flcMssqlDriver extends flcDriver {
             sqlsrv_free_stmt($res);
             unset($res);
         } else {
-            $this->display_error("execute function $p_fn_name fail", 'E');
+            $this->log_error("execute function $p_fn_name fail", 'E');
 
             return null;
         }
@@ -748,7 +747,7 @@ class flcMssqlDriver extends flcDriver {
             if ($res = $this->execute_query($sqlfunc)) {
                 $results->add_resultset_result($res);
             } else {
-                $this->display_error("execute stored procedure $p_fn_name fail", 'E');
+                $this->log_error("execute stored procedure $p_fn_name fail", 'E');
             }
 
         } // For stores procedures with output parameters o resultset or both
@@ -806,7 +805,7 @@ class flcMssqlDriver extends flcDriver {
 
 
             } else {
-                $this->display_error("execute stored procedure $p_fn_name fail", 'E');
+                $this->log_error("execute stored procedure $p_fn_name fail", 'E');
 
                 return null;
             }

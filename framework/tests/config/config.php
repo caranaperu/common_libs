@@ -23,7 +23,7 @@ $config['timezone'] = 'America/Lima';
 | See http://php.net/htmlspecialchars for a list of supported charsets.
 |
 */
-$config['charset'] = 'LATIN9';
+$config['charset'] = 'UTF-8';
 
 /*
 |--------------------------------------------------------------------------
@@ -36,6 +36,23 @@ $config['charset'] = 'LATIN9';
 |
 */
 $config['language'] = 'es';
+
+/*
+|--------------------------------------------------------------------------
+| URI PROTOCOL
+|--------------------------------------------------------------------------
+|
+| This item determines which server global should be used to retrieve the
+| URI string.  The default setting of 'REQUEST_URI' works for most servers.
+| If your links do not seem to work, try one of the other delicious flavors:
+|
+| 'REQUEST_URI'    Uses $_SERVER['REQUEST_URI']
+| 'QUERY_STRING'   Uses $_SERVER['QUERY_STRING']
+| 'PATH_INFO'      Uses $_SERVER['PATH_INFO']
+|
+| WARNING: If you set this to 'PATH_INFO', URIs will always be URL-decoded!
+*/
+$config['uri_protocol']	= 'REQUEST_URI';
 
 /*
 |--------------------------------------------------------------------------
@@ -68,6 +85,11 @@ $config['csrf_exclude_uris'] = [];
 | 'sess_driver'
 |
 |	The storage driver to use: files only supported , the user can create your own handlers.
+|   Actually only support files , is more efficient , secure and practical.
+|   Never left blank or with a not suported at least the user implement his own driver.
+|
+|   For user handler only put the name of the class in APPPATH/handlers
+|   otherwise for now put 'file' that is the default file handler implemented.
 |
 | 'sess_cookie_name'
 |
@@ -85,8 +107,6 @@ $config['csrf_exclude_uris'] = [];
 |	For the 'files' driver, it's a path to a writable directory.
 |	WARNING: Only absolute paths are supported!
 |
-|	For the 'database' driver, it's a table name.
-|	Please read up the manual for the format with other session drivers.
 |
 |	IMPORTANT: You are REQUIRED to set a valid save path!
 |
@@ -111,10 +131,10 @@ $config['csrf_exclude_uris'] = [];
 | except for 'cookie_prefix' and 'cookie_httponly', which are ignored here.
 |
 */
-$config['sess_driver'] = 'files';
+$config['sess_driver'] = 'customFileHandler';
 $config['sess_cookie_name'] = 'flc_session';
 $config['sess_expiration'] = 7200;
-$config['sess_save_path'] = '/var/www/flabsregs/sessions';
+$config['sess_save_path'] = '/var/www/common/framework/tests/writable/sessions';
 $config['sess_match_ip'] = FALSE;
 $config['sess_time_to_update'] = 300;
 $config['sess_regenerate_destroy'] = FALSE;
@@ -175,9 +195,11 @@ $config['proxy_ips'] = '';
 */
 $config['base_url'] = 'http://localhost/flabsregs/';
 
+
 $config['namespaces'] = [
     'controllers' => 'framework\tests\controllers',
-    'controller_ext' => 'framework\tests\flc\core' // ver si sirve
+    'controller_ext' => 'framework\tests\controllers', // ver si sirve
+    'handlers' => 'framework\tests\handlers'
 ];
 
 $config['default_controller'] = 'defaultController';

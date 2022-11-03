@@ -12,18 +12,12 @@
 namespace framework\core;
 
 use Exception;
+use framework\core\session\flcSession;
 use framework\database\driver\flcDriver;
 use framework\flcCommon;
+use framework\utils\flcErrorHandlers;
 use RuntimeException;
 
-require_once dirname(__FILE__).'/flcConfig.php';
-require_once dirname(__FILE__).'/../flcCommon.php';
-require_once dirname(__FILE__).'/../database/driver/flcDriver.php';
-require_once dirname(__FILE__).'/flcUtf8.php';
-require_once dirname(__FILE__).'/flcRequest.php';
-require_once dirname(__FILE__).'/flcServiceLocator.php';
-require_once dirname(__FILE__).'/flcResponse.php';
-require_once dirname(__FILE__).'/flcLanguage.php';
 
 /**
  * The main superclass , load all requiered services to execute a request.
@@ -157,8 +151,17 @@ class FLC {
                 throw new RuntimeException('This library rqquire the mb_string and iconv extensions - FLC0001');
             }
 
+            // get global constants.
+            if (file_exists(APPPATH.'config/constants.php')) {
+                include_once APPPATH.'config/constants.php';
+            }
+
             // load the config manager class
-            flcCommon::load_config();
+            flcCommon::get_config();
+
+            // set the error handlerss
+            $errhandler = new flcErrorHandlers();
+            $errhandler->initialize();
         }
 
         return true;
@@ -356,6 +359,20 @@ class FLC {
         flcServiceLocator::get_instance()->service('views', $p_view, $p_vars);
     }
 
+    /**
+     * Return a session and start the session.
+     *
+     * IMPORTANT: only can be called after execute_service method is called
+     * because session only works in http environments not cli.
+     *
+     * @return flcSession with the session instance class
+     * @throws Exception
+     */
+    public function session(): flcSession {
+        return flcServiceLocator::get_instance()->service('session', '', $this->request->ip_address());
+    }
+
+
     // --------------------------------------------------------------------
 
     /**
@@ -366,6 +383,9 @@ class FLC {
      * @throws Exception multiple . check error code
      */
     public function execute_request() {
+
+        // flush any preconfigured buffering
+        if (ob_get_level()) ob_end_clean();
 
         // charset stuff
         $charset = strtoupper(flcCommon::get_config()->item('charset'));
@@ -419,10 +439,17 @@ class FLC {
         $controller_class = flcCommon::uri_get_controller($uri);
 
         // load the output manager
-        $this->output = new flcResponse();
+        $this->output = flcResponse::get_instance();
+
 
         // load the request
-        $this->request = new flcRequest();
+        $this->request = flcRequest::get_instance();
+
+        // setup some output stuff.
+        $this->output->set_protocol_version($this->request->get_protocol_version());
+        // Assume success until proven otherwise.
+        $this->output->set_status_code(200);
+
 
         // create controller and initialize.
         $controller = flcServiceLocator::get_instance()->service('controller', $controller_class);

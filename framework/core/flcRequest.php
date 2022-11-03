@@ -26,6 +26,15 @@ require_once dirname(__FILE__).'/../flcCommon.php';
  *
  */
 class flcRequest {
+    use flcMessageTrait;
+
+    /**
+     * Reference to the flcRequest singleton
+     *
+     * @var    flcRequest
+     */
+    private static flcRequest $_instance;
+
 
     /**
      * IP address of the current user
@@ -45,12 +54,6 @@ class flcRequest {
      */
     protected bool $_enable_csrf = false;
 
-    /**
-     * List of all HTTP request headers
-     *
-     * @var array
-     */
-    protected array $headers = [];
 
     /**
      * Raw input stream data
@@ -82,7 +85,8 @@ class flcRequest {
      * @return    void
      * @throws Exception if config cant be loaded
      */
-    public function __construct() {
+    private function __construct() {
+        self::$_instance =& $this;
 
         $this->_enable_csrf = (flcCommon::get_config()->item('csrf_protection') === true);
 
@@ -96,7 +100,30 @@ class flcRequest {
             $security->csrf_verify();
         }
 
+        $this->populate_headers();
+
+        if (!flcCommon::is_cli()) {
+            $this->set_protocol_version($_SERVER['SERVER_PROTOCOL'] ?? 'HTTP/1.1');
+        }
+
         flcCommon::log_message('info', 'Input Class Initialized');
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Return the singletoin instance, previously initialized.
+     *
+     * @return flcRequest
+     */
+    public static function &get_instance(): flcRequest {
+        static $loaded = false;
+        if (!$loaded) {
+            new flcRequest();
+            $loaded = true;
+        }
+
+        return self::$_instance;
     }
 
     // --------------------------------------------------------------------
@@ -255,13 +282,14 @@ class flcRequest {
      * Determines and validates the visitor's IP address.
      *
      * @return    string    IP address
+     * @throws Exception
      */
     public function ip_address(): string {
         if ($this->ip_address !== '') {
             return $this->ip_address;
         }
 
-        $proxy_ips = config_item('proxy_ips');
+        $proxy_ips = flcCommon::get_config()->item('proxy_ips');
         if (!empty($proxy_ips) && !is_array($proxy_ips)) {
             $proxy_ips = explode(',', str_replace(' ', '', $proxy_ips));
         }
@@ -496,71 +524,6 @@ class flcRequest {
 
         return $p_str;
     }
-
-    // --------------------------------------------------------------------
-
-    /**
-     * Request Headers
-     *
-     *
-     * @return    array
-     */
-    public function request_headers(): array {
-        // If header is already defined, return it immediately
-        if (!empty($this->headers)) {
-            return $this->_fetch_from_array($this->headers);
-        }
-
-        // In Apache, you can simply call apache_request_headers()
-        if (function_exists('apache_request_headers')) {
-            $this->headers = apache_request_headers();
-        } else {
-            isset($_SERVER['CONTENT_TYPE']) && $this->headers['Content-Type'] = $_SERVER['CONTENT_TYPE'];
-
-            foreach ($_SERVER as $key => $val) {
-                if (sscanf($key, 'HTTP_%s', $header) === 1) {
-                    // take SOME_HEADER and turn it into Some-Header
-                    $header = str_replace('_', ' ', strtolower($header));
-                    $header = str_replace(' ', '-', ucwords($header));
-
-                    $this->headers[$header] = $val;
-                }
-            }
-        }
-
-        return $this->_fetch_from_array($this->headers);
-    }
-
-    // --------------------------------------------------------------------
-
-    /**
-     * Get Request Header
-     *
-     * Returns the value of a single member of the headers class member
-     *
-     * @param string $p_index Header name
-     *
-     * @return    string|null    The requested header on success or NULL on failure
-     */
-    public function get_request_header(string $p_index): ?string {
-        static $headers;
-
-        if (!isset($headers)) {
-            empty($this->headers) && $this->request_headers();
-            foreach ($this->headers as $key => $value) {
-                $headers[strtolower($key)] = $value;
-            }
-        }
-
-        $p_index = strtolower($p_index);
-
-        if (!isset($headers[$p_index])) {
-            return null;
-        }
-
-        return $headers[$p_index];
-    }
-
 
 
     // --------------------------------------------------------------------

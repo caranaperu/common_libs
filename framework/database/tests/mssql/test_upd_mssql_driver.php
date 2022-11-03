@@ -1,9 +1,11 @@
 <?php
+$system_path = '/var/www/common/framework';
 
-use framework\database\driver\mssql\flcMssqlDriver;
+// Path to the system directory
+define('BASEPATH', $system_path);
+include_once BASEPATH.'/flcAutoloader.php';
 
-include_once('../../driver/flcDriver.php');
-include_once('../../driver/mssql/flcMssqlDriver.php');
+use framework\core\accessor\core\model\database\driver\mssql\flcMssqlDriver;
 
 //ini_set('memory_limit','256M'); // This also needs to be increased in some cases. Can be changed to a higher value as per need)
 ini_set('sqlsrv.ClientBufferMaxKBSize', '200000'); // Setting to 512M

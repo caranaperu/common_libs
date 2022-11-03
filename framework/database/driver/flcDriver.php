@@ -21,10 +21,6 @@ use framework\database\flcDbResults;
 use framework\flcCommon;
 use RuntimeException;
 
-require_once dirname(__FILE__).'/../../flcCommon.php';
-require_once dirname(__FILE__).'/../flcDbResult.php';
-require_once dirname(__FILE__).'/../flcDbResults.php';
-require_once dirname(__FILE__).'/../../utils/flcStrUtils.php';
 
 /**
  * Generic Driver Class
@@ -97,6 +93,14 @@ require_once dirname(__FILE__).'/../../utils/flcStrUtils.php';
  *
  */
 abstract class flcDriver {
+    /**
+     * If the driver will run outside the framework set as true otherwise
+     * wil use the standard framework logger that include other clasees.
+     *
+     * @var bool
+     */
+    static bool $dblog_console = false;
+
 
     /**************************************************************
      * Connection variables
@@ -302,6 +306,20 @@ abstract class flcDriver {
      */
     protected static array $_cast_conversion = [];
 
+    /**
+     * The field that identified the rowversion of a record.
+     * Normal
+     *  postgres had xmin allways
+     *  mssql server uses rowversion field but is optional and defined by the user in the record
+     *  mysql doesnt have anyone an can be use a timestamp or an int to do this , but requires
+     *      a trigger or stored procedure to support.
+     *
+     *  IS highly recommended to define.
+     *
+     * @var string
+     */
+    protected string $rowversion_field = '';
+
 
     public const FLCDRIVER_PROCTYPE_RESULTSET      = 1;
     public const FLCDRIVER_PROCTYPE_MULTIRESULTSET = 2;
@@ -333,6 +351,7 @@ abstract class flcDriver {
             $this->encrypt = $p_options['encrypt'] ?? false;
             $this->compress = $p_options['compress'] ?? false;
             $this->dbprefix = $p_options['dbprefix'] ?? '';
+            $this->rowversion_field = $p_options['rowversion_field'] ?? '';
 
         }
     }
@@ -371,7 +390,7 @@ abstract class flcDriver {
      * @return bool true if can get connection or already one open , false otherwise
      */
     public function open(): bool {
-        if (!isset($this->_connId) || !$this->_connId) {
+        if (!$this->is_open()) {
 
             $conn = $this->_open();
 
@@ -388,6 +407,20 @@ abstract class flcDriver {
 
         return true;
     }
+
+    /**
+     * Verify if the connection is already open
+     *
+     * @return bool true the connection is open
+     */
+    public function is_open(): bool {
+        if (!isset($this->_connId) || !$this->_connId) {
+            return false;
+        }
+
+        return true;
+    }
+
 
     // --------------------------------------------------------------------
 
@@ -636,11 +669,11 @@ abstract class flcDriver {
 
         if (false === ($result_id = $this->_execute_qry($p_sqlqry))) {
             // This will trigger a rollback if transactions are being used
-            if ($this->_trans_depth !== 0) {
+            if ((!$this->_trans_unique && $this->_trans_depth !== 0) || ($this->_trans_unique && $this->_trans_unique_begin)) {
                 $this->_trans_status = false;
             }
 
-            $this->display_error('Cant execute query '.$p_sqlqry, 'E');
+            $this->log_error('Cant execute query '.$p_sqlqry, 'E');
 
             return null;
         } else {
@@ -667,7 +700,7 @@ abstract class flcDriver {
     public function count_all(string $p_table = ''): int {
         if (trim($p_table) === '') {
 
-            $this->display_error("Count all required a table name");
+            $this->log_error("Count all required a table name");
 
             return 0;
         }
@@ -849,8 +882,8 @@ abstract class flcDriver {
      */
     public function error(): array {
         return [
-            'code' => null,
-            'message' => null
+            'code' => 0,
+            'message' => ''
         ];
     }
 
@@ -859,6 +892,26 @@ abstract class flcDriver {
     /*******************************************************
      * Helpers
      */
+
+    /**
+     * Set the row version field for the record.
+     *
+     * @param string $p_fieldname the field name that contains the row version
+     *
+     * @return void
+     */
+    public function set_rowversion_field(string $p_fieldname) {
+        $this->rowversion_field = $p_fieldname;
+    }
+
+    /**
+     * Get the rowversion field
+     *
+     * @return string
+     */
+    public function get_rowversion_field() : string  {
+        return $this->rowversion_field;
+    }
 
 
     // --------------------------------------------------------------------
@@ -1092,6 +1145,22 @@ abstract class flcDriver {
      */
     public function trans_off() {
         $this->trans_enabled = false;
+    }
+
+    /**
+     * Return if a transaction is already in progress
+     * If we are orking under unique transaction the variable
+     * _trans_unique_begin will be true , if under nested transaction
+     * _trans_depth will be 0.
+     *
+     * @return bool true if yes.
+     */
+    public function is_trans_open(): bool {
+        if ($this->_trans_unique) {
+            return $this->_trans_unique_begin;
+        } else {
+            return $this->_trans_depth > 0;
+        }
     }
 
     // --------------------------------------------------------------------
@@ -1957,21 +2026,26 @@ abstract class flcDriver {
      * @param string $p_type W-'warning' or E-'error'
      *
      */
-    public function display_error(string $p_error, string $p_type = 'W') {
-        echo $p_error.PHP_EOL;
+    public function log_error(string $p_error, string $p_type = 'W') {
         try {
             if ($p_type == 'E') {
                 $error = $this->error();
-                flcCommon::log_message('error', $p_error.' - '.$error['message'].'('.$error['code'].')');
+                $msg = $p_error.' - '.$error['message'].'('.$error['code'].')';
             } else {
-                flcCommon::log_message('info', $p_error);
+                $msg = $p_error;
+            }
+
+            if (self::$dblog_console) {
+                echo $msg.PHP_EOL;
+            } else {
+                flcCommon::log_message($p_type == 'E' ? 'error' : 'info', $msg);
             }
 
         } catch (Exception $ex) {
             $msg = 'Imposible to log a message , check your log config ,'.$ex->getMessage();
             if ($p_type == 'E') {
                 $msg .= ' - '.$error['message'].'('.$error['code'].')';
-                echo $msg;
+                echo $msg.PHP_EOL;
             }
             // is expected is handled befrore send results to the http server , for cli will be appear in screen.
             throw new RuntimeException($msg);

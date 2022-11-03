@@ -1,8 +1,14 @@
 <?php
 
-use framework\database\driver\mysql\flcMysqlConnection;
+$system_path = '/var/www/common/framework';
 
-require_once('../../driver/mysql/flcMysqlDriver.php');
+// Path to the system directory
+define('BASEPATH', $system_path);
+
+
+include_once BASEPATH.'/flcAutoloader.php';
+
+
 
 
 
@@ -21,7 +27,7 @@ $port = parse_url($dsn, PHP_URL_PORT);
 print_r('El port es : '.$port);*/
 
 
-$driver = new \framework\database\driver\mysql\flcMysqlDriver();
+$driver = new \framework\core\accessor\core\model\database\driver\mysql\flcMysqlDriver();
 $driver->initialize(null, 'localhost', 3306, 'db_tests', 'root', 'melivane');
 
 if ($driver->open()) {

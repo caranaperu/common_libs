@@ -17,7 +17,6 @@ use DateTime;
 use Exception;
 use framework\utils\flcStrUtils;
 
-include_once dirname(__FILE__).'/../utils/flcStrUtils.php';
 
 /**
  * Logging Class
@@ -147,7 +146,7 @@ class flcLog {
      * @return void
      */
     public function do_log_rotate() {
-        $documentspath = APPPATH.'/logs';
+        $documentspath = $this->_log_path;
 
         $dir = opendir($documentspath);
 

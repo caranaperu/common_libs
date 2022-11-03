@@ -16,11 +16,13 @@ namespace framework\core\session;
 
 
 use Exception;
-use framework\core\FLC;
+use framework\core\flcConfig;
+use framework\core\flcResponse;
 use framework\flcCommon;
-use SessionHandlerInterface;
+use \SessionHandlerInterface;
 
-include_once dirname(__FILE__).'/../../flcCommon.php';
+
+
 
 /**
  * Implementation of CodeIgniter session container.
@@ -35,7 +37,7 @@ class flcSession implements flcSessionInterface {
      *
      * @var SessionHandlerInterface
      */
-    protected SessionHandlerInterface $driver;
+    protected \SessionHandlerInterface $driver;
 
     /**
      * The storage driver to use: files, database, redis, memcached
@@ -102,9 +104,9 @@ class flcSession implements flcSessionInterface {
     /**
      * The session cookie instance.
      *
-     * @var array-key
+     * @var array
      */
-    protected $cookie;
+    protected array $cookie;
 
 
     /**
@@ -119,32 +121,32 @@ class flcSession implements flcSessionInterface {
      * Constructor.
      *
      * Extract configuration settings and save them here.
-     * @throws Exception
+     *
+     * @param SessionHandlerInterface $driver the session handler interface instance.
+     * @param flcConfig               $p_config the configuration with the cookie and session configuration.
      */
-    public function __construct(SessionHandlerInterface $driver) {
-        $config = flcCommon::get_config();
+    public function __construct(SessionHandlerInterface $driver, flcConfig $p_config) {
 
         $this->driver = $driver;
 
-        $this->session_driver_name = $config->item('sess_driver');
-        $this->session_cookie_name = $config->item('sess_cookie_name') ?? $this->session_cookie_name;
-        $this->session_expiration = $config->item('sess_expiration') ?? $this->session_expiration;
-        $this->session_save_path = $config->item('sess_save_path');
-        $this->session_match_ip = $config->item('sess_match_ip') ?? $this->session_match_ip;
-        $this->session_time_to_update = $config->item('sess_time_to_update') ?? $this->session_time_to_update;
-        $this->session_regenerate_destroy = $config->item('sess_regenerate_destroy') ?? $this->session_regenerate_destroy;
-
+        $this->session_driver_name = $p_config->item('sess_driver');
+        $this->session_cookie_name = $p_config->item('sess_cookie_name') ?? $this->session_cookie_name;
+        $this->session_expiration = $p_config->item('sess_expiration') ?? $this->session_expiration;
+        $this->session_save_path = $p_config->item('sess_save_path');
+        $this->session_match_ip = $p_config->item('sess_match_ip') ?? $this->session_match_ip;
+        $this->session_time_to_update = $p_config->item('sess_time_to_update') ?? $this->session_time_to_update;
+        $this->session_regenerate_destroy = $p_config->item('sess_regenerate_destroy') ?? $this->session_regenerate_destroy;
 
 
         $this->cookie = [
             'name' => $this->session_cookie_name,
             'value' => '',
             'expires' => $this->session_expiration === 0 ? 0 : time() + $this->session_expiration,
-            'path' => $config->item('cookie_path'),
-            'domain' =>$config->item('cookie_domain'),
-            'secure' => $config->item('cookie_secure'),
+            'path' => $p_config->item('cookie_path'),
+            'domain' => $p_config->item('cookie_domain'),
+            'secure' => $p_config->item('cookie_secure'),
             'httponly' => true, // for security
-            'samesite' => $config->item('cookie_same_site') ?? 'lax',
+            'samesite' => $p_config->item('cookie_same_site') ?? 'lax',
             'raw' => $cookie->raw ?? false,
         ];
 
@@ -157,7 +159,7 @@ class flcSession implements flcSessionInterface {
      * @throws Exception
      */
     public function start(): ?flcSession {
-        if (is_cli() && ENVIRONMENT !== 'testing') {
+        if (flcCommon::is_cli() && ENVIRONMENT !== 'testing') {
             flcCommon::log_message('debug', 'Session: Initialization under CLI aborted.');
 
             return null;
@@ -187,9 +189,9 @@ class flcSession implements flcSessionInterface {
 
         // Is session ID auto-regeneration configured? (ignoring ajax requests)
         if ((empty($_SERVER['HTTP_X_REQUESTED_WITH']) || strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) !== 'xmlhttprequest') && ($regenerateTime = $this->session_time_to_update) > 0) {
-            if (!isset($_SESSION['__ci_last_regenerate'])) {
-                $_SESSION['__ci_last_regenerate'] = time();
-            } elseif ($_SESSION['__ci_last_regenerate'] < (time() - $regenerateTime)) {
+            if (!isset($_SESSION['__flc_last_regenerate'])) {
+                $_SESSION['__flc_last_regenerate'] = time();
+            } elseif ($_SESSION['__flc_last_regenerate'] < (time() - $regenerateTime)) {
                 $this->regenerate((bool)$this->session_regenerate_destroy);
             }
         }
@@ -215,9 +217,9 @@ class flcSession implements flcSessionInterface {
     public function stop() {
         setcookie($this->session_cookie_name, session_id(), [
             'expires' => 1,
-            'path' => $this->cookie['cookie_path'],
-            'domain' => $this->cookie['cookie_domain'],
-            'secure' => $this->cookie['cookie_secure'],
+            'path' => $this->cookie['path'],
+            'domain' => $this->cookie['domain'],
+            'secure' => $this->cookie['secure'],
             'httponly' => true
         ]);
 
@@ -236,18 +238,18 @@ class flcSession implements flcSessionInterface {
             ini_set('session.name', $this->session_cookie_name);
         }
 
-        $sameSite = $this->cookie['cookie_sames_site'] ?: 'Lax';
+        $same_site = $this->cookie['samesite'] ?: 'Lax';
 
         $params = [
             'lifetime' => $this->session_expiration,
-            'path' => $this->cookie['cookie_path'],
-            'domain' => $this->cookie['cookie_domain'],
-            'secure' => $this->cookie['cookie_secure'],
+            'path' => $this->cookie['path'],
+            'domain' => $this->cookie['domain'],
+            'secure' => $this->cookie['secure'],
             'httponly' => true, // HTTP only; Yes, this is intentional and not configurable for security reasons.
-            'samesite' => $sameSite,
+            'samesite' => $same_site,
         ];
 
-        ini_set('session.cookie_samesite', $sameSite);
+        ini_set('session.cookie_samesite', $same_site);
         session_set_cookie_params($params);
 
         if (!isset($this->session_expiration)) {
@@ -317,36 +319,35 @@ class flcSession implements flcSessionInterface {
      *
      * Clears old "flash" data, marks the new one for deletion and handles
      * "temp" data deletion.
+     * TODO : no flashdata in this implementation, need remove?
      */
     protected function init_vars() {
-        if (empty($_SESSION['__ci_vars'])) {
+        if (empty($_SESSION['__flc_vars'])) {
             return;
         }
 
         $currentTime = time();
 
-        foreach ($_SESSION['__ci_vars'] as $key => $value) {
+        foreach ($_SESSION['__flc_vars'] as $key => $value) {
             if ($value === 'new') {
-                $_SESSION['__ci_vars'][$key] = 'old';
+                $_SESSION['__flc_vars'][$key] = 'old';
             } // DO NOT move this above the 'new' check!
             elseif ($value === 'old' || $value < $currentTime) {
-                unset($_SESSION[$key], $_SESSION['__ci_vars'][$key]);
+                unset($_SESSION[$key], $_SESSION['__flc_vars'][$key]);
             }
         }
 
-        if (empty($_SESSION['__ci_vars'])) {
-            unset($_SESSION['__ci_vars']);
+        if (empty($_SESSION['__flc_vars'])) {
+            unset($_SESSION['__flc_vars']);
         }
     }
 
     /**
-     * Regenerates the session ID.
-     *
-     * @param bool $destroy Should old session data be destroyed?
+     * @inheritdoc
      */
-    public function regenerate(bool $destroy = false) {
-        $_SESSION['__ci_last_regenerate'] = time();
-        session_regenerate_id($destroy);
+    public function regenerate(bool $p_destroy = false) {
+        $_SESSION['__flc_last_regenerate'] = time();
+        session_regenerate_id($p_destroy);
     }
 
     /**
@@ -361,56 +362,37 @@ class flcSession implements flcSessionInterface {
     }
 
     /**
-     * Sets user data into the session.
-     *
-     * If $data is a string, then it is interpreted as a session property
-     * key, and  $value is expected to be non-null.
-     *
-     * If $data is an array, it is expected to be an array of key/value pairs
-     * to be set as session properties.
-     *
-     * @param array|string $data Property name or associative array of properties
-     * @param mixed        $value Property value if single key provided
+     * @inheritdoc
      */
-    public function set($data, $value = null) {
-        if (is_array($data)) {
-            foreach ($data as $key => $value) {
+    public function set($p_data, $p_value = null) {
+        if (is_array($p_data)) {
+            foreach ($p_data as $key => $p_value) {
                 if (is_int($key)) {
-                    $_SESSION[$value] = null;
+                    $_SESSION[$p_value] = null;
                 } else {
-                    $_SESSION[$key] = $value;
+                    $_SESSION[$key] = $p_value;
                 }
             }
 
             return;
         }
 
-        $_SESSION[$data] = $value;
+        $_SESSION[$p_data] = $p_value;
     }
 
     /**
-     * Get user data that has been set in the session.
-     *
-     * If the property exists as "normal", returns it.
-     * Otherwise, returns an array of any temp or flash data values with the
-     * property key.
-     *
-     * Replaces the legacy method $session->userdata();
-     *
-     * @param string|null $key Identifier of the session property to retrieve
-     *
-     * @return mixed The property value(s)
+     * @inheritdoc
      */
-    public function get(?string $key = null) {
-        if (!empty($key) && (null !== ($value = $_SESSION[$key] ?? null) || null !== ($value = dot_array_search($key, $_SESSION ?? [])))) {
+    public function get(?string $p_key = null) {
+        if (!empty($p_key) && (null !== ($value = $_SESSION[$p_key] ?? null) || null !== ($value = $this->_array_dot_search($p_key, $_SESSION ?? [])))) {
             return $value;
         }
 
         if (empty($_SESSION)) {
-            return $key === null ? [] : null;
+            return $p_key === null ? [] : null;
         }
 
-        if (!empty($key)) {
+        if (!empty($p_key)) {
             return null;
         }
 
@@ -418,20 +400,18 @@ class flcSession implements flcSessionInterface {
 
         $keys = array_keys($_SESSION);
 
-        foreach ($keys as $key) {
-            $userdata[$key] = $_SESSION[$key];
+        foreach ($keys as $p_key) {
+            $userdata[$p_key] = $_SESSION[$p_key];
         }
 
         return $userdata;
     }
 
     /**
-     * Returns whether an index exists in the session array.
-     *
-     * @param string $key Identifier of the session property we are interested in.
+     * @inheritdoc
      */
-    public function has(string $key): bool {
-        return isset($_SESSION[$key]);
+    public function has(string $p_key): bool {
+        return isset($_SESSION[$p_key]);
     }
 
     /**
@@ -447,31 +427,25 @@ class flcSession implements flcSessionInterface {
     }
 
     /**
-     * Remove one or more session properties.
-     *
-     * If $key is an array, it is interpreted as an array of string property
-     * identifiers to remove. Otherwise, it is interpreted as the identifier
-     * of a specific session property to remove.
-     *
-     * @param array|string $key Identifier of the session property or properties to remove.
+     * @inheritdoc
      */
-    public function remove($key) {
-        if (is_array($key)) {
-            foreach ($key as $k) {
+    public function remove($p_key) {
+        if (is_array($p_key)) {
+            foreach ($p_key as $k) {
                 unset($_SESSION[$k]);
             }
 
             return;
         }
 
-        unset($_SESSION[$key]);
+        unset($_SESSION[$p_key]);
     }
 
     /**
      * Magic method to set variables in the session by simply calling
      *  $session->foo = bar;
      *
-     * @param string $key Identifier of the session property to set.
+     * @param string       $key Identifier of the session property to set.
      * @param array|string $value
      */
     public function __set(string $key, $value) {
@@ -544,7 +518,41 @@ class flcSession implements flcSessionInterface {
         $this->cookie['value'] = session_id();
         $this->cookie['expire'] = $this->session_expiration === 0 ? 0 : time() + $this->session_expiration;
 
-        FLC::get_instance()->output->set_cookie($this->cookie);
+        flcResponse::get_instance()->set_cookie($this->cookie);
 
+    }
+
+
+    /********************************************************
+     * Helper
+     */
+
+    /**
+     * @param string $index
+     * @param array  $array
+     *
+     * @return array|null
+     */
+    private function _array_dot_search(string $index, array $array): ?array {
+
+        if (empty($index) || count($array) == 0) {
+            return null;
+        }
+
+        $akeys = array_keys($array);
+        // get the keys that fall in the search.
+        $akeys = preg_grep("/$index/i", $akeys);
+
+        $data = [];
+        if ($akeys) {
+            foreach ($akeys as $key) {
+                $data[] = $array[$key];
+            }
+
+            // return the values.
+            return $data;
+        }
+
+        return null;
     }
 }

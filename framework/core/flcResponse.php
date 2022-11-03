@@ -14,21 +14,30 @@
 
 namespace framework\core;
 
+use DateTime;
+use DateTimeZone;
 use Exception;
 use framework\flcCommon;
-use framework\utils\flcStrUtils;
-
-include_once dirname(__FILE__).'/../flcCommon.php';
-include_once dirname(__FILE__).'/../utils/flcStrUtils.php';
 
 
 /**
  * Output Class
+ * Only can exist one instance per hit , because of that is a singleton
  *
  * Responsible for sending final output to the browser.
  *
  */
 class flcResponse {
+
+    use flcMessageTrait;
+
+    /**
+     * Reference to the FLC singleton
+     *
+     * @var    flcResponse
+     */
+    private static flcResponse $_instance;
+
 
     /**
      * Final output string
@@ -39,25 +48,11 @@ class flcResponse {
 
 
     /**
-     * List of server headers
-     *
-     * @var    array
-     */
-    protected array $headers = [];
-
-    /**
      * List of mime types
      *
      * @var    array
      */
     protected array $mimes = [];
-
-    /**
-     * Mime-type for the current page
-     *
-     * @var    string
-     */
-    protected string $mime_type = 'text/html';
 
 
     /**
@@ -82,6 +77,7 @@ class flcResponse {
      */
     protected static bool $func_override;
 
+
     /**
      * Class constructor
      *
@@ -90,7 +86,9 @@ class flcResponse {
      * @return    void
      * @throws Exception
      */
-    public function __construct() {
+    private function __construct() {
+        self::$_instance =& $this;
+
         $this->_zlib_oc = (bool)ini_get('zlib.output_compression');
         $this->_compress_output = ($this->_zlib_oc === false && flcCommon::get_config()->item('compress_output') === true && extension_loaded('zlib'));
 
@@ -99,7 +97,25 @@ class flcResponse {
         // Get mime types for later
         $this->mimes =& flcCommon::get_mimes();
 
+
         flcCommon::log_message('info', 'flcResponse->_construct - Response class initialized');
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Return the singletoin instance, previously initialized.
+     *
+     * @return flcResponse
+     */
+    public static function &get_instance(): flcResponse {
+        static $loaded = false;
+        if (!$loaded) {
+            new flcResponse();
+            $loaded = true;
+        }
+
+        return self::$_instance;
     }
 
     // --------------------------------------------------------------------
@@ -146,133 +162,8 @@ class flcResponse {
         $this->final_output .= $p_output;
     }
 
-    // --------------------------------------------------------------------
-
-    /**
-     * Set Header
-     *
-     * Lets you set a server header which will be sent with the final output.
-     *
-     * Note: If a file is cached, headers will not be sent.
-     *
-     * @param string $p_header Header
-     * @param bool   $p_replace Whether to replace the old header value, if already set
-     *
-     * @return    void
-     *
-     */
-    public function set_header(string $p_header, bool $p_replace = true) {
-        // If zlib.output_compression is enabled it will compress the output,
-        // but it will not modify the content-length header to compensate for
-        // the reduction, causing the browser to hang waiting for more data.
-        // We'll just skip content-length in those cases.
-        if ($this->_zlib_oc && strncasecmp($p_header, 'content-length', 14) === 0) {
-            return;
-        }
-
-        $this->headers[] = [$p_header, $p_replace];
-    }
 
     // --------------------------------------------------------------------
-
-    /**
-     * Set Content-Type Header
-     *
-     * @param string      $p_mime_type Extension of the file we're outputting
-     * @param string|null $p_charset Character set (default: null)
-     *
-     * @return    void
-     * @throws Exception config problems
-     */
-    public function set_content_type(string $p_mime_type, ?string $p_charset = null) {
-        if (strpos($p_mime_type, '/') === false) {
-            $extension = ltrim($p_mime_type, '.');
-
-            // Is this extension supported?
-            if (isset($this->mimes[$extension])) {
-                $p_mime_type =& $this->mimes[$extension];
-
-                if (is_array($p_mime_type)) {
-                    $p_mime_type = current($p_mime_type);
-                }
-            }
-        }
-
-        $this->mime_type = $p_mime_type;
-
-        if (empty($p_charset)) {
-            $p_charset = flcCommon::get_config()->item('charset');
-        }
-
-        $header = 'Content-Type: '.$p_mime_type.(empty($p_charset) ? '' : '; charset='.$p_charset);
-
-        $this->headers[] = [$header, true];
-
-    }
-
-    // --------------------------------------------------------------------
-
-    /**
-     * Get Current Content-Type Header
-     *
-     * @return    string    'text/html', if not already set
-     */
-    public function get_content_type(): string {
-        for ($i = 0, $c = count($this->headers); $i < $c; $i++) {
-            if (sscanf($this->headers[$i][0], 'Content-Type: %[^;]', $content_type) === 1) {
-                return $content_type;
-            }
-        }
-
-        return 'text/html';
-    }
-
-    // --------------------------------------------------------------------
-
-    /**
-     * Get Header
-     *
-     * @param string $p_header
-     *
-     * @return    string|null
-     */
-    public function get_header(string $p_header): ?string {
-        // Combine headers already sent with our batched headers
-        $headers = array_merge(// We only need [x][0] from our multi-dimensional array
-            array_map('array_shift', $this->headers), headers_list());
-
-        if (empty($headers) or empty($p_header)) {
-            return null;
-        }
-
-        // Count backwards, in order to get the last matching header
-        for ($c = count($headers) - 1; $c > -1; $c--) {
-            if (strncasecmp($p_header, $headers[$c], $l = flcStrUtils::strlen(self::$func_override, $p_header)) === 0) {
-                return trim(flcStrUtils::substr(self::$func_override, $headers[$c], $l + 1));
-            }
-        }
-
-        return null;
-    }
-
-    // --------------------------------------------------------------------
-
-    /**
-     * Set HTTP Status Header
-     *
-     * As of version 1.7.2, this is an alias for common function
-     * set_status_header().
-     *
-     * @param int    $p_code Status code (default: 200)
-     * @param string $p_text Optional message
-     *
-     * @return    void
-     */
-    public function set_status_header(int $p_code = 200, string $p_text = '') {
-        set_status_header($p_code, $p_text);
-    }
-
-    // ------------------------------------------------------------------------
 
     /**
      * Set cookie
@@ -354,16 +245,38 @@ class flcResponse {
             ob_start('ob_gzhandler');
         }
 
-        // Are there any server headers to send?
-        if (count($this->headers) > 0) {
-            foreach ($this->headers as $header) {
-                @header($header[0], $header[1]);
-            }
-        }
+        $this->send_headers();
 
         return $p_output;
     }
 
     // --------------------------------------------------------------------
 
+    /**
+     * Sends the headers of this HTTP response to the browser.
+     *
+     */
+    public function send_headers() {
+        // Have the headers already been sent?
+        if (headers_sent()) {
+            return;
+        }
+
+        // Per spec, MUST be sent with each request, if possible.
+        // http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html
+        if (!isset($this->headers['Date']) && PHP_SAPI !== 'cli-server') {
+            $date = DateTime::createFromFormat('U', (string)time());
+            $date->setTimezone(new DateTimeZone('UTC'));
+
+            $this->set_header('Date', $date->format('D, d M Y H:i:s') . ' GMT');
+        }
+
+        // HTTP Status
+        header(sprintf('HTTP/%s %s %s', $this->get_protocol_version(), $this->get_status_code(), $this->get_reason_phrase()), true, $this->get_status_code());
+
+        // Send all of our headers
+        foreach (array_keys($this->get_headers()) as $name) {
+            header($name.': '.$this->get_header_line($name), false, $this->get_status_code());
+        }
+    }
 }

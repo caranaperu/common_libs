@@ -1,1 +1,15 @@
 Ver pasar uri_get_controller de common a FLC y eliminar get_config de common.
+Ver pasar config cuando es requerido.
+Al final convertir los \n por <BR> si no es cli()
+
+Agregar la opcion de que las paginas de error puedan ser definidas por el usuario.
+Ver como sera el modelo
+los metodos crud deben poder cambiarse de acuerdo al tipo de repositorio
+
+uri_get_controller (vber que pasa si con la modificacion de .htaccess sigue funcionando.
+
+add
+delete
+update
+fetch
+

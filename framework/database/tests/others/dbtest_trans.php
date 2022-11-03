@@ -1,27 +1,37 @@
 <?php
+$system_path = '/var/www/common/framework';
+$application_folder = dirname(__FILE__);
+
+define('APPPATH', $application_folder.DIRECTORY_SEPARATOR);
+
+// Path to the system directory
+define('BASEPATH', $system_path);
+include_once BASEPATH.'/flcAutoloader.php';
+
+
 
 use framework\database\driver\mssql\flcMssqlDriver;
 use framework\database\driver\mysql\flcMysqlDriver;
 use framework\database\driver\postgres\flcPostgresDriver;
 
-require_once('../../driver/flcDriver.php');
-require_once('../../driver/postgres/flcPostgresDriver.php');
-require_once('../../driver/mysql/flcMysqlDriver.php');
-require_once('../../driver/mssql/flcMssqlDriver.php');
-
 $_g_do_rollback = true;
-$_use_pgsql = 'pgsql';
+$_use_pgsql = 'mysql';
+
+\framework\database\driver\flcDriver::$dblog_console = true;
 
 if ($_use_pgsql == 'pgsql') {
     $driver = new flcPostgresDriver();
+    //$driver::$dblog_console = true;
     $driver->initialize(null, '192.168.18.30', 5432, 'db_tests', 'postgres', 'melivane');
 
 } else if ($_use_pgsql == 'mysql') {
     $driver = new flcMysqlDriver();
+    //$driver::$dblog_console = true;
     $driver->initialize(null, 'localhost', 3306, 'db_tests', 'root', 'melivane');
 
 } else {
     $driver = new flcMssqlDriver();
+    //$driver::$dblog_console = true;
     $driver->initialize(null, '192.168.18.9', 1532, 'veritrade_baterias', 'sa', 'melivane', $p_charset = 'utf8');
 }
 
@@ -71,22 +81,22 @@ if ($driver->open()) {
     $driver->set_trans_unique(true);
     $driver->trans_start();
 
-    $query = $driver->execute_query("INSERT INTO tb_class VALUES(1, 'Abhi')");
+    $query = $driver->execute_query("INSERT INTO tb_class VALUES(1, 'Abhi',0,false)");
     if (!$query) {
         echo 'Error';
         exit(-1);
     }
-    $query = $driver->execute_query("INSERT INTO tb_class VALUES(2, 'Adam')");
+    $query = $driver->execute_query("INSERT INTO tb_class VALUES(2, 'Adam',0,false)");
     if (!$query) {
         echo 'Error';
         exit(-1);
     }
-    $query = $driver->execute_query("INSERT INTO tb_class VALUES(4, 'Alex')");
+    $query = $driver->execute_query("INSERT INTO tb_class VALUES(4, 'Alex',0,false)");
     if (!$query) {
         echo 'Error';
         exit(-1);
     }
-    $query = $driver->execute_query("INSERT INTO tb_class VALUES(5, 'Rahul')");
+    $query = $driver->execute_query("INSERT INTO tb_class VALUES(5, 'Rahul',0,false)");
     if (!$query) {
         echo 'Error';
         exit(-1);
@@ -104,21 +114,21 @@ if ($driver->open()) {
 
     $driver->trans_savepoint('A');
 
-    $query = $driver->execute_query("INSERT INTO tb_class VALUES(6, 'Despues de A')");
+    $query = $driver->execute_query("INSERT INTO tb_class VALUES(6, 'Despues de A',0,false)");
     if (!$query) {
         echo 'Error';
         //  exit(-1);
     }
     $driver->trans_savepoint('B');
 
-    $query = $driver->execute_query("INSERT INTO tb_class VALUES(7, 'Despues de B')");
+    $query = $driver->execute_query("INSERT INTO tb_class VALUES(7, 'Despues de B',0,false)");
     /*  if (!$query) {
           echo 'Error';
           exit(-1);
       }*/
     $driver->trans_savepoint('C');
 
-    $query = $driver->execute_query("INSERT INTO tb_class VALUES(8, 'Despues de C')");
+    $query = $driver->execute_query("INSERT INTO tb_class VALUES(8, 'Despues de C',0,false)");
     /*if (!$query) {
         echo 'Error';
         exit(-1);

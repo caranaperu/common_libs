@@ -23,9 +23,9 @@ interface flcSessionInterface {
     /**
      * Regenerates the session ID.
      *
-     * @param bool $destroy Should old session data be destroyed?
+     * @param bool $p_destroy Should old session data be destroyed?
      */
-    public function regenerate(bool $destroy = false);
+    public function regenerate(bool $p_destroy = false);
 
     /**
      * Destroys the current session.
@@ -41,10 +41,10 @@ interface flcSessionInterface {
      * If $data is an array, it is expected to be an array of key/value pairs
      * to be set as session properties.
      *
-     * @param array|string $data Property name or associative array of properties
-     * @param mixed        $value Property value if single key provided
+     * @param array|string $p_data Property name or associative array of properties
+     * @param mixed        $p_value Property value if single key provided
      */
-    public function set(string $data, $value = null);
+    public function set($p_data, $p_value = null);
 
     /**
      * Get user data that has been set in the session.
@@ -55,18 +55,18 @@ interface flcSessionInterface {
      *
      * Replaces the legacy method $session->userdata();
      *
-     * @param string|null $key Identifier of the session property to retrieve
+     * @param string|null $p_key Identifier of the session property to retrieve
      *
      * @return mixed The property value(s)
      */
-    public function get(?string $key = null);
+    public function get(?string $p_key = null);
 
     /**
      * Returns whether an index exists in the session array.
      *
-     * @param string $key Identifier of the session property we are interested in.
+     * @param string $p_key Identifier of the session property we are interested in.
      */
-    public function has(string $key): bool;
+    public function has(string $p_key): bool;
 
     /**
      * Remove one or more session properties.
@@ -75,9 +75,9 @@ interface flcSessionInterface {
      * identifiers to remove. Otherwise, it is interpreted as the identifier
      * of a specific session property to remove.
      *
-     * @param array|string $key Identifier of the session property or properties to remove.
+     * @param array|string $p_key Identifier of the session property or properties to remove.
      */
-    public function remove(string $key);
+    public function remove( $p_key);
 
 
 }
