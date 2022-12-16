@@ -22,8 +22,6 @@ use framework\database\flcDbResults;
 use stdClass;
 
 
-
-
 /**
  * Microsoft sql  Driver Class (based on sqlsrv)
  *
@@ -338,6 +336,18 @@ class flcMssqlDriver extends flcDriver {
 
         return false;
     }
+
+    /**
+     * @inheritdoc
+     */
+    public function get_limit_offset_str(int $p_start_row,int $p_end_row) : string {
+        if ($p_end_row-$p_start_row <= 0) {
+            return '';
+        }
+
+        return 'offset '.$p_start_row.' rows  fetch next '.($p_end_row-$p_start_row).' rows only ';
+    }
+
 
     // --------------------------------------------------------------------
 
@@ -815,4 +825,43 @@ class flcMssqlDriver extends flcDriver {
         return $results;
 
     }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * #inheritdoc
+     */
+    public function insert_id(?string $p_table_name = null, ?string $p_column_name = null): int {
+        $sql = version_compare($this->get_version(), '8', '>=')
+            ? 'SELECT SCOPE_IDENTITY() AS last_id'
+            : 'SELECT @@IDENTITY AS last_id';
+
+        $res =  $this->execute_query($sql);
+        if ($res) {
+            $insert_id =  $res->row()->last_id ?? 0;
+            $res->free_result();;
+            return $insert_id;
+        } else {
+            $this->log_error('Can obtain insert id','E');
+            return 0;
+        }
+    }
+
+
+    // --------------------------------------------------------------------
+
+    /**
+     *
+     * @inheritdoc
+     */
+    public  function is_duplicate_key_error(array $p_error) : bool {
+        if (isset($p_error['code'])) {
+            // for microsoft is a combination of sql_state/error_code
+            if ($p_error['code'] == '23000/2627' || $p_error['code'] == '23000/2601') {
+                return true;
+            }
+        }
+        return false;
+    }
+
 }

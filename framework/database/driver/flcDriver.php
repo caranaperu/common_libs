@@ -904,15 +904,45 @@ abstract class flcDriver {
         $this->rowversion_field = $p_fieldname;
     }
 
+    // --------------------------------------------------------------------
+
     /**
      * Get the rowversion field
      *
      * @return string
      */
-    public function get_rowversion_field() : string  {
+    public function get_rowversion_field(): string {
         return $this->rowversion_field;
     }
 
+    // --------------------------------------------------------------------
+
+    /**
+     * The driver support ilke operator?
+     *
+     * @return boolean false
+     */
+    public function is_ilike_supported() : bool {
+        return false;
+    }
+
+    /**
+     * For pagination purposes this method return the offset-limit clause
+     * for each database , the limit will be calculate using the difference between
+     * p_end_row-p_start_row.
+     *
+     * @param int $p_start_row start row need to be less than $p_end_row
+     * @param int $p_end_row
+     *
+     * @return string with the clause or '' if p_start_row is >= p_end_row
+     */
+    public function get_limit_offset_str(int $p_start_row,int $p_end_row) : string {
+        if ($p_end_row-$p_start_row <= 0) {
+            return '';
+        }
+
+        return 'limit '.($p_end_row-$p_start_row).' offset '.$p_start_row;
+    }
 
     // --------------------------------------------------------------------
 
@@ -1269,6 +1299,34 @@ abstract class flcDriver {
     // --------------------------------------------------------------------
 
     /**
+     * For artificial generate a transaction error , sometimes in our logic
+     * we have bussiness errors on our logic but no database error, this method
+     * allow to advice trans_complete that we need to rollback.
+     *
+     * @return    void
+     */
+    public function trans_mark_dirty() {
+        if ($this->trans_enabled) {
+            if ($this->_trans_unique_begin || $this->_trans_depth > 0) {
+                $this->_trans_status = false;
+            }
+        }
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Revert the transaction status to ok.
+     *
+     * @return    void
+     */
+    public function trans_mark_clean() {
+        $this->_trans_status = true;
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
      * Begin Transaction
      *
      * @param bool $test_mode
@@ -1515,9 +1573,7 @@ abstract class flcDriver {
      *
      * @return object|bool the object is basically a resource db dependant
      */
-    protected
-
-    abstract function _execute_qry(string $p_sqlquery);
+    protected abstract function _execute_qry(string $p_sqlquery);
 
 
     // --------------------------------------------------------------------
@@ -1885,6 +1941,18 @@ abstract class flcDriver {
     }
 
     /**
+     * Get the Insert ID
+     * The table name and field name are required both in some databases like
+     * postgress.
+     *
+     * @param string|null $p_table_name
+     * @param string|null $p_column_name
+     *
+     * @return int with the id
+     */
+    abstract public function insert_id(?string $p_table_name = null, ?string $p_column_name = null): int;
+
+    /**
      * @param string      $p_param the value to cast
      * @param string      $p_type string,float,char,etc
      * @param string|null $p_appendstr to append at the end of cast . ie: (20)
@@ -1997,7 +2065,12 @@ abstract class flcDriver {
                     if ($value === true || $value === false) {
                         $sql .= ($value === true ? 'true' : 'false').',';
                     } else {
-                        $sql .= $value.',';
+                        if ($value === null) {
+                            $sqlvalue = 'NULL';
+                        } else {
+                            $sqlvalue = is_string($value) ? '\''.$value.'\'' : $value;
+                        }
+                        $sql .= $sqlvalue.',';
                     }
 
 
@@ -2023,7 +2096,7 @@ abstract class flcDriver {
      * Display an error message
      *
      * @param string $p_error the error message
-     * @param string $p_type W-'warning' or E-'error'
+     * @param string $p_type W-'warning' or E-'error' or 'e' soft error
      *
      */
     public function log_error(string $p_error, string $p_type = 'W') {
@@ -2038,7 +2111,7 @@ abstract class flcDriver {
             if (self::$dblog_console) {
                 echo $msg.PHP_EOL;
             } else {
-                flcCommon::log_message($p_type == 'E' ? 'error' : 'info', $msg);
+                flcCommon::log_message(($p_type == 'E' || $p_type == 'e') ? 'error' : 'info', $msg);
             }
 
         } catch (Exception $ex) {
@@ -2052,6 +2125,39 @@ abstract class flcDriver {
         }
 
     }
+
+
+    /****************************************************************
+     * To identify specific errors
+     */
+
+    /**
+     * Determine if the error identify a duplicate key code
+     * Need to be implemented in each driver to make sense.
+     *
+     * @param array $p_error database error obtained with error()
+     * function
+     *
+     * @return bool
+     */
+    public  function is_duplicate_key_error(array $p_error) : bool {
+        return false;
+    }
+
+    /**
+     * Determine if the error identify a foreign key doesnt exist
+     * Need to be implemented in each driver to make sense.
+     *
+     * @param array $p_error database error obtained with error()
+     * function
+     *
+     * @return bool
+     */
+    public  function is_foreign_key_error(array $p_error) : bool {
+        return false;
+    }
+
+
 }
 
 

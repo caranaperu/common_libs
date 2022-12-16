@@ -233,7 +233,7 @@ class flcPostgresDriver extends flcDriver {
     /**
      * @inheritdoc
      */
-    protected function _open()  {
+    protected function _open() {
         // Never reuse a connection
         return pg_connect($this->_dsn, PGSQL_CONNECT_FORCE_NEW);
     }
@@ -277,6 +277,21 @@ class flcPostgresDriver extends flcDriver {
     // --------------------------------------------------------------------
 
     /**
+     * The driver support ilke operator?
+     * ilike is postgres supported.
+     *
+     * @return boolean false
+     */
+    public function is_ilike_supported() : bool {
+        return true;
+    }
+
+
+
+
+    // --------------------------------------------------------------------
+
+    /**
      * @inheritdoc
      */
     public function error(): array {
@@ -293,7 +308,7 @@ class flcPostgresDriver extends flcDriver {
      * @inheritdoc
      */
     protected function _execute_qry(string $p_sqlquery) {
-        return pg_query($this->_connId, $p_sqlquery);
+        return @pg_query($this->_connId, $p_sqlquery);
     }
 
     // --------------------------------------------------------------------
@@ -765,4 +780,49 @@ class flcPostgresDriver extends flcDriver {
         return $results;
 
     }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * @inheritdoc
+     */
+    public function insert_id(?string $p_table_name = null, ?string $p_column_name = null): int {
+        if ($p_table_name && $p_column_name) {
+            $sql = "SELECT currval(pg_get_serial_sequence('$p_table_name', '$p_column_name')) as ins_id";
+
+            $res = $this->execute_query($sql);
+            if ($res) {
+                $insert_id = $res->row()->insert_id ?? 0;
+                $res->free_result();;
+
+                return $insert_id;
+            } else {
+                $this->log_error('Can obtain insert id', 'E');
+
+                return 0;
+            }
+
+        } else {
+            $this->log_error('insert_id require the table and field name', 'e');
+
+            return 0;
+        }
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     *
+     * @inheritdoc
+     */
+    public  function is_duplicate_key_error(array $p_error) : bool {
+        if (isset($p_error['message'])) {
+            // for postgres pg_query only return messages
+            if (stripos($p_error['message'],'duplicate key value violates') !== false) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 }

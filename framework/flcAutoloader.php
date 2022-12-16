@@ -41,9 +41,14 @@ spl_autoload_register(function (string $class) {
         // accessor
         'flcPersistenceAccessor' => BASEPATH.'/core/accessor/',
         'flcDbAccessor' => BASEPATH.'/core/accessor/',
+        'flcConstraints'=> BASEPATH.'/core/accessor/constraints/',
+        'flcJoinEntry'=> BASEPATH.'/core/accessor/constraints/',
+        'flcJoins'=> BASEPATH.'/core/accessor/constraints/',
         // model
-        'flcBaseModel' => BASEPATH.'/core/model/',
+        'flcBaseEntity' => BASEPATH.'/core/entity/',
 
+        // dto
+        'flcInputData' => BASEPATH.'/core/dto/',
 
         // others
         'flcCommon' => BASEPATH.'/',

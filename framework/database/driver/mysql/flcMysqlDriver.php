@@ -79,14 +79,14 @@ class flcMysqlDriver extends flcDriver {
      *
      * @var string|null
      */
-    private string    $_socket;
+    private string $_socket;
 
     /**
      * Hold the client flags
      *
      * @var int
      */
-    private int       $_client_flags;
+    private int $_client_flags;
 
     /**
      * MySQLi object
@@ -96,7 +96,6 @@ class flcMysqlDriver extends flcDriver {
      * @var mysqli|null $_mysqli
      */
     protected ?mysqli $_mysqli = null;
-
 
 
     /**
@@ -115,32 +114,70 @@ class flcMysqlDriver extends flcDriver {
     protected static array $_cast_conversion = [
         // boolean type
         'boolean' => ['UNSIGNED', 'b', 1], // text types
-        'string' => ['char', 't'], 'char' => ['CHAR', 't'], 'text' => ['CHAR', 't'], 'nstring' => ['NCHAR', 't'],
-        'nchar' => ['NCHAR', 't'], 'ntext' => ['NCHAR', 't'], // binary types
-        'binary' => ['BINARY', 't'], 'varbinary' => ['BINARY', 't'], 'blob' => ['BINARY', 't'], // enumerated types
-        'enum' => ['ENUM', 't'], 'set' => ['SET', 't'], // Numeric types
-        'float' => ['FLOAT', 'n'], 'double' => ['DOUBLE', 'n'], 'real' => ['REAL', 'n'], 'decimal' => ['DECIMAL', 'n'],
+        'string' => ['char', 't'],
+        'char' => ['CHAR', 't'],
+        'text' => ['CHAR', 't'],
+        'nstring' => ['NCHAR', 't'],
+        'nchar' => ['NCHAR', 't'],
+        'ntext' => ['NCHAR', 't'], // binary types
+        'binary' => ['BINARY', 't'],
+        'varbinary' => ['BINARY', 't'],
+        'blob' => ['BINARY', 't'], // enumerated types
+        'enum' => ['ENUM', 't'],
+        'set' => ['SET', 't'], // Numeric types
+        'float' => ['FLOAT', 'n'],
+        'double' => ['DOUBLE', 'n'],
+        'real' => ['REAL', 'n'],
+        'decimal' => ['DECIMAL', 'n'],
         'ufloat' => ['FLOAT', 'n'], // deprecated
         'udouble' => ['DOUBLE', 'n'], // deprecated
         'udecimal' => ['DECIMAL', 'n'], // deprecated
-        'bit' => ['BIT', 'n'], 'tinyint' => ['SIGNED', 'n'], 'utinyint' => ['UNSIGNED', 'n'],
-        'smallint' => ['SIGNED', 'n'], 'usmallint' => ['UNSIGNED', 'n'], 'mediumint' => ['SIGNED', 'n'],
-        'umediumint' => ['UNSIGNED', 'n'], 'int' => ['SIGNED', 'n'], 'uint' => ['UNSIGNED', 'n'],
-        'bigint' => ['SIGNED', 'n'], 'ubigint' => ['UNSIGNED', 'n'], 'numeric' => ['DECIMAL', 'n'],
-        'unumeric' => ['DECIMAL', 'n'], 'money' => ['DECIMAL', 'n'], // date / time types
-        'date' => ['DATE', 't'], 'datetime' => ['DATETIME', 't'], 'timestamp' => ['DATETIME', 't'],
-        'time' => ['TIME', 't'], 'year' => ['', 'n'], // json / xml
-        'json' => ['JSON', 't'], 'jsonb' => ['JSON', 't'], 'xml' => ['CHAR', 't'], // spatial data types
-        'geometry' => ['GEOMETRY', 't'], 'point' => ['POINT', 't'], 'linestring' => ['LINESTRING', 't'],
-        'line' => ['LINESTRING', 't'], 'lseg' => ['LINESTRING', 't'], 'path' => ['LINESTRING', 't'],
-        'polygon' => ['POLYGON', 't'], 'box' => ['POLYGON', 't'], 'circle' => ['POLYGON', 't'],
-        'multipoint' => ['MULTIPOINT', 't'], 'multilinestring' => ['MULTILINESTRING', 't'],
+        'bit' => ['BIT', 'n'],
+        'tinyint' => ['SIGNED', 'n'],
+        'utinyint' => ['UNSIGNED', 'n'],
+        'smallint' => ['SIGNED', 'n'],
+        'usmallint' => ['UNSIGNED', 'n'],
+        'mediumint' => ['SIGNED', 'n'],
+        'umediumint' => ['UNSIGNED', 'n'],
+        'int' => ['SIGNED', 'n'],
+        'uint' => ['UNSIGNED', 'n'],
+        'bigint' => ['SIGNED', 'n'],
+        'ubigint' => ['UNSIGNED', 'n'],
+        'numeric' => ['DECIMAL', 'n'],
+        'unumeric' => ['DECIMAL', 'n'],
+        'money' => ['DECIMAL', 'n'], // date / time types
+        'date' => ['DATE', 't'],
+        'datetime' => ['DATETIME', 't'],
+        'timestamp' => ['DATETIME', 't'],
+        'time' => ['TIME', 't'],
+        'year' => ['', 'n'], // json / xml
+        'json' => ['JSON', 't'],
+        'jsonb' => ['JSON', 't'],
+        'xml' => ['CHAR', 't'], // spatial data types
+        'geometry' => ['GEOMETRY', 't'],
+        'point' => ['POINT', 't'],
+        'linestring' => ['LINESTRING', 't'],
+        'line' => ['LINESTRING', 't'],
+        'lseg' => ['LINESTRING', 't'],
+        'path' => ['LINESTRING', 't'],
+        'polygon' => ['POLYGON', 't'],
+        'box' => ['POLYGON', 't'],
+        'circle' => ['POLYGON', 't'],
+        'multipoint' => ['MULTIPOINT', 't'],
+        'multilinestring' => ['MULTILINESTRING', 't'],
         'geometrycollection' => ['GEOMETRYCOLLECTION', 't'], // Interval / ranges
-        'int4range' => ['', 't'], 'int8range' => ['', 't'], 'numrange' => ['', 't'], 'tsrange' => ['', 't'],
-        'tstzrange' => ['', 't'], 'daterange' => ['', 't'], // FULL TEXT SEARCH
-        'tsvector' => ['CHAR', 't'], 'tsquery' => ['CHAR', 't'], //arrays
+        'int4range' => ['', 't'],
+        'int8range' => ['', 't'],
+        'numrange' => ['', 't'],
+        'tsrange' => ['', 't'],
+        'tstzrange' => ['', 't'],
+        'daterange' => ['', 't'], // FULL TEXT SEARCH
+        'tsvector' => ['CHAR', 't'],
+        'tsquery' => ['CHAR', 't'], //arrays
         'array' => ['CHAR', 't'], // inet types
-        'cidr' => ['CHAR(43)', 't'], 'inet' => ['CHAR(43)', 't'], 'macaddr' => ['CHAR(17)', 't'],
+        'cidr' => ['CHAR(43)', 't'],
+        'inet' => ['CHAR(43)', 't'],
+        'macaddr' => ['CHAR(17)', 't'],
 
     ];
 
@@ -207,7 +244,7 @@ class flcMysqlDriver extends flcDriver {
         }
 
         // Compress stuff ,
-        $this->_client_flags = ($this->compress === TRUE) ? MYSQLI_CLIENT_COMPRESS : 0;
+        $this->_client_flags = ($this->compress === true) ? MYSQLI_CLIENT_COMPRESS : 0;
         $this->_mysqli = mysqli_init();
 
         $this->_mysqli->options(MYSQLI_OPT_CONNECT_TIMEOUT, 10);
@@ -244,7 +281,7 @@ class flcMysqlDriver extends flcDriver {
             if (!empty($ssl)) {
                 if (isset($this->encrypt['ssl_verify'])) {
                     if ($this->encrypt['ssl_verify']) {
-                        defined('MYSQLI_OPT_SSL_VERIFY_SERVER_CERT') && mysqli_options($this->_mysqli, MYSQLI_OPT_SSL_VERIFY_SERVER_CERT, TRUE);
+                        defined('MYSQLI_OPT_SSL_VERIFY_SERVER_CERT') && mysqli_options($this->_mysqli, MYSQLI_OPT_SSL_VERIFY_SERVER_CERT, true);
                     }
                     // Apparently (when it exists), setting MYSQLI_OPT_SSL_VERIFY_SERVER_CERT
                     // to FALSE didn't do anything, so PHP 5.6.16 introduced yet another
@@ -290,7 +327,7 @@ class flcMysqlDriver extends flcDriver {
             if (($this->_client_flags & MYSQLI_CLIENT_SSL) && version_compare($this->_mysqli->client_info, '5.7.3', '<=') && empty($this->_mysqli->query("SHOW STATUS LIKE 'ssl_cipher'")->fetch_object()->Value)) {
                 $this->_mysqli->close();
 
-                $this->log_error('Open failed , cant mantain an SSL connection','W');
+                $this->log_error('Open failed , cant mantain an SSL connection', 'W');
 
                 return false;
             }
@@ -346,7 +383,7 @@ class flcMysqlDriver extends flcDriver {
             return true;
         }
 
-        $this->log_error("Select database for $p_database fail",'E');
+        $this->log_error("Select database for $p_database fail", 'E');
 
         return false;
     }
@@ -359,12 +396,14 @@ class flcMysqlDriver extends flcDriver {
     public function error(): array {
         if (!empty($this->_mysqli->connect_errno)) {
             return [
-                'code' => $this->_mysqli->connect_errno, 'message' => $this->_mysqli->connect_error
+                'code' => $this->_mysqli->connect_errno,
+                'message' => $this->_mysqli->connect_error
             ];
         }
 
         return [
-            'code' => $this->_mysqli->errno, 'message' => $this->_mysqli->error
+            'code' => $this->_mysqli->errno,
+            'message' => $this->_mysqli->error
         ];
     }
 
@@ -590,7 +629,7 @@ class flcMysqlDriver extends flcDriver {
         if ($ret) {
             $this->_connId->autocommit(false);
         } else {
-            $this->log_error("Rollback fail for $p_savepoint",'E');
+            $this->log_error("Rollback fail for $p_savepoint", 'E');
 
         }
 
@@ -746,11 +785,51 @@ class flcMysqlDriver extends flcDriver {
             return $results;
 
         } else {
-            $this->log_error("execute_stored_procedure fail for $sqlfunc",'E');
+            $this->log_error("execute_stored_procedure fail for $sqlfunc", 'E');
+
             return null;
         }
 
 
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * @inheritdoc
+     */
+    public function insert_id(?string $p_table_name = null, ?string $p_column_name = null): int {
+        return $this->_connId->insert_id;
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     *
+     * @inheritdoc
+     */
+    public  function is_duplicate_key_error(array $p_error) : bool {
+        if (isset($p_error['code'])) {
+            if ($p_error['code'] == 1062) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     *
+     * @inheritdoc
+     */
+    public  function is_foreign_key_error(array $p_error) : bool {
+        if (isset($p_error['code'])) {
+            if ($p_error['code'] == 1451 || $p_error['code'] == 1452) {
+                return true;
+            }
+        }
+        return false;
     }
 
 }

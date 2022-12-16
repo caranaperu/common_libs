@@ -13,18 +13,30 @@ include_once BASEPATH.'/flcAutoloader.php';
 
 
 use framework\core\accessor\flcDbAccessor;
-use framework\core\model\flcBaseModel;
+use framework\core\entity\flcBaseEntity;
 use framework\database\driver\flcDriver;
 use framework\database\driver\mysql\flcMysqlDriver;
 
 flcDriver::$dblog_console = true;
 
-class class_model extends flcBaseModel {
+class class_entity extends flcBaseEntity {
     public function __construct() {
         $this->fields = ['id'=> null,'name'=>null,'afloat'=> null,'aboolean'=>null];
-        $this->ids = ['id'];
+        $this->key_fields = ['id'];
+        $this->id_field = 'id';
         $this->table_name = 'tb_class';
         $this->field_types = ['aboolean'=> 'bool','afloat'=>'nostring'];
+    }
+
+}
+
+class class_testforeign extends flcBaseEntity {
+    public function __construct() {
+        $this->fields = ['id'=> null,'tfield'=>null,'fkfield'=> null];
+        $this->key_fields = ['id'];
+       // $this->id_field = 'id';
+        $this->table_name = 'tb_testforeign';
+        $this->field_types = ['fkfield'=> 'nostring'];
     }
 
 }
@@ -32,31 +44,21 @@ class class_model extends flcBaseModel {
 
 class dbAcc extends \framework\core\accessor\flcDbAccessor {
 
-    protected function _get_add_query(): string {
-        // TODO: Implement _get_add_query() method.
-        return "";
-    }
-
-
-    protected function _get_delete_query(): string {
-        // TODO: Implement _get_delete_query() method.
-        return "";
-    }
-
-
-    protected function _get_fetch_query(): string {
-        // TODO: Implement _get_fetch_query() method.
-        return "";
-    }
 }
 
 $driver = new flcMysqlDriver();
-$driver->initialize(null, 'localhost', 3306, 'db_tests', 'root', 'melivane');
+$driver->initialize(null, '192.168.18.51', 3306, 'db_tests', 'root', '202106');
+$driver->open();
+$driver->set_trans_unique(true);
+$driver->trans_mark_clean();
+
+$driver->trans_begin();
+
 $driver->set_rowversion_field('aboolean');
 
 $da = new dbAcc($driver);
 
-$class = new class_model();
+$class = new class_entity();
 $class->id = 1;
 $class->name ='cambio_4';
 
@@ -64,12 +66,34 @@ $class->set_values(['afloat'=>1000.01,'aboolean' => false]);
 
 $class->getCopy();
 
-$ret = $da->update($class,null,flcDbAccessor::$open_close_flags['DB_OPEN_FLAG']);
+$ret = $da->update($class,null);
 echo $ret.PHP_EOL;
 
 //$driver->initialize(null, 'localhost', 3306, 'db_tests', 'root', 'melivane');
 
 $class->id = 1;
-$class->name ='cambio_5';
-$ret = $da->update($class,null,flcDbAccessor::$open_close_flags['DB_CLOSE_FLAG']);
+$class->name ='cambio_6';
+$class->aboolean = true;
+$ret = $da->update($class);
 echo $ret.PHP_EOL;
+
+echo 'do add'.PHP_EOL;
+$class->id = 100000;
+$ret = $da->add($class,null/*,flcDbAccessor::$open_close_flags['DB_CLOSE_FLAG']*/);
+echo $ret.PHP_EOL;
+
+
+// test foreign
+$class = new class_testforeign();
+$class->id = 1;
+$class->tfield ='test1';
+$class->fkfield =100;
+
+$ret = $da->add($class,null);
+echo $ret.PHP_EOL;
+print_r($class->get_fields());
+
+$driver->trans_complete();
+$driver->close();
+//$class->set_values(['afloat'=>1000.01,'aboolean' => false]);
+
