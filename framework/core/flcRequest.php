@@ -491,7 +491,7 @@ class flcRequest {
     protected function _clean_input_data(string $p_str): string {
 
         // Clean UTF-8 if supported
-        if (UTF8_ENABLED === true) {
+        if ('UTF8_ENABLED' === true) {
             $p_str = flcUtf8::clean_string($p_str);
         }
 
@@ -518,7 +518,7 @@ class flcRequest {
         }
 
         // Clean UTF-8 if supported
-        if (UTF8_ENABLED === true) {
+        if ('UTF8_ENABLED' === true) {
             return flcUtf8::clean_string($p_str);
         }
 
@@ -575,7 +575,7 @@ class flcRequest {
      *
      * @param string $p_name
      *
-     * @return    mixed
+     * @return    false|string|null
      */
     public function __get(string $p_name) {
         if ($p_name === 'raw_input_stream') {
@@ -585,6 +585,7 @@ class flcRequest {
         } elseif ($p_name === 'ip_address') {
             return $this->ip_address;
         }
+        return null;
     }
 
 }

@@ -141,3 +141,9 @@ que pasa para los casos sin return.
 VER CASO VIEWS , son funciones o stored procedures?
 
 Hacer pruebas multiresulset con callablestriong (postgres 14 ahora tene otro metodo de retornar resultsets,chequear)
+
+------------------------------------------
+------------------------------------------
+Implementar en los db drivers is_foreign_key_error (solo esta en mysql)
+ver que pasa en errores de check constraints (que tipo de error se recoge)
+verificar en la deteccion de parametro en callable extended el caso de char(20) por ejemplo

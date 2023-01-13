@@ -49,6 +49,7 @@ spl_autoload_register(function (string $class) {
 
         // dto
         'flcInputData' => BASEPATH.'/core/dto/',
+        'flcOutputData' => BASEPATH.'/core/dto/',
 
         // others
         'flcCommon' => BASEPATH.'/',

@@ -222,7 +222,7 @@ class flcLog {
             }
         }
 
-        if (!$fp = @fopen($filepath, 'ab')) {
+        if (!$fp = @fopen($filepath, 'a+b')) {
             return false;
         }
 

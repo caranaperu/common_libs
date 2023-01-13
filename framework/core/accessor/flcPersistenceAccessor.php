@@ -34,7 +34,7 @@ abstract class  flcPersistenceAccessor {
     public abstract function add(flcBaseEntity &$p_entity, ?string $p_suboperation = null, ?flcConstraints $p_constraints = null): int;
 
     /**
-     * update an instance of the entity on the persistence.
+     * update an instance of the entity on the persistence based on his keys or id.
      *
      * @param flcBaseEntity $p_entity the entity to update to the persistence
      * @param string|null   $p_suboperation optional user defined suboperation.

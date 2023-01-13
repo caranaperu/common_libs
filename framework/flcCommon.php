@@ -216,7 +216,7 @@ class flcCommon {
                 } else {
                     $controller = $url_explode[count($url_explode) - 1];
                     // is truly a controller name or a php file
-                    if (stripos($controller, '.php')) {
+                    if (stripos($controller, '.php') || empty($controller)) {
                         return $default_controller;
                     }
                     return $controller;
@@ -282,5 +282,6 @@ class flcCommon {
         flcServiceLocator::get_instance()->service('log')->write_log($p_type, $p_message);
 
     }
+
 
 }

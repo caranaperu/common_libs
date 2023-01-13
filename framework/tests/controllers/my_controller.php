@@ -1,9 +1,8 @@
 <?php
 
-namespace framework\core\accessor\core\model\tests\controllers;
+namespace framework\tests\controllers;
 
-use framework\core\accessor\core\model\core\FLC;
-use framework\core\accessor\core\model\core\flcController;
+use framework\core\FLC;
 
 
 class my_controller extends flcControllerExt {
@@ -34,8 +33,8 @@ class my_controller extends flcControllerExt {
 
         }
 
-        FLC::get_instance()->view('my_testview',$data2);
         FLC::get_instance()->view('my_testview_2',$data2);
+        FLC::get_instance()->view('my_testview',$data2);
 
 
     }

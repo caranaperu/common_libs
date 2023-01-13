@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head profile="http://selenium-ide.openqa.org/profiles/test-case">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<link rel="selenium.base" href="http://localhost:49011/" />
+<title>simpleFreeze-1.rctest</title>
+</head>
+<body>
+<table cellpadding="1" cellspacing="1" border="1">
+<thead>
+<tr><td rowspan="1" colspan="3">simpleFreeze-1.rctest</td></tr>
+</thead><tbody>
+<tr>
+	<td>open</td>
+	<td>index.html#grid_frozen_simple</td>
+	<td></td>
+</tr>
+<tr>
+	<td>waitForGridDone</td>
+	<td>scLocator=//ListGrid[ID=&quot;supplyList&quot;]</td>
+	<td></td>
+</tr>
+<tr>
+	<td>waitForElementClickable</td>
+	<td>scLocator=//ListGrid[ID=&quot;supplyList&quot;]/header[Class=Toolbar||index=1||length=2||classIndex=1||classLength=2||roleIndex=1||roleLength=2||scRole=toolbar]/headerButton[fieldName=itemName]/</td>
+	<td></td>
+</tr>
+<tr>
+	<td>click</td>
+	<td>scLocator=//ListGrid[ID=&quot;supplyList&quot;]/header[Class=Toolbar||index=1||length=2||classIndex=1||classLength=2||roleIndex=1||roleLength=2||scRole=toolbar]/headerButton[fieldName=itemName]/</td>
+	<td></td>
+</tr>
+<tr>
+	<td>waitForGridDone</td>
+	<td>scLocator=//ListGrid[ID=&quot;supplyList&quot;]</td>
+	<td></td>
+</tr>
+<tr>
+	<td>waitForElementClickable</td>
+	<td>scLocator=//ListGrid[ID=&quot;supplyList&quot;]/frozenBody/row[itemID=347||itemName=Accodata%20Pc%20At%20and%20101%20Keyboard%20Cover||1]/col[fieldName=itemName||0]</td>
+	<td></td>
+</tr>
+<tr>
+	<td>verifyText</td>
+	<td>scLocator=//ListGrid[ID=&quot;supplyList&quot;]/body/row[1]/col[1]</td>
+	<td>14501000</td>
+</tr>
+<tr>
+	<td>dragAndDropToObject</td>
+	<td>scLocator=//ListGrid[ID=&quot;supplyList&quot;]/header/headerButton[fieldName=SKU]/</td>
+	<td>scLocator=//ListGrid[ID=&quot;supplyList&quot;]/header/headerButton[fieldName=itemName]/</td>
+</tr>
+<tr>
+	<td>waitForGridDone</td>
+	<td>scLocator=//ListGrid[ID=&quot;supplyList&quot;]</td>
+	<td></td>
+</tr>
+<tr>
+	<td>verifyText</td>
+	<td>scLocator=//ListGrid[ID=&quot;supplyList&quot;]/body/row[1]/col[1]</td>
+	<td>14501000</td>
+</tr>
+<tr>
+	<td>dragAndDropToObject</td>
+	<td>scLocator=//ListGrid[ID=&quot;supplyList&quot;]/header/headerButton[fieldName=SKU]/</td>
+	<td>scLocator=//ListGrid[ID=&quot;supplyList&quot;]/header/headerButton[fieldName=category]/</td>
+</tr>
+<tr>
+	<td>waitForGridDone</td>
+	<td>scLocator=//ListGrid[ID=&quot;supplyList&quot;]</td>
+	<td></td>
+</tr>
+<tr>
+	<td>verifyText</td>
+	<td>scLocator=//ListGrid[ID=&quot;supplyList&quot;]/body/row[1]/col[0]</td>
+	<td>14501000</td>
+</tr>
+</tbody></table>
+</body>
+</html>

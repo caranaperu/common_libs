@@ -114,7 +114,7 @@ $system_path = '/var/www/common/framework';
  *
  * NO TRAILING SLASH!
  */
-$application_folder = '/var/www/common/framework/tests';
+$application_folder = '/var/www/common/framework/tests/apptest';
 
 /*
  *---------------------------------------------------------------
@@ -179,5 +179,5 @@ define('VIEWPATH', APPPATH.'views'.DIRECTORY_SEPARATOR);
  */
 include_once BASEPATH.'/flcAutoloader.php';
 
-$flc = \framework\core\accessor\core\model\core\FLC::get_instance();
+$flc = \framework\core\FLC::get_instance();
 $flc->execute_request();

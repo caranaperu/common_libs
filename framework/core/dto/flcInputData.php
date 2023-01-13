@@ -11,13 +11,18 @@
 
 namespace framework\core\dto;
 
+use framework\core\accessor\constraints\flcConstraints;
+use framework\core\entity\flcBaseEntity;
 use InvalidArgumentException;
 
 /**
- * Class that will be used as glue between the external source of data and the entity
+ * Class that will be used as glue between the external source of data and the entity/
  * model.
- * This class need to override to implement the process_input_data method and conver external
- * data to internal data of this class.
+ *
+ * This class need to be override to implement the process_input_data method and conver external
+ * data to internal data of this class. (flcInputDataProcessor)
+ *
+ * This class after processed the input can be consumed by an instance of flcInpitProcessor.
  */
 abstract class flcInputData {
     /**
@@ -50,8 +55,22 @@ abstract class flcInputData {
      * @var string
      */
     protected string $session_user = '';
-    protected int    $start_row    = 0;
-    protected int    $end_row      = 0;
+
+    /*--------------------------------------------------------------*/
+
+    /**
+     * on fetch , first row to return (pagination)
+     * @var int
+     */
+    protected int $start_row = 0;
+
+    /*--------------------------------------------------------------*/
+
+    /**
+     * on fetch , last row to return (pagination)
+     * @var int
+     */
+    protected int $end_row = 0;
 
     /*--------------------------------------------------------------*/
 
@@ -63,7 +82,7 @@ abstract class flcInputData {
      *
      * @var array
      */
-    protected array $model_fields = [];
+    protected array $fields = [];
 
     /*--------------------------------------------------------------*/
 
@@ -87,10 +106,16 @@ abstract class flcInputData {
      */
     protected array $filter_fields = [];
 
+    /**
+     * Hold the array of input values to process
+     * @var array
+     */
+    protected array $input_data;
+
     /*--------------------------------------------------------------*/
 
     public function __construct(array $p_input_data) {
-        $this->process_input_data($p_input_data);
+        $this->input_data = $p_input_data;
     }
 
     /**
@@ -98,13 +123,12 @@ abstract class flcInputData {
      * and conver to normalized format supported by this class.
      * The input array can be a $_POST array by example.
      *
-     * @param array $p_input_data
+     * @param flcBaseEntity $p_entity used for get the valid model/entity fields to extract from the input data array
      *
      * @throws InvalidArgumentException if the input data have some problems
      * or it cant be parsed.
-     *
      */
-    public abstract function process_input_data(array $p_input_data);
+    public abstract function process_input_data(flcBaseEntity $p_entity);
 
     /*--------------------------------------------------------------*/
 
@@ -158,8 +182,8 @@ abstract class flcInputData {
      *
      * @return array
      */
-    public function get_model_fields(): array {
-        return $this->model_fields;
+    public function get_fields(): array {
+        return $this->fields;
     }
 
     /*--------------------------------------------------------------*/
@@ -172,7 +196,7 @@ abstract class flcInputData {
      *
      * @return array
      */
-    public function get_filter_fields() : array {
+    public function get_filter_fields(): array {
         return $this->filter_fields;
     }
 
@@ -189,6 +213,72 @@ abstract class flcInputData {
      */
     public function get_sort_fields(): array {
         return $this->sort_fields;
+    }
+
+    /*--------------------------------------------------------------*/
+
+    /**
+     * IF the input data contains required values for create constriants for the
+     * operation , assembly the base constraints.
+     *
+     * @param string $p_operation
+     *
+     * @return flcConstraints|null
+     */
+    public function &get_constraints(string $p_operation): ?flcConstraints {
+        $c = null;
+
+        switch ($p_operation) {
+            case 'fetch':
+                $c = new flcConstraints();
+                $fields = [];
+
+                // where fields
+                foreach ($this->get_filter_fields() as $field => $operator) {
+                    $fields[] = [$field, $operator];
+                }
+                if (count($fields) > 0) {
+                    $c->set_where_fields($fields);
+                }
+
+                // sort fields
+                $fields = [];
+                foreach ($this->get_sort_fields() as $sfield) {
+                    $fields[] = $sfield;
+                }
+                if (count($fields) > 0) {
+                    $c->set_order_by_fields($fields);
+                }
+
+                // pagination
+                $start_row = $this->get_start_row();
+                $end_row = $this->get_end_row();
+
+                if ($end_row - $start_row > 0) {
+                    $c->set_start_row($start_row);
+                    $c->set_end_row($end_row);
+                } else {
+                    $c->set_start_row(0);
+                    $c->set_end_row(0);
+                }
+                break;
+
+            case 'delete':
+                $c = new flcConstraints();
+                $fields = [];
+
+                // where fields
+                foreach ($this->get_filter_fields() as $field => $operator) {
+                    $fields[] = [$field, $operator];
+                }
+                if (count($fields) > 0) {
+                    $c->set_where_fields($fields);
+                }
+                break;
+
+        }
+
+        return $c;
     }
 
     /*--------------------------------------------------------------*/

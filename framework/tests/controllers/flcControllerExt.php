@@ -1,8 +1,9 @@
 <?php
 
-namespace framework\core\accessor\core\model\tests\controllers;
+namespace framework\tests\controllers;
 
-use framework\core\accessor\core\model\core\flcController;
+
+use framework\core\flcController;
 
 class flcControllerExt extends flcController {
 

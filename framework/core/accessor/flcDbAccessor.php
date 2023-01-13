@@ -11,10 +11,13 @@
 namespace framework\core\accessor;
 
 
+use Exception;
 use framework\core\accessor\constraints\flcConstraints;
 use framework\core\entity\flcBaseEntity;
 use framework\database\driver\flcDriver;
+use framework\flcCommon;
 use InvalidArgumentException;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -64,7 +67,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
             // do add
             $res = $this->db->execute_query($this->get_add_query($p_entity, $p_suboperation));
             if ($res) {
-                echo 'affected rows add '.$res->affected_rows().PHP_EOL;
+                $this->log_error('affected rows add '.$res->affected_rows(),'I');
 
                 $id_field = $p_entity->get_id_field();
 
@@ -119,7 +122,8 @@ class flcDbAccessor extends flcPersistenceAccessor {
             $res = $this->db->execute_query($sql);
 
             if ($res) {
-                echo 'affected rows update '.$res->affected_rows().PHP_EOL;
+                $this->log_error('affected rows update '.$res->affected_rows(),'I');
+
                 $affected_rows = $res->affected_rows();
 
 
@@ -181,7 +185,8 @@ class flcDbAccessor extends flcPersistenceAccessor {
             $res = $this->db->execute_query($this->get_delete_query($p_entity));
 
             if ($res) {
-                echo 'affected rows delete '.$res->affected_rows().PHP_EOL;
+                $this->log_error('affected rows delete '.$res->affected_rows(),'I');
+
                 if ($p_verify_deleted_check) {
                     if ($res->affected_rows() <= 0) {
                         // Is modified or not exist.
@@ -220,7 +225,8 @@ class flcDbAccessor extends flcPersistenceAccessor {
             $res = $this->db->execute_query($this->get_delete_query_full($p_entity, $p_constraints));
 
             if ($res) {
-                echo 'affected rows delete '.$res->affected_rows().PHP_EOL;
+                $this->log_error('affected rows delete full'.$res->affected_rows(),'I');
+
                 if ($res->affected_rows() <= 0) {
                     $ret = self::$db_error_codes['DB_RECORD_NOT_EXIST'];
                 }
@@ -309,12 +315,33 @@ class flcDbAccessor extends flcPersistenceAccessor {
     }
 
 
+    /**
+     * @throws Exception
+     */
     protected function get_add_query(flcBaseEntity $p_entity, ?string $p_suboperation = null): string {
+        // setup add fields
+        //
         $fields = $p_entity->get_fields();
-
         if (count($fields) == 0) {
             throw new InvalidArgumentException('Not defined fields to read', self::$db_error_codes['DB_NO_FIELDS_TO_EXECUTE']);
         }
+
+        // search on field operations to remove not supported in the operation
+        foreach ($p_entity->get_fields_operations() as $ofield => $soperation) {
+            // if it is a computed field? then skipL
+            if (strpos($soperation,'c') !== false) {
+                continue;
+            }
+
+            // if a field with operations defined exist in the field list , but the operation
+            // is not suppported remove element.
+            if (array_key_exists($ofield,$fields)) {
+                if (strpos($soperation,'a') === false) {
+                    unset($fields[$ofield]);
+                }
+            }
+        }
+
 
         // verify key fields are defined or at least an id
         $no_all_keys = false;
@@ -357,19 +384,40 @@ class flcDbAccessor extends flcPersistenceAccessor {
             }
         }
 
-        $sql =  substr($sql,0,strrpos($sql,','));
+        $sql = substr($sql, 0, strrpos($sql, ','));
         $sql .= ')';
 
-        echo $sql.PHP_EOL;
+        $this->log_error($sql,'I');
+
 
         return $sql;
     }
 
-    protected function get_update_query(flcBaseEntity $p_entity, ?string $p_suboperation = null): string {
+    /**
+     * @throws Exception
+     */
+    protected function get_update_query(flcBaseEntity $p_entity, ?string $p_suboperation = null, ?flcConstraints $p_constraints = null): string {
+        // setup update fields
+        //
         $fields = $p_entity->get_fields();
-
         if (count($fields) == 0) {
             throw new InvalidArgumentException('Not defined fields to read', self::$db_error_codes['DB_NO_FIELDS_TO_EXECUTE']);
+        }
+
+        // search on field operations to remove not supported in the operation
+        foreach ($p_entity->get_fields_operations() as $ofield => $soperation) {
+            // if it is a computed field? then skip
+            if (strpos($soperation,'c') !== false) {
+                continue;
+            }
+
+            // if a field with operations defined exist in the field list , but the operation
+            // is not suppported remove element.
+            if (array_key_exists($ofield,$fields)) {
+                if (strpos($soperation,'u') === false) {
+                    unset($fields[$ofield]);
+                }
+            }
         }
 
         // verify key fields are defined or at least an id
@@ -403,21 +451,38 @@ class flcDbAccessor extends flcPersistenceAccessor {
         }
 
         // where list
-        $sql =  substr($sql,0,strrpos($sql,','));
+        $sql = substr($sql, 0, strrpos($sql, ','));
         $sql .= ' where ';
 
 
-        // if no key fields use the id.
-        if (count($keys) > 0) {
-            foreach ($keys as $key) {
+        $where_fields = null;
+        if ($p_constraints) {
+            $where_fields = $p_constraints->get_where_fields();
+        }
+
+        // if where fields exist in constraints use them.
+        if ($where_fields && count($where_fields) > 0) {
+            foreach ($where_fields as $key => $value) {
                 $type = $p_entity->get_field_type($key) ?? '';
 
-                $sql .= $key.'='.$this->get_normalized_field_value($fields[$key], $type).' and ';
+                $sql .= $key.'='.$this->get_normalized_field_value($value, $type).' and ';
             }
+
         } else {
-            $sql .= $p_entity->get_id_field().'='.$fields[$p_entity->get_id_field()].' and ';
+            // if no key fields use the id.
+            if (count($keys) > 0) {
+                foreach ($keys as $key) {
+                    $type = $p_entity->get_field_type($key) ?? '';
+
+                    $sql .= $key.'='.$this->get_normalized_field_value($fields[$key], $type).' and ';
+                }
+            } else {
+                $sql .= $p_entity->get_id_field().'='.$fields[$p_entity->get_id_field()].' and ';
+
+            }
 
         }
+
 
         // add rowversion field to where
         // check if row version is supported
@@ -427,9 +492,10 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
             $sql .= $this->db->get_rowversion_field().' = '.$this->get_normalized_field_value($value, $type);
         }
-        $sql =  substr($sql,0,strrpos($sql,' and '));
+        $sql = substr($sql, 0, strrpos($sql, ' and '));
 
-        echo $sql.PHP_EOL;
+
+        $this->log_error($sql,'I');
 
         return $sql;
 
@@ -442,6 +508,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
      * @param flcBaseEntity $p_entity the entity values requiered for delete.
      *
      * @return string with the delete query
+     * @throws Exception
      */
     protected function get_delete_query(flcBaseEntity $p_entity): string {
         $fields = $p_entity->get_fields();
@@ -494,9 +561,10 @@ class flcDbAccessor extends flcPersistenceAccessor {
             $sql .= $this->db->get_rowversion_field().' = '.$this->get_normalized_field_value($value, $type);
         }
 
-        $sql =  substr($sql,0,strrpos($sql,' and '));
+        $sql = substr($sql, 0, strrpos($sql, ' and '));
 
-        echo $sql.PHP_EOL;
+        $this->log_error($sql,'I');
+
 
         return $sql;
     }
@@ -509,6 +577,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
      * @param flcConstraints $p_constraints
      *
      * @return string with the delete query
+     * @throws Exception
      */
     public function get_delete_query_full(flcBaseEntity $p_entity, flcConstraints $p_constraints): string {
         $fields = $p_entity->get_fields();
@@ -526,7 +595,8 @@ class flcDbAccessor extends flcPersistenceAccessor {
             // Not delete without where !!!!!!
             throw new InvalidArgumentException('Not where clause defined to delete, dangerous operation', self::$db_error_codes['DB_DELETE_NO_WHERE_CLAUSE']);
         }
-        echo $sql.PHP_EOL;
+
+        $this->log_error($sql,'I');
 
         return $sql;
     }
@@ -540,14 +610,34 @@ class flcDbAccessor extends flcPersistenceAccessor {
      * @param flcConstraints|null $p_constraints the constraints to read only useful in joins.
      *
      * @return string with the select query
+     * @throws Exception
      */
     protected function get_read_query(flcBaseEntity $p_entity, ?string $p_suboperation = null, ?flcConstraints $p_constraints = null): string {
 
-        $fields = $p_entity->get_fields();
 
+        // setup read fields
+        //
+        $fields = $p_entity->get_fields();
         if (count($fields) == 0) {
             throw new InvalidArgumentException('Not defined fields to read', self::$db_error_codes['DB_NO_FIELDS_TO_EXECUTE']);
         }
+
+        // search on field operations to remove not supported in the operation
+        foreach ($p_entity->get_fields_operations() as $ofield => $soperation) {
+            // if it is a computed field? then skip
+            if (strpos($soperation,'c') !== false) {
+                continue;
+            }
+
+            // if a field with operations defined exist in the field list , but the operation
+            // is not suppported remove element.
+            if (array_key_exists($ofield,$fields)) {
+                if (strpos($soperation,'r') === false) {
+                    unset($fields[$ofield]);
+                }
+            }
+        }
+
 
 
         // verify key fields are defined or at least an id
@@ -575,14 +665,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
         $sql = $this->select_clause($fields, $p_entity->get_table_name(), $p_constraints);
         $sql .= $this->join_clause($p_constraints);
         $sql .= ' where ';
-        // create the
-        /*        $sql = 'select ';
-                foreach ($fields as $field => $value) {
-                    $sql .= $field.',';
-                }
-                $sql = rtrim($sql, ',');
-                $sql .= ' from '.$p_entity->get_table_name().' where ';
-        */
+
         // if no key fields use the id.
         if (count($keys) > 0) {
             foreach ($keys as $id) {
@@ -590,7 +673,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
                 $type = $p_entity->get_field_type($id) ?? '';
                 $sql .= $id.'='.$this->get_normalized_field_value($fields[$id], $type).' and ';
             }
-            $sql =  substr($sql,0,strrpos($sql,' and '));
+            $sql = substr($sql, 0, strrpos($sql, ' and '));
 
         } else {
             $type = $p_entity->get_field_type($p_entity->get_id_field()) ?? '';
@@ -598,8 +681,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
         }
 
-
-        echo $sql.PHP_EOL;
+        $this->log_error($sql,'I');
 
         return $sql;
     }
@@ -613,6 +695,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
      * @param string|null         $p_suboperation optional user defined suboperation.
      *
      * @return string with the fetch query.
+     * @throws Exception
      */
     protected function get_fetch_query(flcBaseEntity $p_entity, ?flcConstraints $p_constraints = null, ?string $p_suboperation = null): string {
         return $this->get_fetch_query_full($p_entity, null, $p_constraints, $p_suboperation);
@@ -629,11 +712,31 @@ class flcDbAccessor extends flcPersistenceAccessor {
      * @param string|null         $p_suboperation optional user defined suboperation.
      *
      * @return string with the fetch query.
+     * @throws Exception
      */
     protected function get_fetch_query_full(flcBaseEntity $p_entity, ?array $p_ref_entities, ?flcConstraints $p_constraints = null, ?string $p_suboperation = null): string {
 
+        // setup fetch fields
+        //
         $fields = $p_entity->get_fields();
+        if (count($fields) == 0) {
+            throw new InvalidArgumentException('Not defined fields to fetch', self::$db_error_codes['DB_NO_FIELDS_TO_EXECUTE']);
+        }
+
+        // search on field operations to remove not supported in the operation
+        foreach ($p_entity->get_fields_operations() as $ofield => $soperation) {
+
+            // if a field with operations defined exist in the field list , but the operation
+            // is not suppported remove element.
+            if (array_key_exists($ofield,$fields)) {
+                if (strpos($soperation,'f') === false) {
+                    unset($fields[$ofield]);
+                }
+            }
+        }
+
         $fields_types = $p_entity->get_field_types();
+
 
         // referenced entities exist , add this fields to the list of fields from the mein entity.
         // this fields added will have prefixd table name.
@@ -659,15 +762,17 @@ class flcDbAccessor extends flcPersistenceAccessor {
         // create each part of the query.
         $sql = $this->select_clause($fields, $p_entity->get_table_name(), $p_constraints);
         $sql .= $this->join_clause($p_constraints);
-        $sql .= $this->where_clause($fields, $fields_types, $p_constraints);
-        $sql .= $this->order_by_clause($fields, $p_entity->get_key_fields(), $p_entity->get_id_field(), $p_constraints);
+
+        $all_fields = $p_entity->get_all_fields('c');
+        $sql .= $this->where_clause($all_fields, $fields_types, $p_constraints);
+        $sql .= $this->order_by_clause($all_fields, $p_entity->get_key_fields(), $p_entity->get_id_field(), $p_constraints);
         // limit offset (warning , is better with an order by
         if (!empty($p_constraints)) {
             $sql .= ' '.$this->db->get_limit_offset_str($p_constraints->get_start_row(), $p_constraints->get_end_row());
 
         }
 
-        echo $sql;
+        $this->log_error($sql,'I');
 
         return $sql;
     }
@@ -693,7 +798,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
         $sql = 'select ';
 
         // if constraints have a list of fields to use in select use them otherwise
-        /// al the entity fields
+        /// all the entity fields
         if (isset($p_constraints)) {
             $sfields = $p_constraints->get_select_fields();
             if ($sfields and count($sfields) > 0) {
@@ -715,7 +820,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
         }
 
 
-        $sql =  substr($sql,0,strrpos($sql,','));
+        $sql = substr($sql, 0, strrpos($sql, ','));
         $sql .= ' from '.$p_table_name;
 
         return $sql;
@@ -762,6 +867,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
      * @see flcBaseEntity::get_field_types()
      */
     protected function where_clause(array $p_fields, array $p_field_types, ?flcConstraints $p_constraints = null): string {
+
         // WHERE
         // search on constraints if are defined
         $sql = '';
@@ -812,6 +918,10 @@ class flcDbAccessor extends flcPersistenceAccessor {
                             case 'like';
                             case 'like(%-)';
                                 $sql .= "$field like '%";
+                                break;
+
+                            case 'like(-%)':
+                                $sql .= "$field like '";
                                 break;
 
                             case 'nilike':
@@ -890,7 +1000,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
 
                 }
-                $sql =  substr($sql,0,strrpos($sql,' and '));
+                $sql = substr($sql, 0, strrpos($sql, ' and '));
             }
         }
 
@@ -935,14 +1045,14 @@ class flcDbAccessor extends flcPersistenceAccessor {
                         $direction = '';
                     }
 
-                    if (isset($p_fields[$field])) {
+                    if (array_key_exists($field,$p_fields)) {
                         $sql .= $field.$direction.',';
                     } else {
                         throw new InvalidArgumentException("Order by field '$field' doesnt exist in the entity", self::$db_error_codes['DB_INVALID_WHERE_FIELD']);
                     }
 
                 }
-                $sql =  substr($sql,0,strrpos($sql,','));
+                $sql = substr($sql, 0, strrpos($sql, ','));
 
             }
         }
@@ -956,7 +1066,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
                 foreach ($keys as $key) {
                     $sql .= "$key,";
                 }
-                $sql =  substr($sql,0,strrpos($sql,','));
+                $sql = substr($sql, 0, strrpos($sql, ','));
 
             } else {
                 // exist and if field
@@ -1000,7 +1110,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
      *
      * @return bool true if rowversion is supported and also is part of the key on the entity.
      */
-    protected function is_rowversion_supported(flcBaseEntity $p_entity): bool {
+    public function is_rowversion_supported(flcBaseEntity $p_entity): bool {
         $rowversion_field = $this->db->get_rowversion_field();
         if (!empty($rowversion_field)) {
             if (array_key_exists($rowversion_field, $p_entity->get_fields())) {
@@ -1027,7 +1137,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
         $value = $p_value ?? 'NULL';
 
         if ($p_type == 'bool') {
-            return ($value ? '1' : '0');
+            return ($value ? "'1'" : "'0'");
         } else {
             if ($p_type == 'nostring' || !is_string($p_value)) {
                 return $value;
@@ -1086,5 +1196,34 @@ class flcDbAccessor extends flcPersistenceAccessor {
         }
 
         return $ret;
+    }
+
+    /*****************************************************************
+     * Log helper
+     */
+
+    /**
+     * Display an error message
+     *
+     * @param string $p_errormsg the error message
+     * @param string $p_type W-'warning' or E-'error' or 'e' soft error or 'I' - info
+     *
+     * @throws Exception
+     */
+    protected function log_error(string $p_errormsg, string $p_type = 'W') {
+        try {
+
+            if (flcCommon::is_cli()) {
+                echo $p_errormsg.PHP_EOL;
+            } else {
+                flcCommon::log_message(($p_type == 'E' || $p_type == 'e') ? 'error' : 'info', $p_errormsg);
+            }
+
+        } catch (Exception $ex) {
+            $msg = 'Imposible to log a message , check your log config ,'.$ex->getMessage();
+            // is expected is handled befrore send results to the http server , for cli will be appear in screen.
+            throw new RuntimeException($msg);
+        }
+
     }
 }

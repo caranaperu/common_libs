@@ -13,8 +13,7 @@ define('ENVIRONMENT', 'development');
 include_once BASEPATH.'/flcAutoloader.php';
 
 
-use framework\core\accessor\core\model\core\flcServiceLocator;
-
+use framework\core\flcServiceLocator;
 
 
 // flush any preconfigured buffering
@@ -32,7 +31,7 @@ error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED & ~E_STRICT & ~E_USER_NOTICE &
 
 $log = flcServiceLocator::get_instance()->service('log');
 
-$flc = \framework\core\accessor\core\model\core\FLC::get_instance();
+$flc = \framework\core\FLC::get_instance();
 $flc->execute_request();
 
 

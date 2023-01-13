@@ -123,33 +123,35 @@ class flcConstraints {
      */
     public function set_where_fields(array $p_where_fields) {
         foreach ($p_where_fields as $field) {
-            if (is_array($field)) {
-                if (!in_array($field[1], [
-                    '=',
-                    '!=',
-                    '>',
-                    '>=',
-                    '<',
-                    '<=',
-                    'like',
-                    'ilike',
-                    'like(%-)',
-                    'like(-%)',
-                    'ilike(%-)',
-                    'ilike(-%)',
-                    'nlike',
-                    'nilike',
-                    'nlike(%-)',
-                    'nlike(-%)',
-                    'nilike(%-)',
-                    'nilike(-%)'
-                ])) {
-                    throw new InvalidArgumentException('Where fields operators allowed =,!=,>,>=,<,<=,like,ilike,nlike,niike,etc , see documentation');
-                }
-            }
+            $this->add_where_field($field);
+        }
+    }
+
+    public function add_where_field(array $p_where_field) {
+        if (!in_array($p_where_field[1], [
+            '=',
+            '!=',
+            '>',
+            '>=',
+            '<',
+            '<=',
+            'like',
+            'ilike',
+            'like(%-)',
+            'like(-%)',
+            'ilike(%-)',
+            'ilike(-%)',
+            'nlike',
+            'nilike',
+            'nlike(%-)',
+            'nlike(-%)',
+            'nilike(%-)',
+            'nilike(-%)'
+        ])) {
+            throw new InvalidArgumentException('Where fields operators allowed =,!=,>,>=,<,<=,like,ilike,nlike,niike,etc , see documentation');
         }
 
-        $this->where_fields = $p_where_fields;
+        $this->where_fields[] = $p_where_field;
     }
 
     /**

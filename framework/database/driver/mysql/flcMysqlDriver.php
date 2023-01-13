@@ -539,6 +539,13 @@ class flcMysqlDriver extends flcDriver {
     /*************************************************************
      * Helpers
      */
+    /**
+     * @inheritdoc
+     */
+    protected function _version_qry(): string {
+        return "SELECT PLUGIN_VERSION as ver  FROM information_schema.PLUGINS  WHERE PLUGIN_NAME = 'innodb'";
+    }
+
 
     /**
      * @inheritdoc
@@ -677,7 +684,7 @@ class flcMysqlDriver extends flcDriver {
     /**
      * @inheritdoc
      */
-    public function execute_stored_procedure(string $p_fn_name, string $p_type, ?array $p_parameters = null, ?array $p_casts = null): ?flcDbResults {
+    public function execute_stored_procedure(string $p_fn_name, string $p_type, ?array $p_parameters = null, ?array $p_casts = []): ?flcDbResults {
 
         $params = [];
         $outparams_count = 0;

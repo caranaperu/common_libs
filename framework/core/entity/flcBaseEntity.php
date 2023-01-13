@@ -1,4 +1,13 @@
 <?php
+/**
+ * This file is part of Future Labs Code 1 framework.
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ *
+ * @author Carlos Arana Reategui.
+ *
+ */
 
 namespace framework\core\entity;
 
@@ -9,9 +18,8 @@ use framework\database\driver\flcDriver;
 use InvalidArgumentException;
 
 /**
- * Class to represent an entity in the persistence , in database that means
- * a record of a table , nothing more , for things like part of one record entity
- * plus other fields of other entities (joined fetch by example) use models.
+ * Class to represent a model/entity in the persistence , in database that means
+ * a record of a table , or a group of joined fields from multiple tables,
  */
 class flcBaseEntity {
 
@@ -52,6 +60,33 @@ class flcBaseEntity {
      */
     protected array $fields_ro = [];
 
+    /**
+     * List of fields that will be a virtual field because is computed
+     * an not a real field, because can be part of a select clause on fetch by example
+     * can be treated as part of the model. (virtul of course).
+     *
+     * @var array
+     */
+    protected array $fields_computed = [];
+
+    /**
+     * List of fields thar support only some operations, the array form
+     * is :
+     *      field_mame=>'str with operations supported'
+     *
+     * The supported operations supported are :
+     * - c : computed , will be used only on read or fetch operations
+     * - r : field will be used in read operations
+     * - f : field will be used in fetch operations
+     * - a : field will be used in add operations
+     * - u : field will be used in update operations.
+     *
+     * IF a field is supported in all normal operations , dont add to this list.
+     *
+     * @var array
+     */
+    protected array $fields_operations = [];
+
 
     /**
      * Reference to the accesor that will resolve the persistence operations.
@@ -68,10 +103,48 @@ class flcBaseEntity {
      */
     protected array $field_types = [];
 
-    protected ?flcInputData $input_data=null;
+    protected ?flcInputData $input_data = null;
 
-    public function __construct(flcDriver $p_driver,?flcInputData $p_input_data) {
-        $this->input_data = $p_input_data;
+    /**
+     * Constructor , need to be called after define the model/entity fields
+     * ex:
+     *          public function __construct(flcDriver $p_driver, ?flcInputData $p_input_data) {
+     *              $this->fields = ['numero' => null, 'descripcion' => null, 'customer_id' => null];
+     *              $this->fields_ro = ['name' => null];
+     *
+     *              $this->key_fields = ['numero'];
+     *              $this->table_name = 'tb_factura_header';
+     *              $this->field_types = ['numero' => 'nostring'];
+     *
+     *              $this->accessor = new flcDbAccessor($p_driver);
+     *
+     *              parent::__construct($p_driver, $p_input_data);
+     *              }
+     *
+     * @param flcDriver         $p_driver
+     * @param flcInputData|null $p_input_data
+     */
+    public function __construct(flcDriver $p_driver, ?flcInputData $p_input_data) {
+
+        if ($p_input_data !== null) {
+            $this->input_data = $p_input_data;
+            $this->input_data->process_input_data($this);
+
+            // if input data exist get the model/entity fields
+            // get the model field values
+            foreach ($p_input_data->get_fields() as $field => $value) {
+                $this->{$field} = $value;
+            }
+
+        }
+
+        // add support to row version field if its allowed
+        if ($p_driver->get_rowversion_field() !== null) {
+            $this->fields[$p_driver->get_rowversion_field()] = null;
+            $this->field_types[$p_driver->get_rowversion_field()] = 'nostring';
+            $this->fields_operations[$p_driver->get_rowversion_field()] = 'fr';
+        }
+
     }
 
     /**
@@ -106,15 +179,54 @@ class flcBaseEntity {
     }
 
     /**
+     * Return the array of computed fields defined.
+     * @return array of fields
+     */
+    public function get_fields_computed(): array {
+        $fields_computed = [];
+        foreach($this->fields_operations as $field => $operator) {
+            if (strpos($operator,'c') !== false) {
+                $fields_computed[] = $field;
+            }
+        }
+        return $fields_computed;
+    }
+
+    /**
+     * Return the array of  fields operations supported
+     * @return array of fields
+     */
+    public function get_fields_operations(): array {
+        return $this->fields_operations;
+    }
+
+
+    /**
+     * Return the union of all types of fields defined by his type:
+     *
+     * @param string $p_types an array with a 'c' - for computed fields and/or 'r' for read only fields.
+     *
+     * @return array
+     */
+    public function get_all_fields(string $p_types = 'r'): array {
+        $all_fields = [];
+        if (strpos($p_types, 'r') !== false) {
+            $all_fields = array_merge($this->fields, $this->fields_ro);
+        }
+
+        if (strpos($p_types, 'c') !== false) {
+            $all_fields = array_merge($this->fields, $this->get_fields_computed());
+        }
+        return $all_fields;
+    }
+
+    /**
      * @return string the name  of the unique id.
      */
     public function get_id_field(): string {
         return $this->id_field ?? '';
     }
 
-    public function get_all_fields(): array {
-        return array_merge($this->fields, $this->fields_ro);
-    }
 
     /**
      * Return the specified field type for a field.
@@ -169,7 +281,7 @@ class flcBaseEntity {
      *
      * @return flcBaseEntity
      */
-    public function &getCopy(): flcBaseEntity {
+    public function &get_copy(): flcBaseEntity {
         $class = get_class($this);
         $model = new $class();
         $model->set_values($this->get_fields());
@@ -198,11 +310,16 @@ class flcBaseEntity {
             if (isset($this->fields_ro)) {
                 return $this->fields_ro[$name];
             } else {
-                // if array key exist , this means the value is null , return null as value
-                if (array_key_exists($name, $this->fields_ro)) {
-                    return null;
-                }
+                // search in computed fields
+                if (isset($this->fields_computed)) {
+                    return $this->fields_computed[$name];
+                } else {
+                    // if array key exist , this means the value is null , return null as value
+                    if (array_key_exists($name, $this->fields_ro)) {
+                        return null;
+                    }
 
+                }
             }
             throw new InvalidArgumentException("Field '$name' is not part of the model");
         }
@@ -230,13 +347,29 @@ class flcBaseEntity {
                 }
                 $this->fields_ro[$name] = $value;
             } else {
-                throw new InvalidArgumentException("Field '$name' is not part of the model");
+                // now search in computed fields
+                if (array_key_exists($name, $this->fields_computed)) {
+                    if (!$this->is_valid_field($name, $value)) {
+                        throw new InvalidArgumentException("Invalid value $value for field(computed) $name");
+                    }
+                    $this->fields_computed[$name] = $value;
+                } else {
+                    throw new InvalidArgumentException("Field '$name' is not part of the model");
+                }
             }
         }
     }
 
     /**
      * Persistence stuff
+     */
+
+    /**
+     * Do the add operation to the persistence
+     *
+     * @param string|null $p_suboperation
+     *
+     * @return int with the error code
      */
     public function add(?string $p_suboperation = null): int {
         $c = $this->get_read_constraints($p_suboperation);
@@ -245,12 +378,26 @@ class flcBaseEntity {
 
     }
 
+    /**
+     * Do the read operation on the persistence
+     *
+     * @param string|null $p_suboperation
+     *
+     * @return int with the error code
+     */
     public function read(?string $p_suboperation = null): int {
         $c = $this->get_read_constraints($p_suboperation);
 
         return $this->accessor->read($this, $p_suboperation, $c);
     }
 
+    /**
+     * Do the update operation to the persistence
+     *
+     * @param string|null $p_suboperation
+     *
+     * @return int with the error code
+     */
     public function update(?string $p_suboperation = null): int {
         $c = $this->get_read_constraints($p_suboperation);
 
@@ -258,6 +405,14 @@ class flcBaseEntity {
 
     }
 
+    /**
+     * Do the delete operation to the persistence
+     *
+     * @param string|null $p_suboperation
+     * @param bool        $p_verify_delete_check is true , check is the entity to delete is already deleted
+     *
+     * @return int with the error code
+     */
     public function delete(?string $p_suboperation = null, bool $p_verify_delete_check = true): int {
         $c = $this->get_delete_constraints($p_suboperation);
         if ($c) {
@@ -270,6 +425,14 @@ class flcBaseEntity {
 
     }
 
+    /**
+     * Do the fetch operation to the persistence
+     *
+     * @param string|null $p_suboperation
+     * @param array|null  $p_ref_entities if its joined fetch , set the referenced entities.
+     *
+     * @return array|array[]|int with the error code
+     */
     public function fetch(?string $p_suboperation = null, ?array $p_ref_entities = null) {
 
         $c = $this->get_fetch_constraints($p_suboperation);
@@ -287,26 +450,61 @@ class flcBaseEntity {
      */
 
     /**
+     * Get the fetch constraints based on sub operation.
+     *
      * @param string|null $p_suboperation
      *
      * @return flcConstraints|null
      */
     public function &get_fetch_constraints(?string $p_suboperation = null): ?flcConstraints {
-        $x = null;
+        // from the input data can be an specified constraints to use as default.
+        if ($this->input_data) {
+            $x = $this->input_data->get_constraints('fetch');
+        } else {
+            $x = null;
+        }
 
         return $x;
     }
 
+    /**
+     * Get the delete constraints based on sub operation.
+     *
+     * @param string|null $p_suboperation
+     *
+     * @return flcConstraints|null
+     */
     public function &get_delete_constraints(?string $p_suboperation = null): ?flcConstraints {
         $x = null;
 
         return $x;
     }
 
+    /**
+     * Get the read constraints based on sub operation.
+     *
+     * @param string|null $p_suboperation
+     *
+     * @return flcConstraints|null
+     */
     public function &get_read_constraints(?string $p_suboperation = null): ?flcConstraints {
         $x = null;
 
         return $x;
     }
+
+    /**
+     * Get the add constraints based on sub operation.
+     *
+     * @param string|null $p_suboperation
+     *
+     * @return flcConstraints|null
+     */
+    public function &get_add_constraints(?string $p_suboperation = null): ?flcConstraints {
+        $x = null;
+
+        return $x;
+    }
+
 
 }

@@ -73,9 +73,9 @@ $active_group = 'default';
 
 $db['default'] = [
     'dsn' => '',
-    'hostname' => 'localhost',
+    'hostname' => '192.168.18.51',
     'username' => 'postgres',
-    'password' => 'melivane',
+    'password' => '202106',
     'database' => 'db_tests',
     'dbdriver' => 'postgres',
     'dbprefix' => '',

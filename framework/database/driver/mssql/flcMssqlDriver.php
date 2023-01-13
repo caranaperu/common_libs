@@ -62,6 +62,14 @@ class flcMssqlDriver extends flcDriver {
     protected array  $_callable_procedure_sep_string  = [' ', ' '];
 
 
+    /**
+     * Flag to indicate is casts on sp or function are supported
+     * Some db like mssql doesnt support casts in callables
+     * @var bool
+     */
+    protected bool $_cast_on_callables = false;
+
+
     // --------------------------------------------------------------------
 
     protected static array $_cast_conversion = [
@@ -340,12 +348,12 @@ class flcMssqlDriver extends flcDriver {
     /**
      * @inheritdoc
      */
-    public function get_limit_offset_str(int $p_start_row,int $p_end_row) : string {
-        if ($p_end_row-$p_start_row <= 0) {
+    public function get_limit_offset_str(int $p_start_row, int $p_end_row): string {
+        if ($p_end_row - $p_start_row <= 0) {
             return '';
         }
 
-        return 'offset '.$p_start_row.' rows  fetch next '.($p_end_row-$p_start_row).' rows only ';
+        return 'offset '.$p_start_row.' rows  fetch next '.($p_end_row - $p_start_row).' rows only ';
     }
 
 
@@ -508,7 +516,7 @@ class flcMssqlDriver extends flcDriver {
      * @inheritdoc
      */
     protected function _version_qry(): string {
-        return 'SELECT @@VERSION AS ver';
+        return "SELECT CONVERT(VARCHAR(128), SERVERPROPERTY ('productversion')) AS ver";
     }
 
     // --------------------------------------------------------------------
@@ -583,7 +591,8 @@ class flcMssqlDriver extends flcDriver {
      */
     protected function _trans_savepoint(string $p_savepoint): bool {
         $query = 'SAVE TRANSACTION '.$p_savepoint.';';
-        echo $query.PHP_EOL;
+
+        // echo $query.PHP_EOL;
 
         return (bool)sqlsrv_query($this->_connId, $query);
     }
@@ -666,7 +675,8 @@ class flcMssqlDriver extends flcDriver {
             $sqlfunc = $this->callable_string($p_fn_name, 'function', 'records', $p_parameters, $p_casts);
 
         }
-        echo $sqlfunc.PHP_EOL;
+
+        // echo $sqlfunc.PHP_EOL;
 
         return $this->execute_query($sqlfunc);
 
@@ -752,7 +762,7 @@ class flcMssqlDriver extends flcDriver {
         if ($p_type == self::FLCDRIVER_PROCTYPE_SCALAR) {
             $sqlfunc = $sqlpre.$sqlfunc.$sqlpost;
             $sqlfunc = str_replace($this->_callable_procedure_call_string.' ', $this->_callable_procedure_call_string.' @p0 = ', $sqlfunc);
-            echo $sqlfunc.PHP_EOL;
+            // echo $sqlfunc.PHP_EOL;
 
             if ($res = $this->execute_query($sqlfunc)) {
                 $results->add_resultset_result($res);
@@ -762,7 +772,7 @@ class flcMssqlDriver extends flcDriver {
 
         } // For stores procedures with output parameters o resultset or both
         elseif ($is_outparams || $is_resultset || $is_multiresultset) {
-            echo $sqlfunc.PHP_EOL;
+            // echo $sqlfunc.PHP_EOL;
 
 
             // execute
@@ -829,20 +839,207 @@ class flcMssqlDriver extends flcDriver {
     // --------------------------------------------------------------------
 
     /**
+     * @inheritdoc
+     */
+    public function get_callable_parameter_types(string $p_callable_name, string $p_callable_type): ?array {
+        // if is a procedure the type is 'P' , if is a function type need to be in ('FN','AF','FS','FT','IF','TF')
+        $sql_where_to_append = "o.type = 'P'";
+        if ($p_callable_type != 'procedure') {
+            $sql_where_to_append = "o.type in ('FN','AF','FS','FT','IF','TF')";
+        }
+
+        $sql = "with def_cte(procname, definition, type)
+                as (SELECT o.name          as procname,
+                    sm.[definition] as definition,
+                    o.type
+                FROM sys.sql_modules AS sm
+                      JOIN sys.objects AS o ON sm.object_id = o.object_id
+                      JOIN sys.schemas AS ss ON o.schema_id = ss.schema_id
+                where o.name = '$p_callable_name' and $sql_where_to_append 
+                )
+                select 
+                       case
+                           when type != 'P'
+                               -- remove the () from the function definition
+                               then left(right(definition, len(definition) - 1),
+                                         case when definition = '()' then 0 else len(definition) - 2 end)
+                           -- Procedure have parameters?
+                           when charindex('@', definition) > 0 then definition
+                           else ''
+                           end
+                           as args
+                from (select lower(definition) as ldefinition,
+                             type,
+                             case
+                                 when type != 'P'
+                                     then
+                                     -- if function , break the string between the first '(' and  the word 'returns'
+                                     rtrim(substring(definition, charindex('(', definition),
+                                                     charindex('returns', definition) - charindex('(', definition)))
+                                 else
+                                     -- if procedure ,break the string to left the beginning on the first parameter
+                                     -- until the 'as' word.
+                                     substring(definition, charindex('@', definition),
+                                               charindex(' AS', definition) - charindex('@', definition))
+                                 end           as definition
+                      from (
+                               -- remove carriage return , line feeds
+                               select type, replace(replace(replace(definition, char(10), ' '), char(13), ' '),char(9),' ') as definition
+                               from def_cte) xx) zz";
+        $res = $this->execute_query($sql);
+        if ($res) {
+            $answers = [];
+
+            $numrows = $res->num_rows();
+
+            if ($numrows > 0) {
+                if ($numrows == 1) {
+                    $row = $res->row();
+                    $param_descriptor = $row->args;
+                    echo $param_descriptor.PHP_EOL;
+
+                    // separate  each parameter descriptor
+                    $rowfields = array_map('trim', explode(',', $param_descriptor, 100));
+                    $rowfields_parsed = [];
+
+                    // sometimes like numeric(10,2) , this descriptor will be treated as two beacuse of the comma,
+                    // here we detect the anomaly and join.
+                    for ($i = 0; $i < count($rowfields); $i++) {
+
+                        // if not beggining in a parameter , we foun a breaked descriptor
+                        if (substr(trim($rowfields[$i]), 0, 1) != '@') {
+                            // join
+                            $rowfields_parsed[] = $rowfields[$i - 1].','.$rowfields[$i];
+                            continue;
+                        }
+
+
+                        $rowfields_parsed[] = $rowfields[$i];
+                    }
+
+                    // separate each descriptor on his parts
+                    foreach ($rowfields_parsed as $element) {
+                        $varfound = true;
+                        $vardefault = null;
+                        $appendstr = '';
+                        $vardirection = 'in';
+
+
+                        // separate each elemen parts
+                        $parts = array_map('trim', explode(' ', $element, 3));
+
+                        if (count($parts) == 2) {
+                            // example
+                            // @mes int, ......
+                            $varname = $parts[0];
+                            $varsqltype = $parts[1];
+                        } else {
+                            if (count($parts) >= 3) {
+                                //  example
+                                // @p1 varchar(100) = 'test' out,
+                                $varname = $parts[0];
+                                $varsqltype = $parts[1];
+
+                                if (count($parts) == 3) {
+                                    //  example
+                                    // @p1 varchar(100) = 'test'
+                                    // @p1 varchar(100) out
+
+                                    if (substr($parts[2], 0, 1) == '=') {
+
+                                        $vardefault = $parts[2];
+                                        // the direction is 'in' because is not defined
+
+                                    } else {
+                                        // not default , then the third element is the direction
+                                        $vardirection = $parts[2];
+                                    }
+                                } else {
+                                    $vardefault = $parts[2];
+                                    $vardirection = $parts[3];
+
+                                }
+
+                            } else {
+                                // otherwise no parameters
+                                $varfound = false;
+                            }
+
+                        }
+                        // if a var is found , process the var declaration part
+                        if ($varfound) {
+                            // parse the parameter to extract
+
+                            // for use case as @var(20)='x'
+                            // first extract the default value
+                            $vardefault_parts = explode('=', $vardefault);
+                            if (isset($vardefault_parts[1])) {
+                                $vardefault = trim($vardefault_parts[1]);
+                            }
+
+                            // now check if have append string ( char(20) means (20) is tha append string
+                            $varsqltype_parts = explode('(', $varsqltype);
+                            if (isset($varsqltype_parts[1])) {
+                                $appendstr = '('.$varsqltype_parts[1];
+                            }
+                            $varsqltype = $varsqltype_parts[0];
+
+
+                            // generate the descriptor entry.
+                            $answers[$varname] = [
+                                $varsqltype,
+                                $vardirection,
+                                $appendstr
+                            ];
+                            if ($vardefault !== null) {
+                                $answers[$varname][] = $vardefault;
+                            }
+                        }
+                    }
+
+
+                } else {
+                    $answers = null;
+
+                    // log an error and return null , more than one funtion/stored procedure with the same name is
+                    // not allowed.                }
+                    $this->log_error('get_callable_parameter_types - The existence of one sp or function with the same name is not allowed', 'e');
+                }
+            } else {
+                $answers = null;
+
+                // log an error and return null , more than one funtion/stored procedure with the same name is
+                // not allowed.                }
+                $this->log_error("get_callable_parameter_types - sp/function $p_callable_name doesnt exist", 'e');
+            }
+
+            $res->free_result();
+
+        } else {
+            $answers = null;
+        }
+
+        return $answers;
+
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
      * #inheritdoc
      */
     public function insert_id(?string $p_table_name = null, ?string $p_column_name = null): int {
-        $sql = version_compare($this->get_version(), '8', '>=')
-            ? 'SELECT SCOPE_IDENTITY() AS last_id'
-            : 'SELECT @@IDENTITY AS last_id';
+        $sql = version_compare($this->get_version(), '8', '>=') ? 'SELECT SCOPE_IDENTITY() AS last_id' : 'SELECT @@IDENTITY AS last_id';
 
-        $res =  $this->execute_query($sql);
+        $res = $this->execute_query($sql);
         if ($res) {
-            $insert_id =  $res->row()->last_id ?? 0;
+            $insert_id = $res->row()->last_id ?? 0;
             $res->free_result();;
+
             return $insert_id;
         } else {
-            $this->log_error('Can obtain insert id','E');
+            $this->log_error('Can obtain insert id', 'E');
+
             return 0;
         }
     }
@@ -854,14 +1051,48 @@ class flcMssqlDriver extends flcDriver {
      *
      * @inheritdoc
      */
-    public  function is_duplicate_key_error(array $p_error) : bool {
+    public function is_duplicate_key_error(array $p_error): bool {
         if (isset($p_error['code'])) {
             // for microsoft is a combination of sql_state/error_code
             if ($p_error['code'] == '23000/2627' || $p_error['code'] == '23000/2601') {
                 return true;
             }
         }
+
         return false;
+    }
+
+    /****************************************************************
+     * SQL types stuff
+     */
+    /**
+     *
+     * @inheritdoc
+     */
+    protected function get_normalized_type(string $sql_real_type): string {
+        switch (strtolower($sql_real_type)) {
+            case 'varchar':
+            case 'nvarchar':
+            case 'char':
+            case 'nchar':
+            case 'text':
+            case 'ntext':
+            case 'date':
+            case 'datetime':
+            case 'datetime2';
+            case 'datetimeoffset';
+            case 'smalldatetime':
+            case 'time':
+            case 'geography':
+            case 'bit':
+            case 'xml':
+                return 'string';
+
+            // otherwise , some kind of numeric
+            default:
+                return 'numeric';
+
+        }
     }
 
 }

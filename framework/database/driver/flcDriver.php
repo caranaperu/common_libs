@@ -281,8 +281,15 @@ abstract class flcDriver {
 
     protected string $_callable_function_call_string_scalar = 'select';
     protected string $_callable_function_call_string        = 'select * from';
-    protected string $_callable_function_sep_string         = '()';
+    protected array  $_callable_function_sep_string         = ['(', ')'];
     protected array  $_callable_procedure_sep_string        = ['(', ')'];
+
+    /**
+     * Flag to indicate is casts on sp or function are supported
+     * Some db like mssql doesnt support casts in callables
+     * @var bool
+     */
+    protected bool $_cast_on_callables = true;
 
     /**
      * This array of casts need to overloaded en each database driver.
@@ -922,7 +929,7 @@ abstract class flcDriver {
      *
      * @return boolean false
      */
-    public function is_ilike_supported() : bool {
+    public function is_ilike_supported(): bool {
         return false;
     }
 
@@ -936,12 +943,12 @@ abstract class flcDriver {
      *
      * @return string with the clause or '' if p_start_row is >= p_end_row
      */
-    public function get_limit_offset_str(int $p_start_row,int $p_end_row) : string {
-        if ($p_end_row-$p_start_row <= 0) {
+    public function get_limit_offset_str(int $p_start_row, int $p_end_row): string {
+        if ($p_end_row - $p_start_row <= 0) {
             return '';
         }
 
-        return 'limit '.($p_end_row-$p_start_row).' offset '.$p_start_row;
+        return 'limit '.($p_end_row - $p_start_row).' offset '.$p_start_row;
     }
 
     // --------------------------------------------------------------------
@@ -1598,12 +1605,16 @@ abstract class flcDriver {
      * @return    string
      */
     protected function _get_version(): string {
-        $res = $this->execute_query($this->_version_qry())->row();
-        if (!$res->ver || $res->ver == '') {
+        $res = $this->execute_query($this->_version_qry());
+        $row = $res->first_row();
+        if (!$row->ver || $row->ver == '') {
             return 'N/A';
         }
 
-        return $res->ver;
+        $version = $row->ver;
+        $res->free_result();
+
+        return $version;
     }
 
     // --------------------------------------------------------------------
@@ -1825,7 +1836,7 @@ abstract class flcDriver {
      *
      * For example:
      *      [1,2018,[''=>flcDriver::FLCDRIVER_PARAMTYPE_OUT],[3=>flcDriver::FLCDRIVER_PARAMTYPE_INOUT]
-     * @param array|null $p_casts array of casts.
+     * @param array|null $p_casts array of casts, if null means no cast to use,.
      *
      * in the form [[$pos=>['type',toappend_str],[],.......] or [[$pos=>'type'],[$pos2=>'type'],.......]
      * or a mixed of each one. The pos is the position of the parameter in the parameters array.
@@ -1916,7 +1927,8 @@ abstract class flcDriver {
      * For example:
      *
      *      [1,2018,[''=>flcDriver::FLCDRIVER_PARAMTYPE_OUT],[3=>flcDriver::FLCDRIVER_PARAMTYPE_INOUT]
-     * @param array|null $p_casts array of casts.
+     * @param array|null $p_casts array of casts, if null means no casts to use.
+     *
      * in the form [[$pos=>['type',toappend_str],[],.......] or [[$pos=>'type'],[$pos2=>'type'],.......]
      * or a mixed of each one. The pos is the position of the parameter in the parameters array.
      *
@@ -1940,6 +1952,90 @@ abstract class flcDriver {
         return null;
     }
 
+
+    /**
+     * Executes an stored procedure based on the sp name (or function name in postgress) and the parameters to be used
+     * and also casts if required.
+     *
+     * Ms SQL Server
+     * Doesnt allow casts in stored procedures calls.
+     * Allow all types of input paramenters (in,inout,out)
+     * Can return none,single or multiple resultsets.
+     * Can return single values. (scalar)
+     * Can return scalar, single or multiple resultsets with output parameters also.
+     *
+     * MySQL
+     * Allow all types of input paramenters (in,inout,out)
+     * Can return none,single or multiple resultsets.
+     * Can return single values. (scalar)
+     * Can return scalar, single or multiple resultsets with output parameters also.
+     *
+     * Postgres.
+     * If using functions:
+     * Allow all types of input paramenters (in,inout,out)
+     * Can return none,single or multiple resultsets (sort of).
+     * Can return single values. (scalar)
+     * Can return scalar, single or multiple resultsets with output parameters also.
+     *
+     * If using Stored procedures (Postgres 13+)
+     * Allow all types of input paramenters (in,inout,out)
+     * Can only return out parameters.
+     *
+     * In postgres either on functions or stored procedures the only way to obtain multiple resulsets
+     * are via out parameters , specific refcursors
+     *
+     * i.e : CREATE OR REPLACE PROCEDURE p_getMultipleResultset(inout ioparam int,ref1 refcursor,ref2 refcursor)
+     *
+     * each refcursor can contain a resulset.
+     * This driver support refcursors and return in flcDbResults each one as a normal resultset used in other
+     * databases.
+     *
+     * The call need to be something like this:
+     *          $query = $driver->execute_stored_procedure('p_getMultipleResultset',
+     * flcDriver::FLCDRIVER_PROCTYPE_MULTIRESULTSET, [
+     *                      3,
+     *                      ['ref1',flcDriver::FLCDRIVER_PARAMTYPE_OUT,'refcursor'],
+     *                      ['ref2',flcDriver::FLCDRIVER_PARAMTYPE_OUT,'refcursor']
+     *                  ]);
+     *
+     * Of course if you need to create support for multiples db with the same code , you dont need to do nothing ,
+     * because for other databases refcursor will be skipped, ie for the same call the generate code in
+     * sql server will be :
+     *
+     * EXEC p_getMultipleResultset 3
+     *
+     * and for mysql :
+     *
+     * CALL p_getMultipleResultset( 3 )
+     *
+     * ignoring the refcursors because other dbs supported can return multiple resultsets in the expected way.
+     *
+     * But its recommended that refcursors in the pgsql code are the last parameters.
+     *
+     * @param string     $p_fn_name the sp or function name (postgres)
+     * @param string     $p_type : FLCDRIVER_PROCTYPE_RESULTSET,FLCDRIVER_PROCTYPE_MULTIRESULTSET or
+     *     FLCDRIVER_PROCTYPE_SCALAR
+     * @param array|null $p_params_values array  of parameters in the form [param1=>value1,param2=>value2,...]
+     *
+     * For example:
+     *
+     *      [1,2018,[''=>flcDriver::FLCDRIVER_PARAMTYPE_OUT],[3=>flcDriver::FLCDRIVER_PARAMTYPE_INOUT]
+     * @param array|null $p_exclude_casts array of exclude to cast parameters, if null means nothing to exclude.*
+     * in the form [$param_name,$param_name,.......]
+     *
+     * @return flcDbResults|null the results , can contain multiple resulsets and also output parameters. Null on error
+     *
+     * @see flcDbResults
+     */
+    public function execute_stored_procedure_extended(string $p_fn_name, string $p_type, ?array $p_params_values = null, ?array $p_exclude_casts = null): ?flcDbResults {
+
+        // pgsql functions no soporta retornar valores si hay  out parameters . A menos que el tipo de retorno coincida con los  (in)out parameters
+        // stored proedures soporta el retorno de refcursors y (in)out parameters a la vez , por el mismo motivo que los stored procedures en postgress no tienen
+        // clausula return.
+        return null;
+    }
+
+
     /**
      * Get the Insert ID
      * The table name and field name are required both in some databases like
@@ -1956,15 +2052,21 @@ abstract class flcDriver {
      * @param string      $p_param the value to cast
      * @param string      $p_type string,float,char,etc
      * @param string|null $p_appendstr to append at the end of cast . ie: (20)
+     * @param bool        $p_is_mapped_cast is true use mapped cast otherwise use the type directly.
      *
      * @return string  ie: cast(200 as VARCHAR(20)) (db dependant)
      */
-    public function cast_param(string $p_param, string $p_type, ?string $p_appendstr = null): string {
+    public function cast_param(string $p_param, string $p_type, ?string $p_appendstr = null, bool $p_is_mapped_cast = true): string {
         $conv = '';
-        $type = strtolower($p_type);
-        if (array_key_exists($type, static::$_cast_conversion)) {
-            if (static::$_cast_conversion[$type][0] !== '') {
-                $conv = 'cast('.$p_param.' as '.static::$_cast_conversion[$type][0].$p_appendstr.')';
+        // if not is a mapped cast append type directly
+        if (!$p_is_mapped_cast) {
+            $conv = 'cast('.$p_param.' as '.$p_type.$p_appendstr.')';
+        } else {
+            $type = strtolower($p_type);
+            if (array_key_exists($type, static::$_cast_conversion)) {
+                if (static::$_cast_conversion[$type][0] !== '') {
+                    $conv = 'cast('.$p_param.' as '.static::$_cast_conversion[$type][0].$p_appendstr.')';
+                }
             }
         }
 
@@ -1976,8 +2078,11 @@ abstract class flcDriver {
     }
 
     /**
+     * Generate the callable string , function or procedure
+     *
      * @param string     $p_sp_name the name of the function or stored procedure
-     * @param string     $p_type 'procedure' or 'scalar'
+     * @param string     $p_type 'procedure' or 'function'
+     * @param string     $p_type_return 'scalar' or 'records'
      * @param array|null $p_parameters array  of parameters in the form [value1,value2,...]
      *
      * Fore example:
@@ -1987,7 +2092,8 @@ abstract class flcDriver {
      * for the third element only the number 3 will be taken the param type will be ignored
      * and is supported to do more easy the job when is called from other methods.
      *
-     * @param array|null $p_casts array of casts.
+     * @param array|null $p_casts array of casts, if null means no casts to use
+     *
      * in the form [[$pos=>['type',toappend_str],[],.......] or [[$pos=>'type'],[$pos2=>'type'],.......]
      * or a mixed of each one. The pos is the position of the parameter in the parameters array.
      *
@@ -2001,7 +2107,7 @@ abstract class flcDriver {
      * The results can be : cast(param0 as VARCHAR), cast(param2 as INTEGER) , cast(param4 as VARCHAR(20) of course
      * the final syntax depends on the specific database.
      *
-     * @return string with the cllable string.
+     * @return string with the callable string.
      */
     public function callable_string(string $p_sp_name, string $p_type, string $p_type_return, ?array $p_parameters = null, ?array $p_casts = null): string {
         if ($p_type == 'procedure') {
@@ -2024,8 +2130,9 @@ abstract class flcDriver {
                     $value = $p_parameters[$i];
                 }
 
+
                 // casts to process?
-                if (isset($p_casts) && isset($p_casts[$i])) {
+                if ($p_casts !== null && isset($p_casts[$i])) {
                     // If it is an array we expect [type,appendstr] in the array , otherwise only the type
                     if (is_array($p_casts[$i])) {
                         $type = $p_casts[$i][0];
@@ -2042,7 +2149,7 @@ abstract class flcDriver {
                         } elseif (static::$_cast_conversion[$type][1] == 'n') {
                             $sqlvalue = $value;
                         } elseif (static::$_cast_conversion[$type][1] == 'b') {
-                            if ($value === 1 or $value === '1' or $value === 'true' or $value === 'TRUE' or $value === true or $value == 't') {
+                            if ($value === 1 or $value === '1' or strtoupper($value) === 'TRUE' or $value === true or strtoupper($value) == 'T' or strtoupper($value) == 'YES') {
                                 $sqlvalue = static::$_cast_conversion[$type][2] === 1 ? '1' : 'true';
 
                             } else {
@@ -2075,6 +2182,8 @@ abstract class flcDriver {
 
 
                 }
+
+
             }
             // remove the last comma
             $sql = substr($sql, 0, strlen($sql) - 1);
@@ -2093,12 +2202,126 @@ abstract class flcDriver {
     }
 
     /**
+     * @param string     $p_sp_name the name of the function or stored procedure
+     * @param string     $p_type 'procedure' or 'function'
+     * @param string     $p_type_return 'scalar' or 'records'
+     * @param array|null $p_param_values array  of fields in the form [param_name=>value,..........]
+     * @param array|null $p_exclude_casts array of field names that will be excluded from casts
+     *
+     * @return string with the callable string.
+     */
+    public function callable_string_extended(string $p_sp_name, string $p_type, string $p_type_return, ?array $p_param_values = null, ?array $p_exclude_casts = null): string {
+        $sql = '';
+
+        if ($p_type == 'procedure') {
+            $sql = $this->_callable_procedure_call_string.' '.$p_sp_name.$this->_callable_procedure_sep_string[0];
+
+        } else {
+            if ($p_type_return == 'scalar') {
+                $sql = $this->_callable_function_call_string_scalar.' '.$p_sp_name.$this->_callable_function_sep_string[0];
+            } else {
+                $sql = $this->_callable_function_call_string.' '.$p_sp_name.$this->_callable_function_sep_string[0];
+            }
+        }
+
+        $parameters = $this->get_callable_parameter_types($p_sp_name, $p_type);
+        if ($parameters !== null) {
+            foreach ($parameters as $param_name => $parameter_descriptor) {
+                // get the descriptors of the parameter
+                // the form is : [param1=> [sqltype,direction,appendstring,default_value']
+                // at least the first 3 are required
+                $field_type = $parameter_descriptor[0];
+                $appendstr = $parameter_descriptor[2] ?? '';
+                // if not value in params value , try default if exist  otherwise null
+                $value = $p_param_values[$param_name] ?? $parameter_descriptor[3] ?? null;
+
+                $sqltype = $this->get_normalized_type($field_type);
+
+
+                // normalize the value
+                if ($value === null) {
+                    $value = 'NULL';
+                } else {
+                    switch ($sqltype) {
+                        case 'string':
+                            $value = '\''.$value.'\'';
+                            break;
+
+                        case 'boolean':
+                            if ($value === 1 or $value === '1' or $value === 'true' or $value === 'TRUE' or $value === true or $value === 't') {
+                                $value = 'TRUE';
+                            } else {
+                                $value = 'FALSE';
+                            }
+                            break;
+
+                        case 'bit':
+                            // sometimes is a bool (mssql server by example)
+                            if ($value === 1 or $value === '1' or strtoupper($value) === 'TRUE' or $value === true or strtoupper($value) == 'T' or strtoupper($value) == 'YES') {
+                                $value = '\''.'1'.'\'';
+
+                            } else {
+                                if ($value === 0 or $value === '0' or strtoupper($value) == 'FALSE' or $value === false or strtoupper($value) == 'F' or strtoupper($value) == 'NO') {
+
+                                    $value = '\''.'0'.'\'';
+                                } else {
+                                    $value = '\''.$value.'\'';
+
+                                }
+                            }
+                            break;
+                        // numeric doesnt require special proces
+                    }
+
+                }
+
+                // if not exclude form casting , check cast
+                if ($p_exclude_casts === null || !in_array($param_name, $p_exclude_casts, true)) {
+                    // if db support cast?
+                    if ($this->_cast_on_callables) {
+                        // do casts
+                        $sql .= $this->cast_param($value, $field_type, $appendstr, false).',';
+                    } else {
+                        $sql .= $value.',';
+                    }
+
+                } else {
+                    $sql .= $value.',';
+                }
+
+            }
+
+            // remove the last comma, if parameters have elements.
+            if (count($parameters) > 0 && strlen($sql) > 0) {
+                $sql = substr($sql, 0, strlen($sql) - 1);
+            }
+
+            if ($p_type == 'procedure') {
+                $sql .= $this->_callable_procedure_sep_string[1].';';
+
+            } else {
+                $sql .= $this->_callable_function_sep_string[1].';';
+            }
+        } else {
+            throw new RuntimeException("callable_string_extended - sp/function $p_sp_name doesnt exist");
+        }
+
+        return $sql;
+    }
+
+    /**
      * Display an error message
      *
      * @param string $p_error the error message
      * @param string $p_type W-'warning' or E-'error' or 'e' soft error
      *
      */
+
+
+    /***********************************************************************
+     * Log stuff
+     */
+
     public function log_error(string $p_error, string $p_type = 'W') {
         try {
             if ($p_type == 'E') {
@@ -2125,12 +2348,6 @@ abstract class flcDriver {
         }
 
     }
-
-
-    /****************************************************************
-     * To identify specific errors
-     */
-
     /**
      * Determine if the error identify a duplicate key code
      * Need to be implemented in each driver to make sense.
@@ -2140,7 +2357,39 @@ abstract class flcDriver {
      *
      * @return bool
      */
-    public  function is_duplicate_key_error(array $p_error) : bool {
+
+
+    /****************************************************************
+     * To identify specific errors
+     */
+
+    /**
+     * Get the real parameter types for an specific function or stored procedure,
+     * for use in construct in callable string when real field types will be used.
+     *
+     * The return array can have the format :
+     *      [param_name=>[sqltype,direction,append_string,default_value],.......]
+     * like in :
+     *      [param1=> ['varchar','inout'],param2=>['int','in'],param3=>['varchar','in','(20)','defult value']]
+     *
+     * The first 3 are required allways , if not append string is required we expect an empty string.
+     *
+     * In this example :
+     *      param_1 varchar(20)='i am a default value'  inout
+     *
+     * the string (20) is the append string and the string 'i am a default value' is the
+     * default value.
+     *
+     *
+     * @param string $p_callable_name the sp or function name in the current selected database
+     * @param string $p_callable_type 'procedure' or 'functiom'
+     *
+     * @return array|null an associative array with parameter types (see explanation) or null if the fnction/sp not
+     *     found.
+     */
+    protected abstract function get_callable_parameter_types(string $p_callable_name, string $p_callable_type): ?array;
+
+    public function is_duplicate_key_error(array $p_error): bool {
         return false;
     }
 
@@ -2153,11 +2402,21 @@ abstract class flcDriver {
      *
      * @return bool
      */
-    public  function is_foreign_key_error(array $p_error) : bool {
+    public function is_foreign_key_error(array $p_error): bool {
         return false;
     }
 
+    /****************************************************************
+     * SQL types stuff
+     */
 
+    /**
+     *
+     * @param string $sql_real_type
+     *
+     * @return string can be numeric,string,boolean,bit
+     */
+    protected abstract function get_normalized_type(string $sql_real_type): string;
 }
 
 

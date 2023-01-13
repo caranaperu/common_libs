@@ -13,12 +13,12 @@
  *
  */
 
-namespace framework\core\accessor\core\model\tests\handlers;
+namespace framework\tests\handlers;
 
 
 use Exception;
-use framework\core\accessor\core\model\core\session\handler\flcBaseHandler;
-use framework\core\accessor\core\model\flcCommon;
+use framework\flcCommon;
+use framework\core\session\handler\flcBaseHandler;
 use RuntimeException;
 
 

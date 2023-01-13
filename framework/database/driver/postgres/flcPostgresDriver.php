@@ -55,6 +55,8 @@ use stdClass;
  * Important : Part of this class is a modified one of driver class from codeigniter
  * all credits for his authors.
  *
+ * Supported version from 8.4 to current
+ *
  *
  * @package        Database
  * @subpackage    Drivers
@@ -282,7 +284,7 @@ class flcPostgresDriver extends flcDriver {
      *
      * @return boolean false
      */
-    public function is_ilike_supported() : bool {
+    public function is_ilike_supported(): bool {
         return true;
     }
 
@@ -403,6 +405,20 @@ class flcPostgresDriver extends flcDriver {
 
         return $sql;
     }
+
+    // --------------------------------------------------------------------
+
+    /*************************************************************
+     * Helpers
+     */
+
+    /**
+     * @inheritdoc
+     */
+    protected function _version_qry(): string {
+        return "SELECT unnest(string_to_array(current_setting('server_version'),' ')) as ver limit 1";
+    }
+
 
     // --------------------------------------------------------------------
 
@@ -585,10 +601,7 @@ class flcPostgresDriver extends flcDriver {
 
         $is_outparams = false;
         $is_multiresult = false;
-        $is_function = true;
         $refcursors = [];
-
-        $refcursors_ret = false;
 
         // detect number of in parameters
         if ($p_parameters == null || count($p_parameters) == 0) {
@@ -597,24 +610,17 @@ class flcPostgresDriver extends flcDriver {
             $numparams = count($p_parameters);
         }
 
-        // detect type function or procedure and if the return is refcursors, in postgres when we have return of refcursors
-        // its imposible to have refcursors as inout or out parameters.
-        // See we also search using number of input parameters because we can have 2 functions/procedures with the same name but
-        // different parameters,
-        // TODO: Verify same number of parameters but of different types.
-        $res = $this->execute_query("SELECT proname,prokind,pa.typname FROM pg_proc p INNER JOIN pg_type pa ON pa.oid = p.prorettype WHERE pronargs = $numparams and proname = LOWER('$p_fn_name')");
-        if ($res) {
-            $row = $res->row_array(0);
-            if ($row['prokind'] == 'p') {
-                $is_function = false;
-            }
-            if ($row['typname'] === 'refcursor') {
-                $refcursors_ret = true;
-                $sqlpre = 'begin;';
-            }
-            $res->free_result();
+        // Analize if is a function/procedure and if has refcursor returns
+        $type_and_ret = $this->_get_callable_type_and_ref_return($p_fn_name, $numparams);
+        if ($type_and_ret !== null) {
+            [$is_function, $refcursors_ret] = $type_and_ret;
+
         } else {
             return null;
+        }
+
+        if ($refcursors_ret) {
+            $sqlpre = 'begin;';
         }
 
         // Parameter analisys
@@ -634,25 +640,27 @@ class flcPostgresDriver extends flcDriver {
                         if ($sqltype !== 'refcursor') {
                             $is_outparams = true;
                             $outparams_count++;
-                            $params[] = (is_string($value) ? '\''.$value.'\'' : $value);
+                            $params[] = $value;
+
                         } else {
                             // refcursors
-                            $params[] = '\''.$value.'\'';
+                            $params[] = $value;
                             $refcursors[] = $value;
 
                             $sqlpre = 'begin;';
                         }
                     } else {
-                        $params[] = (is_string($value) ? '\''.$value.'\'' : $value);
+                        $params[] = $value;
                     }
 
 
                 } else {
-                    $params[] = (is_string($p_parameters[$i]) ? '\''.$p_parameters[$i].'\'' : $p_parameters[$i]);
+                    $params[] = $p_parameters[$i];
                 }
             }
         }
 
+        // Type of resultset return
         $is_resultset = ($p_type == self::FLCDRIVER_PROCTYPE_RESULTSET);
         $is_multiresultset = ($p_type == self::FLCDRIVER_PROCTYPE_MULTIRESULTSET);
 
@@ -663,12 +671,7 @@ class flcPostgresDriver extends flcDriver {
 
         // Get the callable string
         if ($is_function) {
-            if ($is_resultset || $is_multiresultset) {
-                $sqlfunc = $this->callable_string($p_fn_name, 'function', 'records', $params, $p_casts);
-
-            } else {
-                $sqlfunc = $this->callable_string($p_fn_name, 'function', 'scalar', $params, $p_casts);
-            }
+            $sqlfunc = $this->callable_string($p_fn_name, 'function', ($is_resultset || $is_multiresultset) ? 'records' : 'scalar', $params, $p_casts);
 
         } else {
             $sqlfunc = $this->callable_string($p_fn_name, 'procedure', 'scalar', $params, $p_casts);
@@ -676,13 +679,353 @@ class flcPostgresDriver extends flcDriver {
         }
 
         $sqlfunc = $sqlpre.$sqlfunc;
-        echo $sqlfunc.PHP_EOL;
+        //echo $sqlfunc.PHP_EOL;
+
+        // Process and execute sp/function
+        return $this->_process_callable($p_type, $sqlfunc, $results, $is_outparams, $is_resultset, $is_multiresultset, $refcursors, $refcursors_ret, $p_fn_name);
+
+    }
+
+    // --------------------------------------------------------------------
 
 
+    /**
+     * @inheritdoc
+     */
+    public function execute_stored_procedure_extended(string $p_fn_name, string $p_type, ?array $p_params_values = null, ?array $p_exclude_casts = null): ?flcDbResults {
+        $params = [];
+        $outparams_count = 0;
+        $sqlpre = '';
+
+        $is_outparams = false;
+        $is_multiresult = false;
+        $refcursors = [];
+
+        // Analize if is a function/procedure and if has refcursor returns
+        $type_and_ret = $this->_get_callable_type_and_ref_return($p_fn_name);
+        if ($type_and_ret !== null) {
+            [$is_function, $refcursors_ret] = $type_and_ret;
+        } else {
+            return null;
+        }
+
+        if ($refcursors_ret) {
+            $sqlpre = 'begin;';
+        }
+
+        // parameter analisys
+        $parameters = $this->get_callable_parameter_types($p_fn_name, !$is_function ? 'procedure' : 'function');
+        if ($parameters !== null) {
+            foreach ($parameters as $param_name => $parameter_descriptor) {
+                // get the descriptors of the parameter
+                // the form is : [param1=> ['varchar','INOUT'],param2=>['int','IN'],param3=>['varchar','IN','(20)']]
+                $sqltype = $parameter_descriptor[0];
+                $paramtype = $parameter_descriptor[1];
+                $appendstr = $parameter_descriptor[2] ?? '';
+                $value = $p_params_values[$param_name] ?? null;
+
+                if ($p_type == self::FLCDRIVER_PROCTYPE_SCALAR) {
+                    $params[$param_name] = $value;
+                } elseif ($paramtype == 'out' || $paramtype == 'inout' || ($paramtype == 'in' && strtolower($sqltype) == 'refcursor')) {
+                    if (strtolower($sqltype) !== 'refcursor') {
+                        $is_outparams = true;
+                        $outparams_count++;
+                        $params[$param_name] = $value;
+
+                    } else {
+                        // refcursors
+                        $params[$param_name] = $value;
+                        $refcursors[] = $value;
+
+                        $sqlpre = 'begin;';
+                    }
+                } else {
+                    $params[$param_name] = $value;
+                }
+
+            }
+        }
+
+        // Type of resultset return
+        $is_resultset = ($p_type == self::FLCDRIVER_PROCTYPE_RESULTSET);
+        $is_multiresultset = ($p_type == self::FLCDRIVER_PROCTYPE_MULTIRESULTSET);
+
+        // create sp store results
+        require_once(dirname(__FILE__).'/../../flcDbResults.php');
+        $results = new flcDbResults();
+
+        // Get the callable string
+        if ($is_function) {
+            $sqlfunc = $this->callable_string_extended($p_fn_name, 'function', ($is_resultset || $is_multiresultset) ? 'records' : 'scalar', $params, $p_exclude_casts);
+
+        } else {
+            $sqlfunc = $this->callable_string_extended($p_fn_name, 'procedure', 'scalar', $params, $p_exclude_casts);
+
+        }
+
+        $sqlfunc = $sqlpre.$sqlfunc;
+        //echo $sqlfunc.PHP_EOL;
+
+        // Process and execute sp/function
+        return $this->_process_callable($p_type, $sqlfunc, $results, $is_outparams, $is_resultset, $is_multiresultset, $refcursors, $refcursors_ret, $p_fn_name);
+
+
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * @inheritdoc
+     */
+    protected function get_callable_parameter_types(string $p_callable_name, string $p_callable_type): ?array {
+        //  >= 8.4 pg_get_function_arguments
+        // < 11 proisagg if false is function
+        // >= 11 prokind 'f' function , 'p' procedure
+        // use AND n.nspname = 'public' i f schema name required , here is in the current schema , no need to specify
+        $version = $this->get_version();
+        if (version_compare($version, '11', '>=')) {
+            $sqlappend = 'AND p.prokind = ';
+            if ($p_callable_type != 'procedure') {
+                $sqlappend .= "'f'";
+            } else {
+                $sqlappend .= "'p'";
+
+            }
+        } else {
+            // version < 11 doesnt have stored procedures
+            $sqlappend = 'AND p.proisagg = FALSE';
+        }
+
+        $sql = "SELECT pg_catalog.pg_get_function_arguments(p.oid) as args FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace WHERE p.proname = '$p_callable_name' AND pg_catalog.pg_function_is_visible(p.oid) ".$sqlappend;
+
+        // IMPORTANT . we dont expect length , precision , etc in parameters because in postgres is not allowed .
+        // in the docs we found :
+        // "It's illegal to specify a length, precision, scale, or other constraints on parameter declarations.
+        // These constraints are inherited from the actual parameters that are used when the procedure or function is called."
+        //
+        // link to the doc :  https://www.enterprisedb.com/docs/epas/latest/epas_compat_spl/02_spl_programs/06_procedure_and_function_parameters/
+        //
+        $res = $this->execute_query($sql);
+        if ($res) {
+            $answers = [];
+
+            $numrows = $res->num_rows();
+
+            if ($numrows > 0) {
+                if ($numrows == 1) {
+                    $default_value = null;
+
+                    $row = $res->row();
+                    $param_descriptor = $row->args;
+                    // separate each parameter descriptor
+                    $rowfields = explode(', ', $param_descriptor);
+
+                    foreach ($rowfields as $element) {
+                        // first check if exist a default value
+                        $row_with_default = explode('DEFAULT ', $element);
+                        if (count($row_with_default) == 2) {
+                            $default_value = trim($row_with_default[1]);
+                            $parts = explode(' ', $row_with_default[0], 3);
+                        } else {
+                            $parts = explode(' ', $element, 3);
+                        }
+
+                        // separate each elemen parts
+                        //$parts = explode(' ', $element, 3);
+
+                        if (count($parts) == 2) {
+                            // example
+                            // who integer, ref1 refcursor, ......
+                            $answers[$parts[0]] = [$parts[1], 'in', ''];
+                            if ($default_value !== null) {
+                                $answers[$parts[0]][] = $default_value;
+                            }
+                        } else {
+                            if (count($parts) == 3) {
+                                // allways 3, example
+                                // IN who integer, IN ref1 refcursor, .....
+                                $answers[$parts[1]] = [$parts[2], strtolower($parts[0]), ''];
+                                if ($default_value !== null) {
+                                    $answers[$parts[1]][] = $default_value;
+                                }
+                            }
+                        }
+                        // otherwise no parameters
+                    }
+                } else {
+                    $answers = null;
+
+                    // log an error and return null , more than one funtion/stored procedure with the same name is
+                    // not allowed.                }
+                    $this->log_error('get_callable_parameter_types - The existence of one sp or function with the same name is not allowed', 'e');
+                }
+            } else {
+                $answers = null;
+
+                // log an error and return null , more than one funtion/stored procedure with the same name is
+                // not allowed.                }
+                $this->log_error("get_callable_parameter_types - sp/function $p_callable_name doesnt exist", 'e');
+            }
+
+            $res->free_result();
+
+        } else {
+            $answers = null;
+        }
+
+        print_r($answers);
+
+        return $answers;
+
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * @inheritdoc
+     */
+    public function insert_id(?string $p_table_name = null, ?string $p_column_name = null): int {
+        if ($p_table_name && $p_column_name) {
+            $sql = "SELECT currval(pg_get_serial_sequence('$p_table_name', '$p_column_name')) as ins_id";
+
+            $res = $this->execute_query($sql);
+            if ($res) {
+                $insert_id = $res->row()->insert_id ?? 0;
+                $res->free_result();
+
+                return $insert_id;
+            } else {
+                $this->log_error('Can obtain insert id', 'E');
+
+                return 0;
+            }
+
+        } else {
+            $this->log_error('insert_id require the table and field name', 'e');
+
+            return 0;
+        }
+    }
+
+
+
+    // --------------------------------------------------------------------
+
+    /**
+     *
+     * @inheritdoc
+     */
+    public function is_duplicate_key_error(array $p_error): bool {
+        if (isset($p_error['message'])) {
+            // for postgres pg_query only return messages
+            if (stripos($p_error['message'], 'duplicate key value violates') !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /****************************************************************
+     * SQL types stuff
+     */
+
+    /**
+     *
+     * @inheritdoc
+     */
+    protected function get_normalized_type(string $sql_real_type): string {
+        switch (strtolower($sql_real_type)) {
+            case 'boolean':
+                return 'boolean';
+
+            case 'character varying':
+            case 'varchar':
+            case 'character':
+            case 'char':
+            case 'text':
+            case 'timestamp':
+            case 'timestamptz':
+            case 'timestamp with time zone';
+            case 'timestamp without time zone';
+            case 'date':
+            case 'time':
+            case 'point':
+            case 'line':
+            case 'lseg':
+            case 'box':
+            case 'path':
+            case 'polygon':
+            case 'circle':
+            case 'inet':
+            case 'cidr':
+            case 'macaddr':
+            case 'macaddr8':
+            case 'bit':
+            case 'tsvector':
+            case 'tsquery':
+            case 'uuid':
+            case 'xml':
+            case 'json':
+            case 'jsonb':
+            case 'array':
+            case 'int4range':
+            case 'int8range':
+            case 'numrange':
+            case 'tsrange':
+            case 'tstzrange':
+            case 'daterange':
+            case 'oid':
+            case '':
+            case 'regclass':
+            case 'regcollation':
+            case 'regconfig':
+            case 'regdictionary':
+            case 'regnamespace':
+            case 'regoper':
+            case 'regoperator':
+            case 'regproc':
+            case 'regprocedure':
+            case 'regrole':
+            case 'regtype':
+            case 'refcursor':
+                return 'string';
+
+            // otherwise , some kind of numeric
+            default:
+                return 'numeric';
+
+        }
+    }
+
+
+
+    /***********************************************************
+     * Private helpers
+     */
+
+    /**
+     * Execute the final process of the sp/function execution.
+     *
+     * @param string       $p_type
+     * @param string       $sqlfunc
+     * @param flcDbResults $results
+     * @param bool         $is_outparams
+     * @param bool         $is_resultset
+     * @param bool         $is_multiresultset
+     * @param array        $refcursors
+     * @param bool         $refcursors_ret
+     * @param string       $p_fn_name
+     *
+     * @return flcDbResults|null
+     *
+     * @see flcPostgresDriver::execute_stored_procedure()
+     * @see flcPostgresDriver::execute_stored_procedure_extended()
+     *
+     */
+    private function _process_callable(string $p_type, string $sqlfunc, flcDbResults $results, bool $is_outparams, bool $is_resultset, bool $is_multiresultset, array $refcursors, bool $refcursors_ret, string $p_fn_name): ?flcDbResults {
         // Process the stored procedurre
         //
-
-
         // If only a sp with a single return value?
         // generate the sql code and execute
         if (($p_type & self::FLCDRIVER_PROCTYPE_SCALAR) == self::FLCDRIVER_PROCTYPE_SCALAR) {
@@ -778,51 +1121,71 @@ class flcPostgresDriver extends flcDriver {
         }
 
         return $results;
-
     }
 
-    // --------------------------------------------------------------------
-
     /**
-     * @inheritdoc
+     * Helper function to get the type of callable , function / sp and if return refcursors
+     *
+     * @param string $p_callable_name the name of the sp/function
+     * @param int    $numparams the expected number of parameters associated to the sp/function , if -1
+     * search the callable without take into account the parameter number.
+     *
+     * @return bool[]|null if the functon doesnt exist or no more than one function with the
+     * same name and/or parameters return null , otherwise and array of 2 boolean elements
+     * the first indicate if it is a function or not and the second if the return if a refcursor or not.
+     *
      */
-    public function insert_id(?string $p_table_name = null, ?string $p_column_name = null): int {
-        if ($p_table_name && $p_column_name) {
-            $sql = "SELECT currval(pg_get_serial_sequence('$p_table_name', '$p_column_name')) as ins_id";
+    private function _get_callable_type_and_ref_return(string $p_callable_name, int $numparams = -1): ?array {
+        $is_function = true;
+        $refcursors_ret = false;
 
-            $res = $this->execute_query($sql);
-            if ($res) {
-                $insert_id = $res->row()->insert_id ?? 0;
-                $res->free_result();;
+        $is_11 = false;
+        $sqlappend = '';
+        if ($numparams > 0) {
+            $sqlappend = " and pronargs = $numparams";
+        }
 
-                return $insert_id;
-            } else {
-                $this->log_error('Can obtain insert id', 'E');
+        //  >= 8.4 pg_get_function_identity_arguments
+        // < 11 proisagg if false is function
+        // >= 11 prokind 'f' function , 'p' procedure
+        // use AND n.nspname = 'public' i f schema name required , here is in the current schema , no need to specify
+        $version = $this->get_version();
 
-                return 0;
-            }
+        // detect type function or procedure and if the return is refcursors, in postgres when we have return of refcursors
+        // its imposible to have refcursors as inout or out parameters.
+        // See we also search using number of input parameters because we can have 2 functions/procedures with the same name but
+        // different parameters,
+        // TODO: Verify same number of parameters but of different types.
+        if (version_compare($version, '11', '>=')) {
+            $is_11 = true;
+            $res = $this->execute_query("SELECT proname,prokind,pa.typname FROM pg_proc p INNER JOIN pg_type pa ON pa.oid = p.prorettype WHERE proname = LOWER('$p_callable_name')".$sqlappend);
 
         } else {
-            $this->log_error('insert_id require the table and field name', 'e');
-
-            return 0;
+            $res = $this->execute_query("SELECT proname,proisagg,pa.typname FROM pg_proc p INNER JOIN pg_type pa ON pa.oid = p.prorettype WHERE pronargs = $numparams and  p.proisagg = FALSE".$sqlappend);
         }
+
+        $answer = null;
+        if ($res) {
+            // more than on sp or function with the same name or same name/num parameters is not allowed
+            if ($res->num_rows() == 1) {
+                $row = $res->row_array(0);
+                if ($is_11) {
+                    if ($row['prokind'] == 'p') {
+                        $is_function = false;
+                    }
+
+                }
+
+                if (strtolower($row['typname']) === 'refcursor') {
+                    $refcursors_ret = true;
+                }
+                $answer = [$is_function, $refcursors_ret];
+            }
+            $res->free_result();
+        }
+
+        return $answer;
     }
 
     // --------------------------------------------------------------------
-
-    /**
-     *
-     * @inheritdoc
-     */
-    public  function is_duplicate_key_error(array $p_error) : bool {
-        if (isset($p_error['message'])) {
-            // for postgres pg_query only return messages
-            if (stripos($p_error['message'],'duplicate key value violates') !== false) {
-                return true;
-            }
-        }
-        return false;
-    }
-
 }

@@ -1,9 +1,10 @@
 <?php
 
-use framework\core\accessor\core\model\core\FLC;
+use framework\core\FLC;
 
-use framework\core\accessor\core\model\core\flcLanguage;
-use framework\core\accessor\core\model\core\flcValidation;
+use framework\core\flcLanguage;
+use framework\core\flcServiceLocator;
+use framework\core\flcValidation;
 
 $application_folder = dirname(__FILE__);
 $system_path = '/var/www/common/framework';
@@ -166,7 +167,7 @@ $flc = FLC::get_instance();
 //print_r($flc->get_config()).PHP_EOL;
 
 
-$flc->db = \framework\core\accessor\core\model\core\flcServiceLocator::get_instance()->service('database');
+$flc->db = flcServiceLocator::get_instance()->service('database');
 print_r($flc->db);
 
 

@@ -41,7 +41,7 @@ class flcJoinEntry {
         $this->fields = $p_fields;
         $this->show_fields = $p_show_fields;
 
-        if ($p_type == null || $p_type != self::$LEFT_JOIN || $p_type != self::$RIGHT_JOIN) {
+        if ($p_type == null || ($p_type != self::$LEFT_JOIN && $p_type != self::$RIGHT_JOIN)) {
             $this->join_type = self::$INNER_JOIN;
         } else {
             $this->join_type = $p_type;
