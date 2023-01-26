@@ -24,14 +24,15 @@ use InvalidArgumentException;
  *
  * This class after processed the input can be consumed by an instance of flcInpitProcessor.
  */
-abstract class flcInputData {
+abstract class flcInputDataProcessor {
     /**
      * The operation to do over the model/entity ,
      * can be:
      *      add
-     *      delete or remove
+     *      del
      *      fetch
-     *      update
+     *      read
+     *      upd
      *
      * @var string
      */
@@ -114,9 +115,17 @@ abstract class flcInputData {
 
     /*--------------------------------------------------------------*/
 
-    public function __construct(array $p_input_data) {
+    /**
+     * Constructor.
+     *
+     * @param array $p_input_data
+     *
+     * @see this::set_input_data
+     */
+    public function __construct(?array $p_input_data) {
         $this->input_data = $p_input_data;
     }
+
 
     /**
      * Overridable method to take an array of input data to parse

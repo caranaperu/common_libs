@@ -22,14 +22,14 @@ use framework\core\accessor\constraints\flcConstraints;
 use framework\core\accessor\constraints\flcJoinEntry;
 use framework\core\accessor\constraints\flcJoins;
 use framework\core\accessor\flcDbAccessor;
-use framework\core\dto\flcInputData;
+use framework\core\dto\flcInputDataProcessor;
 use framework\core\entity\flcBaseEntity;
 use framework\database\driver\flcDriver;
 use framework\database\driver\mssql\flcMssqlDriver;
 use framework\database\driver\mysql\flcMysqlDriver;
 use framework\database\driver\postgres\flcPostgresDriver;
 
-class flcHeaderInputDataFetch extends flcInputData {
+class flcHeaderInputDataProcessorFetch extends flcInputDataProcessor {
     public function process_input_data(flcBaseEntity $p_entity) {
         // simulated parser
         $this->operation = 'fetch';
@@ -40,7 +40,7 @@ class flcHeaderInputDataFetch extends flcInputData {
 
 }
 
-class flcHeaderInputDataAdd extends flcInputData {
+class flcHeaderInputDataProcessorAdd extends flcInputDataProcessor {
 
     public function process_input_data(flcBaseEntity $p_entity) {
         // simulated parser
@@ -49,7 +49,7 @@ class flcHeaderInputDataAdd extends flcInputData {
     }
 }
 
-class flcHeaderInputDataUpdate extends flcInputData {
+class flcHeaderInputDataProcessorUpdate extends flcInputDataProcessor {
 
     public function process_input_data(flcBaseEntity $p_entity) {
         // simulated parser
@@ -59,7 +59,7 @@ class flcHeaderInputDataUpdate extends flcInputData {
     }
 }
 
-class flcHeaderInputDataDelete extends flcInputData {
+class flcHeaderInputDataProcessorDelete extends flcInputDataProcessor {
 
     public function process_input_data(flcBaseEntity $p_entity) {
         // simulated parser
@@ -70,7 +70,7 @@ class flcHeaderInputDataDelete extends flcInputData {
     }
 }
 
-class flcHeaderInputDataRead extends flcInputData {
+class flcHeaderInputDataProcessorRead extends flcInputDataProcessor {
 
     public function process_input_data(flcBaseEntity $p_entity) {
         // simulated parser
@@ -110,7 +110,7 @@ $driver->trans_mark_clean();
 $driver->trans_begin();
 
 class factura_header_entity extends flcBaseEntity {
-    public function __construct(flcDriver $p_driver, ?flcInputData $p_input_data) {
+    public function __construct(flcDriver $p_driver, ?flcInputDataProcessor $p_input_data) {
         $this->fields = ['numero' => null, 'descripcion' => null, 'customer_id' => null];
         $this->fields_ro = ['name' => null];
 
@@ -195,7 +195,7 @@ class factura_header_entity extends flcBaseEntity {
 }
 
 
-$id = new flcHeaderInputDataFetch([]);
+$id = new flcHeaderInputDataProcessorFetch([]);
 $factura_header = new factura_header_entity($driver, $id);
 
 // do a fetch
@@ -216,7 +216,7 @@ if (is_array($results)) {
 
 
 // do an add
-$id = new flcHeaderInputDataAdd([]);
+$id = new flcHeaderInputDataProcessorAdd([]);
 $factura_header = new factura_header_entity($driver, $id);
 
 $ret = $factura_header->add();
@@ -225,14 +225,14 @@ echo $ret.PHP_EOL;
 print_r($factura_header->get_fields());
 
 // do an update
-$id = new flcHeaderInputDataUpdate([]);
+$id = new flcHeaderInputDataProcessorUpdate([]);
 $factura_header = new factura_header_entity($driver, $id);
 
 $ret = $factura_header->update();
 echo $ret.PHP_EOL;
 
 // do a read
-$id = new flcHeaderInputDataRead([]);
+$id = new flcHeaderInputDataProcessorRead([]);
 $factura_header = new factura_header_entity($driver, $id);
 
 $ret = $factura_header->read();
@@ -246,7 +246,7 @@ echo $ret.PHP_EOL;
 print_r($factura_header->get_fields());
 
 // delete
-$id = new flcHeaderInputDataDelete([]);
+$id = new flcHeaderInputDataProcessorDelete([]);
 $factura_header = new factura_header_entity($driver, $id);
 
 $ret = $factura_header->delete();

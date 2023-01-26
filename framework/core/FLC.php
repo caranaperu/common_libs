@@ -61,6 +61,8 @@ class FLC {
 
     /**
      * The validation manager
+     * This is not created here , use this variable to create your own
+     * validation manager in your controller or program.
      *
      * @var flcValidation
      */

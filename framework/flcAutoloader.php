@@ -9,7 +9,6 @@ spl_autoload_register(function (string $class) {
         'FLC' => BASEPATH.'/core/',
         'flcConfig' => BASEPATH.'/core/',
         'flcController' => BASEPATH.'/core/',
-        'flcIController' => BASEPATH.'/core/',
         'flcLanguage' => BASEPATH.'/core/',
         'flcLog' => BASEPATH.'/core/',
         'flcRequest' => BASEPATH.'/core/',
@@ -40,6 +39,7 @@ spl_autoload_register(function (string $class) {
         'flcPostgresResult' => BASEPATH.'/database/driver/postgres/',
         // accessor
         'flcPersistenceAccessor' => BASEPATH.'/core/accessor/',
+        'flcPersistenceAccessorAnswer' => BASEPATH.'/core/accessor/',
         'flcDbAccessor' => BASEPATH.'/core/accessor/',
         'flcConstraints'=> BASEPATH.'/core/accessor/constraints/',
         'flcJoinEntry'=> BASEPATH.'/core/accessor/constraints/',
@@ -48,8 +48,14 @@ spl_autoload_register(function (string $class) {
         'flcBaseEntity' => BASEPATH.'/core/entity/',
 
         // dto
-        'flcInputData' => BASEPATH.'/core/dto/',
+        'flcInputDataProcessor' => BASEPATH.'/core/dto/',
         'flcOutputData' => BASEPATH.'/core/dto/',
+        'flcOutputDataProcessor' => BASEPATH.'/core/dto/',
+
+        // app impl
+        'flcBaseController' => BASEPATH.'/impl/controller/',
+        'flcCRUDController' => BASEPATH.'/impl/controller/',
+
 
         // others
         'flcCommon' => BASEPATH.'/',

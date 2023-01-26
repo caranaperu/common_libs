@@ -2,7 +2,7 @@
 
 namespace framework\tests\controllers;
 
-use framework\core\dto\flcInputData;
+use framework\core\dto\flcInputDataProcessor;
 use framework\core\FLC;
 use framework\core\flcController;
 use framework\tests\input\TestInputData;

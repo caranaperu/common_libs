@@ -15,6 +15,8 @@
 namespace framework\core;
 
 
+use Throwable;
+
 /**
  * Controller abstract class, define the methods that neeed to be override to
  * manipulate the request.
@@ -24,10 +26,31 @@ namespace framework\core;
  * by the bootstrap to send to the controller the output buffer , and this method
  * will be the responsible to send to browser.
  */
-abstract class flcController implements flcIController {
+abstract class flcController {
 
     /**
-     * @inheritdoc
+     * We need to check if the user is logged in?
+     *
+     * @var bool
+     */
+    protected bool $check_logged_in = false;
+
+    /**
+     * Default key for check if it is logged in
+     *
+     * @var string
+     */
+    protected string $logged_in_key = 'is_logged_in';
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Initialize the class , if this method is overload always
+     * call the parent class.
+     *
+     * @return void
+     * @throws Throwable
+     *
      */
     public function initialize() {
         // TODO: Implement initialize() method.
@@ -36,7 +59,11 @@ abstract class flcController implements flcIController {
     // --------------------------------------------------------------------
 
     /**
-     * @inheritdoc
+     * Called by the bootstrap before call the index method.
+     *
+     * @return void
+     * @throws Throwable
+     *
      */
     public function pre_index() {
         // TODO: Implement pre_index() method.
@@ -45,7 +72,11 @@ abstract class flcController implements flcIController {
     // --------------------------------------------------------------------
 
     /**
-     * @inheritdoc
+     * Called by the bootstrap after call the index method.
+     *
+     * @return void
+     * @throws Throwable
+     *
      */
     public function post_index() {
         // TODO: Implement post_index() method.
@@ -54,9 +85,37 @@ abstract class flcController implements flcIController {
     // --------------------------------------------------------------------
 
     /**
-     * @inheritdoc
+     * The entry point for the controller , this will be called
+     * by the bootstrap, all the important logic need to be there.
+     *
+     * @return void
+     * @throws Throwable
+     *
      */
     public abstract function index();
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Check if the user is logged in , can be on a session or other methods.
+     *
+     * @return bool true is logged
+     * @throws Throwable
+     */
+    public abstract function is_logged_in(): bool;
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Set if the uer is loggged in or not , left the implementation
+     * to the implementation classes.
+     *
+     * @param bool $p_is_loggedd_in
+     *
+     * @return void
+     * @throws Throwable
+     */
+    public abstract function set_logged_in(bool $p_is_loggedd_in): void;
 
     // --------------------------------------------------------------------
 

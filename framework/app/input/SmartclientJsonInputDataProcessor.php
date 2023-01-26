@@ -1,11 +1,26 @@
 <?php
+/**
+ * This file is part of Future Labs Code 1 framework.
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ *
+ * Inspired in codeigniter , all kudos for his authors
+ *
+ * @author Carlos Arana Reategui.
+ *
+ */
 
-namespace framework\tests\apptests\backend\input;
+namespace framework\app\input;
 
-use framework\core\dto\flcInputData;
+use framework\core\dto\flcInputDataProcessor;
 use framework\core\entity\flcBaseEntity;
 
-class TestInputData extends flcInputData {
+/**
+ * Specific class for input processor for the smartclient client library and the json
+ * format used by this library.
+ */
+class SmartclientJsonInputDataProcessor extends flcInputDataProcessor {
 
     // add to the filter fields
     // EXACT
@@ -14,28 +29,51 @@ class TestInputData extends flcInputData {
     // startsWith (LIKE)
     private static array $_operator_map = ['exact'=> '=','substring'=> 'ilike' ,'startsWith'=> 'ilike(-%)'];
 
+    /*--------------------------------------------------------------*/
+
+    /**
+     * @inheritdoc
+     */
     public function process_input_data(flcBaseEntity $p_entity) {
         // for easy and fast access
         $input_data =$this->input_data;
 
+        // get the operation and suboperation , this neded to be in the 'op' and '_operationID'
+        // entries in the input data
         $this->operation = $input_data['op'];
         if(isset($input_data['_operationId'])) {
             $this->sub_operation = $input_data['_operationId'];
         }
 
-        // set the fields
+        // set the fields, read all the fields of the model and search in the input data , if exist
+        // ad to the fields parameters
+
         $fields = $p_entity->get_all_fields();
         foreach ($fields as $field => $value) {
             if (isset($input_data[$field])) {
-                $this->fields[$field] = $input_data[$field];
+                // normalize null values
+                if (strtolower($input_data[$field]) === 'null') {
+                    $this->fields[$field] = null;
+                } else {
+                    $this->fields[$field] = $input_data[$field];
+                }
             }
         }
 
+        // get the constraints used only for fetch operations.
         if ($this->operation == 'fetch') {
             $this->_process_constraints();
         }
     }
 
+    /*--------------------------------------------------------------*/
+
+    /**
+     * Extract from the input data send by teh client to obtain
+     * the start row, end row , sort fields, filter fields.
+     *
+     * @return void
+     */
     private final function _process_constraints() {
         // for easy and fast access
         $input_data =$this->input_data;

@@ -30,3 +30,10 @@ $parts = explode('(',$var);
 
 print_r($parts);
 echo PHP_EOL;
+
+$parts = explode('(',strtolower('varchar'));
+print_r( $parts);
+
+echo str_replace(' ','','varchar(   100   )');
+$parts = explode('(',strtolower(str_replace(' ','','varchar(   100   )')));
+print_r( $parts);

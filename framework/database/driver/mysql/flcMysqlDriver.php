@@ -513,8 +513,6 @@ class flcMysqlDriver extends flcDriver {
     // --------------------------------------------------------------------
 
     protected function _list_tables_qry(string $p_schema, string $p_table_constraints = ''): string {
-        $sql = 'select TABLE_NAME as table_name from information_schema.tables WHERE TABLE_SCHEMA=';
-
 
         // if the schema contains the databse name use it, else get from connection.
         if (trim($p_schema) == '') {
@@ -522,9 +520,9 @@ class flcMysqlDriver extends flcDriver {
 
         } else {
             $dbname = $p_schema;
-
         }
 
+        $sql = "select TABLE_NAME as table_name from information_schema.tables WHERE TABLE_SCHEMA=$dbname";
         $sql .= $this->escape($dbname);
 
         if (isset($p_table_constraints) && $p_table_constraints !== '') {
@@ -575,7 +573,7 @@ class flcMysqlDriver extends flcDriver {
      *
      * @inheritdoc
      */
-    public function cast_param(string $p_param, string $p_type, ?string $p_appendstr = null): string {
+    public function cast_param(string $p_param, string $p_type, ?string $p_appendstr = null,bool $p_is_mapped_cast = true): string {
         if (strtolower($p_type) == 'boolean') {
             $conv = $p_param;
         } else {
@@ -719,7 +717,8 @@ class flcMysqlDriver extends flcDriver {
                         }
                         $sqlpost .= (strlen($sqlpost) > 0 ? ',@p'.$i : 'select @p'.$i);
 
-                        $params[] = '@p'.$i;
+                        // hack , recognized by callable_string
+                        $params[] = '<outparam=?>'.'@p'.$i;
                     } else {
                         $params[] = (is_string($value) ? '\''.$value.'\'' : $value);
                     }
@@ -805,6 +804,213 @@ class flcMysqlDriver extends flcDriver {
     /**
      * @inheritdoc
      */
+    public function execute_callable(string $p_callable_name, string $p_type, ?array $p_params_values = null, ?array $p_exclude_casts = null): ?flcDbResults {
+
+        $params = [];
+        $outparams_count = 0;
+        $sqlpre = '';
+        $sqlpost = '';
+
+        $callable_type = $this->_get_callable_type($p_callable_name);
+
+        if ($callable_type == null) {
+            return null;
+        }
+
+        // parameter analisys
+        $parameter_descriptors = $this->get_callable_parameter_types($p_callable_name, $callable_type == 'p' ? 'procedure' : 'function');
+
+        // if it its a function , prepare neccesary function parameters and execute
+        if ($callable_type === 'f') {
+            $func_parameters = [];
+            if ($parameter_descriptors !== null) {
+                foreach ($parameter_descriptors as $param_name => $parameter_descriptor) {
+
+                    // sql server no require param direction , allways is input , only values required
+                    $func_parameters[] = [$p_params_values[$param_name] ?? null];
+                }
+            }
+
+            // create sp store results
+            require_once(dirname(__FILE__).'/../../flcDbResults.php');
+            $results = new flcDbResults();
+
+            $res = $this->execute_function($p_callable_name, $func_parameters);
+            if ($res) {
+                $results->add_resultset_result($res);
+
+                return $results;
+            } else {
+                $this->log_error("execute callable $p_callable_name fail", 'E');
+
+                return null;
+            }
+
+        }
+        // Ok its a procedure.
+        if ($parameter_descriptors !== null) {
+            foreach ($parameter_descriptors as $param_name => $parameter_descriptor) {
+
+                // get the descriptors of the parameter
+                // the form is : [param1=> ['varchar','INOUT'],param2=>['int','IN'],param3=>['varchar','IN','(20)']]
+                $sqltype = $parameter_descriptor[0];
+                $paramtype = $parameter_descriptor[1];
+                $appendstr = $parameter_descriptor[2] ?? '';
+                // No default values in parameters in mysql
+                $value = $p_params_values[$param_name] ?? null;
+
+                // generate list of output paramenter
+                if ($paramtype == 'out' || $paramtype == 'inout') {
+
+                    $outparams_count++;
+
+                    $sqlpre .= (strlen($sqlpre) > 0 ? ';' : '');
+                    if ($paramtype == 'inout') {
+                        $sqlpre .= 'set @'.$param_name.'='.(is_string($value) ? '\''.$value.'\'' : $value);
+                    }
+                    $sqlpost .= (strlen($sqlpost) > 0 ? ',@'.$param_name : 'select @'.$param_name);
+
+                    $params[] = '<outparam=?>'.'@'.$param_name;
+                } else {
+                    $ntype = $this->get_normalized_type($sqltype);
+                    $params[] = ($ntype == 'string'  ? '\''.$value.'\'' : $value);
+                }
+            }
+        }
+
+        // create sp store results
+        require_once(dirname(__FILE__).'/../../flcDbResults.php');
+        $results = new flcDbResults();
+
+
+        // Get the callable string
+        $sqlfunc = $this->callable_string($p_callable_name, 'procedure', 'records', $params, $p_exclude_casts);
+        if ($sqlpre) {
+            $sqlfunc = $sqlpre.';'.$sqlfunc;
+
+        }
+        if ($sqlpost) {
+            $sqlfunc = $sqlfunc.$sqlpost.';';
+
+        }
+        echo $sqlfunc;
+
+        $mysqli = $this->_connId;
+        $res = $mysqli->multi_query($sqlfunc);
+
+        if ($res) {
+
+            $results_count = 0;
+            do {
+                if ($result = $mysqli->store_result()) {
+                    $result_driver = $this->load_result_driver();
+                    $result = new $result_driver($this, $result);
+
+                    $results->add_resultset_result($result);
+
+                    $results_count++;
+                }
+            } while ($mysqli->more_results() && $mysqli->next_result());
+
+            // exist output params
+            if ($outparams_count > 0) {
+                $result = $results->get_resultset_result($results_count - 1);
+                if ($result) {
+                    require_once(dirname(__FILE__).'/../../flcDbResultOutParams.php');
+                    $outparams = new flcDbResultOutParams();
+
+
+                    if ($result->num_rows() > 0) {
+                        foreach ($result->result_array() as $row) {
+                            foreach ($row as $key => $value) {
+                                $key = substr($key, 1); // remove @
+                                $outparams->add_out_param($key, $value);
+
+                            }
+                        }
+
+                        $results->add_outparams_result($outparams);
+                    }
+                    $results->resultset_free_result($results_count - 1);
+
+                }
+
+
+            }
+
+            return $results;
+
+        } else {
+            $this->log_error("execute callable fail for $sqlfunc", 'E');
+
+            return null;
+        }
+
+
+    }
+    // --------------------------------------------------------------------
+
+    /**
+     * @inheritdoc
+     */
+    public function get_callable_parameter_types(string $p_callable_name, string $p_callable_type): ?array {
+
+        $sql = "
+            select  r.SPECIFIC_NAME,p.PARAMETER_NAME,p.DATA_TYPE,p.DTD_IDENTIFIER,p.PARAMETER_MODE from information_schema.ROUTINES  r
+         inner join information_schema.PARAMETERS p on p.SPECIFIC_NAME =  r.SPECIFIC_NAME
+         where r.SPECIFIC_NAME='$p_callable_name'";
+
+        $res = $this->execute_query($sql);
+        if ($res) {
+            $answers = [];
+
+            $numrows = $res->num_rows();
+
+            if ($numrows > 0) {
+
+                $rows = $res->result_array();
+                foreach ($rows as $row) {
+                    // mysql when it is a function allways return a parameter with null name ,
+                    // i dont know why this behaviour , but skip
+                    if ($row['PARAMETER_NAME'] === null) {
+                        continue;
+                    }
+
+                    $varname = $row['PARAMETER_NAME'];
+                    $vardirection = strtolower($row['PARAMETER_MODE']);
+                    $varsqltype = strtolower($row['DATA_TYPE']);
+                    $appendstr = '';
+
+                    // extraact append string if exist
+                    $parts = explode('(', strtolower(str_replace(' ', '', $row['DTD_IDENTIFIER'])));
+                    if (count($parts) > 1) {
+                        $appendstr = '('.$parts[1];
+                    }
+
+                    // add to the parameter descriptor
+                    $answers[$varname] = [
+                        $varsqltype,
+                        $vardirection,
+                        $appendstr
+                    ];
+                }
+
+            }
+
+            $res->free_result();
+        } else {
+            $answers = null;
+        }
+
+        return $answers;
+    }
+
+
+    // --------------------------------------------------------------------
+
+    /**
+     * @inheritdoc
+     */
     public function insert_id(?string $p_table_name = null, ?string $p_column_name = null): int {
         return $this->_connId->insert_id;
     }
@@ -815,12 +1021,13 @@ class flcMysqlDriver extends flcDriver {
      *
      * @inheritdoc
      */
-    public  function is_duplicate_key_error(array $p_error) : bool {
+    public function is_duplicate_key_error(array $p_error): bool {
         if (isset($p_error['code'])) {
             if ($p_error['code'] == 1062) {
                 return true;
             }
         }
+
         return false;
     }
 
@@ -830,13 +1037,106 @@ class flcMysqlDriver extends flcDriver {
      *
      * @inheritdoc
      */
-    public  function is_foreign_key_error(array $p_error) : bool {
+    public function is_foreign_key_error(array $p_error): bool {
         if (isset($p_error['code'])) {
             if ($p_error['code'] == 1451 || $p_error['code'] == 1452) {
                 return true;
             }
         }
+
         return false;
     }
+
+    /****************************************************************
+     * SQL types stuff
+     */
+    /**
+     *
+     * @inheritdoc
+     */
+    protected function get_normalized_type(string $sql_real_type): string {
+        switch (strtolower($sql_real_type)) {
+            case 'varchar':
+            case 'char':
+            case 'text':
+            case 'binary':
+            case 'varbinary':
+            case 'tinyblob':
+            case 'tinytext':
+            case 'blob':
+            case 'mediumblob':
+            case 'longblob':
+            case 'longtext':
+            case 'mediumtext':
+            case 'enum':
+            case 'set':
+            case 'date':
+            case 'datetime':
+            case 'timestamp':
+            case 'time':
+            case 'year':
+            case 'geometry':
+            case 'point':
+            case 'linestring':
+            case 'polygon':
+            case 'multipoint':
+            case 'multilinestring':
+            case 'multipolygon':
+            case 'geometrycollection':
+            case 'json':
+                return 'string';
+
+            case 'boolean':
+                return 'boolean';
+
+            // otherwise , some kind of numeric
+            default:
+                return 'numeric';
+
+        }
+    }
+
+    /***********************************************************
+     * Private helpers
+     */
+
+
+    /**
+     * Helper function to get the type of callable , function / sp.
+     *
+     * @param string $p_callable_name the name of the sp/function
+     *
+     * @return string|null if the functon doesnt exist return null , otherwise
+     * 'p' for procedure , 'f' for functiom.
+     *
+     */
+    private function _get_callable_type(string $p_callable_name): ?string {
+        $answer = null;
+
+        $sql = "select  SPECIFIC_NAME,ROUTINE_TYPE as type from information_schema.ROUTINES
+                    where SPECIFIC_NAME='$p_callable_name'";
+
+
+        // detect type function or procedure.
+        $res = $this->execute_query($sql);
+
+        if ($res) {
+            // more than on sp or function with the same name or same name/num parameters is not allowed
+            if ($res->num_rows() == 1) {
+                $answer = 'p';
+
+                $row = $res->row_array(0);
+                if (trim($row['type']) != 'PROCEDURE') {
+                    $answer = 'f';
+                }
+
+            }
+            $res->free_result();
+        }
+
+        return $answer;
+    }
+
+    // --------------------------------------------------------------------
 
 }

@@ -5,13 +5,13 @@ namespace framework\tests\apptests\backend\model;
 require_once '/var/www/common/framework/tests/apptests/backend/accessors/atletas_accessor.php';
 
 
-use framework\core\dto\flcInputData;
+use framework\core\dto\flcInputDataProcessor;
 use framework\core\entity\flcBaseEntity;
 use framework\database\driver\flcDriver;
 use framework\tests\apptests\backend\accessors\atletas_accessor;
 
 class  atletas_model extends flcBaseEntity {
-    public function __construct(flcDriver $p_driver, ?flcInputData $p_input_data) {
+    public function __construct(flcDriver $p_driver, ?flcInputDataProcessor $p_input_data) {
         $this->fields = [
             'atletas_codigo' => null,
             'atletas_ap_paterno' => null,

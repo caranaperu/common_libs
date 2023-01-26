@@ -83,7 +83,7 @@ class flcLanguage {
                 $filepath = BASEPATH.'/core/language/'.$p_idiom.'/'.$p_langfile.$p_langsuffix.'.php';
 
                 if (!file_exists($filepath)) {
-                    // f not exist and is no english , try to find in that language.
+                    // if not exist and is no english , try to find in that language.
                     if ($p_idiom != 'english') {
                         if ($this->load($p_langfile, 'english', $p_langsuffix)) {
                             return true;

@@ -271,7 +271,7 @@ class flcMssqlDriver extends flcDriver {
             // Determine how identifiers are escaped
             $query = sqlsrv_query($conn, 'SELECT CASE WHEN (@@OPTIONS | 256) = @@OPTIONS THEN 1 ELSE 0 END AS qi');
             $rows = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC);
-            $quoted_identifier = empty($rows) ? false : (bool)$rows['qi'];
+            $quoted_identifier = !empty($rows) && (bool)$rows['qi'];
             $this->_escape_char = ($quoted_identifier) ? '"' : [
                 '[',
                 ']'
@@ -658,7 +658,6 @@ class flcMssqlDriver extends flcDriver {
                         WHERE sm.object_id = OBJECT_ID(\''.$p_fn_name.'\')
                         ORDER BY o.type;';
 
-        $type = null;
         if ($res = $this->_execute_qry($sqlinfo)) {
             $type = sqlsrv_fetch_array($res)['type_desc'];
             sqlsrv_free_stmt($res);
@@ -667,6 +666,10 @@ class flcMssqlDriver extends flcDriver {
             $this->log_error("execute function $p_fn_name fail", 'E');
 
             return null;
+        }
+
+        if (!empty($this->dbprefix)) {
+            $p_fn_name = $this->dbprefix.$p_fn_name;
         }
 
         if ($type && $type == 'SQL_SCALAR_FUNCTION') {
@@ -697,11 +700,10 @@ class flcMssqlDriver extends flcDriver {
         $is_outparams = false;
 
         if ($p_parameters && count($p_parameters) > 0) {
+
             for ($i = 0; $i < count($p_parameters); $i++) {
                 // determine if parameter is an array or simple and get the value.
                 if (is_array($p_parameters[$i])) {
-                    $sqlpre = '';
-                    $sqlpost = '';
 
                     // take the parameters descriptors.
                     $value = $p_parameters[$i][0];
@@ -713,10 +715,11 @@ class flcMssqlDriver extends flcDriver {
                         continue;
                     }
 
-                    if ($p_type == self::FLCDRIVER_PROCTYPE_SCALAR) {
+
+                    if ($p_type == self::FLCDRIVER_PROCTYPE_SCALAR && $sqlpre == '') {
                         // generate pre and post for catch the scalar return
-                        $sqlpre .= 'DECLARE @p'.$i.' '.$sqltype.';';
-                        $sqlpost .= 'SELECT @p'.$i.' as p'.$i.';';
+                        $sqlpre .= 'DECLARE @p0 '.$sqltype.';';
+                        $sqlpost .= 'SELECT @p0 as p0;';
                         $params[] = $value;
                     } elseif ($paramtype == self::FLCDRIVER_PARAMTYPE_OUT || $paramtype == self::FLCDRIVER_PARAMTYPE_INOUT) {
                         $is_outparams = true;
@@ -728,15 +731,35 @@ class flcMssqlDriver extends flcDriver {
                             &${'p'.$outparams_count},
                             $paramtype == self::FLCDRIVER_PARAMTYPE_INOUT ? SQLSRV_PARAM_INOUT : SQLSRV_PARAM_OUT
                         ];
-                        $params[] = '?';
+                        $params[] = '<outparam=?>';
                         $outparams_count++;
+                    } elseif ($paramtype == 'readonly') {
+                        $is_outparams = true;
+
+                        ${'p'.$outparams_count} = [$sqltype => $value];
+
+                        // If this is a readonly parameter in mssql allways is a table value
+                        // parameter
+                        $oparams[] = [
+                            &${'p'.$outparams_count},
+                            SQLSRV_PARAM_IN,
+                            SQLSRV_PHPTYPE_TABLE,
+                            SQLSRV_SQLTYPE_TABLE
+                        ];
+
+                        // need to be binded.
+                        $params[] = '<outparam=?>';
+                        $outparams_count++;
+
                     } else {
                         $params[] = $value;
                     }
 
 
                 } else {
-                    $params[] = (is_string($p_parameters[$i]) ? '\''.$p_parameters[$i].'\'' : $p_parameters[$i]);
+                    $params[] = $p_parameters[$i];
+
+                    //$params[] = (is_string($p_parameters[$i]) ? '\''.$p_parameters[$i].'\'' : $p_parameters[$i]);
                 }
             }
         }
@@ -772,7 +795,7 @@ class flcMssqlDriver extends flcDriver {
 
         } // For stores procedures with output parameters o resultset or both
         elseif ($is_outparams || $is_resultset || $is_multiresultset) {
-            // echo $sqlfunc.PHP_EOL;
+             echo $sqlfunc.PHP_EOL;
 
 
             // execute
@@ -838,6 +861,224 @@ class flcMssqlDriver extends flcDriver {
 
     // --------------------------------------------------------------------
 
+
+    /**
+     * @inheritdoc
+     */
+    public function execute_callable(string $p_callable_name, string $p_type, ?array $p_params_values = null, ?array $p_exclude_casts = null): ?flcDbResults {
+        $params = [];
+        $oparams = [];
+        // $outparams_count = 0;
+        $sqlpre = '';
+        $sqlpost = '';
+        $is_outparams = false;
+
+        $callable_type = $this->_get_callable_type($p_callable_name);
+
+        if ($callable_type == null) {
+            return null;
+        }
+
+        // parameter analisys
+        $parameter_descriptors = $this->get_callable_parameter_types($p_callable_name, $callable_type == 'p' ? 'procedure' : 'function');
+
+        // if it its a function , prepare neccesary function parameters and execute
+        if ($callable_type === 'f') {
+            $func_parameters = [];
+            if ($parameter_descriptors !== null) {
+                foreach ($parameter_descriptors as $param_name => $parameter_descriptor) {
+
+                    // sql server no require param direction , allways is input , only values required
+                    $func_parameters[] = [$p_params_values[$param_name] ?? null];
+                }
+            }
+
+            // create sp store results
+            require_once(dirname(__FILE__).'/../../flcDbResults.php');
+            $results = new flcDbResults();
+
+            $res = $this->execute_function($p_callable_name, $func_parameters);
+            if ($res) {
+                $results->add_resultset_result($res);
+                return $results;
+            } else {
+                $this->log_error("execute stored procedure extended $p_callable_name fail", 'E');
+                return null;
+            }
+
+        }
+
+        // Ok its a procedure.
+        if ($parameter_descriptors !== null) {
+
+            foreach ($parameter_descriptors as $param_name => $parameter_descriptor) {
+                $is_outparams = false;
+
+                // get the descriptors of the parameter
+                // the form is : [param1=> ['varchar','INOUT'],param2=>['int','IN'],param3=>['varchar','IN','(20)']]
+                $sqltype = $parameter_descriptor[0];
+                $paramtype = $parameter_descriptor[1];
+                $appendstr = $parameter_descriptor[2] ?? '';
+                // if not value defined , then try default value , if not exist then null value
+                $value = $p_params_values[$param_name] ?? ($parameter_descriptor[3] ?? null);
+
+
+                if ($p_type == self::FLCDRIVER_PROCTYPE_SCALAR && $sqlpre == '') {
+                    // generate pre and post for catch the scalar return
+                    $sqlpre .= 'DECLARE @p0 '.$sqltype.';';
+                    $sqlpost .= 'SELECT @p0 as p0;';
+                    $params[$param_name] = $value;
+                } elseif ($paramtype == 'out' || $paramtype == 'inout') {
+                    // In mssql server al output parameters are input also , no specific code for each case here.
+                    $is_outparams = true;
+
+                    // remove the @ at the beggining , because php doesnt allow for define a
+                    // variable.
+                    $param_ext = substr($param_name, 1);
+
+                    // sqlserver not allow null values on inout parameter , its requiered
+                    // at least a default value based on his php type.
+                    // this can happen when an output parameter its not defined in the list
+                    // $p_params_values.
+                    if ($value === null) {
+                        $ntype = $this->get_normalized_type($sqltype);
+                        if ($ntype == 'string') {
+                            $$param_ext = '';
+                        } else {
+                            $$param_ext = 0;
+                        }
+
+                    } else {
+                        $$param_ext = $value;
+                    }
+
+                    $oparams[] = [
+                        &$$param_ext,
+                        SQLSRV_PARAM_INOUT
+                    ];
+
+                    $params[$param_name] = '?';
+
+                } elseif ($paramtype == 'readonly') {
+                    $is_outparams = true;
+
+                    // remove the @ at the beggining , because php doesnt allow for define a
+                    // variable.
+                    $param_ext = substr($param_name, 1);
+                    $$param_ext = [$sqltype => $value];
+
+                    // If this is a readonly parameter in mssql allways is a table value
+                    // parameter
+                    $oparams[] = [
+                        $$param_ext,
+                        SQLSRV_PARAM_IN,
+                        SQLSRV_PHPTYPE_TABLE,
+                        SQLSRV_SQLTYPE_TABLE
+                    ];
+
+                    // need to be binded.
+                    $params[$param_name] = '?';
+
+                } else {
+                    $params[$param_name] = $value;
+                }
+
+            }
+        }
+        // create sp store results
+        require_once(dirname(__FILE__).'/../../flcDbResults.php');
+        $results = new flcDbResults();
+
+
+        // Get the callable string
+        // No cast allowed in mssql server on stored procedures calls, ignore the parameter
+        $sqlfunc = $this->callable_string_extended($p_callable_name, 'procedure', 'records', $params, $parameter_descriptors);
+        echo $sqlfunc.PHP_EOL;
+
+        // Process the stored procedurre
+        //
+
+        $is_resultset = ($p_type == self::FLCDRIVER_PROCTYPE_RESULTSET);
+        $is_multiresultset = ($p_type == self::FLCDRIVER_PROCTYPE_MULTIRESULTSET);
+
+        // If only a sp with a single return value?
+        // generate the sql code and execute
+        if ($p_type == self::FLCDRIVER_PROCTYPE_SCALAR) {
+            $sqlfunc = $sqlpre.$sqlfunc.$sqlpost;
+            $sqlfunc = str_replace($this->_callable_procedure_call_string.' ', $this->_callable_procedure_call_string.' @p0 = ', $sqlfunc);
+
+            echo $sqlfunc.PHP_EOL;
+
+            if ($res = $this->execute_query($sqlfunc)) {
+                $results->add_resultset_result($res);
+            } else {
+                $this->log_error("execute stored procedure extended $p_callable_name fail", 'E');
+            }
+
+        } // For stores procedures with output parameters o resultset or both
+        elseif ($is_outparams || $is_resultset || $is_multiresultset) {
+            // execute
+            $res = sqlsrv_query($this->_connId, $sqlfunc, $oparams);
+            if ($res) {
+                // If a resulset type sp , get the results.
+                if ($is_resultset || $is_multiresultset) {
+
+                    // In single resultsets , we don prefetch the answers , is not required and also is more
+                    // efficient.
+                    if (!$is_outparams && $is_resultset) {
+                        $result_driver = $this->load_result_driver();
+                        $result = new $result_driver($this, $res);
+
+                        $results->add_resultset_result($result);
+
+                    } else {
+                        // Get the resulset or resultsets
+                        do {
+                            $result_driver = $this->load_result_driver();
+                            $result = new $result_driver($this, $res);
+
+                            // Yes , we need to pre-fetch al records , inefficient yes , but required in case we have to fetch the output parametes.
+                            // Info on docs : "make sure all result sets are stepped through,  since the output params may not be set until this happens"
+                            // Also we can never get the next resulset results without prefetching the previous ones.
+                            // Bad , bad , but no other way.
+                            $result->result_array();
+
+                            $results->add_resultset_result($result);
+                        } while (sqlsrv_next_result($res));
+
+                    }
+                }
+
+                // If we ned to process output params?
+                if ($is_outparams) {
+                    require_once(dirname(__FILE__).'/../../flcDbResultOutParams.php');
+
+                    $outparams = new flcDbResultOutParams();
+
+                    foreach ($parameter_descriptors as $param_name => $parameter_descriptor) {
+                        if ($parameter_descriptor[1] != 'in') {
+                            $param_ext = substr($param_name, 1); // remove @
+                            $outparams->add_out_param($param_ext, $$param_ext);
+                        }
+                    }
+
+                    $results->add_outparams_result($outparams);
+                }
+
+
+            } else {
+                $this->log_error("execute stored procedure extended $p_callable_name fail", 'E');
+
+                return null;
+            }
+
+        }
+
+        return $results;
+    }
+
+    // --------------------------------------------------------------------
+
     /**
      * @inheritdoc
      */
@@ -848,44 +1089,68 @@ class flcMssqlDriver extends flcDriver {
             $sql_where_to_append = "o.type in ('FN','AF','FS','FT','IF','TF')";
         }
 
-        $sql = "with def_cte(procname, definition, type)
-                as (SELECT o.name          as procname,
-                    sm.[definition] as definition,
-                    o.type
-                FROM sys.sql_modules AS sm
-                      JOIN sys.objects AS o ON sm.object_id = o.object_id
-                      JOIN sys.schemas AS ss ON o.schema_id = ss.schema_id
-                where o.name = '$p_callable_name' and $sql_where_to_append 
+        $sql = "
+            -- final para codigo
+            -- SOLUTION
+            with def_params(type, name, definition, have_parentesis)
+                     as (select o.type
+                              , o.name as procname
+                              , ltrim(substring(
+                            replace(replace(replace(replace(sm.definition, char(10), ' '), char(13), ' '), char(9), ' '),  'FOR REPLICATION', ''), charindex('@', sm.definition), 10000))
+                                       as definition
+                              -- the function or sp definition contains parenthesis ?=> fn(............) or [fn](............)
+                              -- check
+                              , case
+                                    when
+                                            charindex(o.name + '(',
+                                                      replace(replace(replace(replace(sm.definition, char(10), ' '), char(13), ' '), char(9), ' '), ' ', '') ) > 0
+                                        then  1
+                                    when
+                                            charindex(o.name + '](',
+                                                      replace(replace(replace(replace(sm.definition, char(10), ' '), char(13), ' '),  char(9), ' '), ' ', '') ) > 0
+                                        then 1
+                                    else 0
+                        end  as have_parentesis
+                         from sys.sql_modules sm WITH (NOLOCK)
+                                  JOIN sys.objects o WITH (NOLOCK) ON sm.[object_id] = o.[object_id]
+                                  JOIN sys.schemas s  WITH (NOLOCK) ON o.[schema_id] = s.[schema_id]
+                    where o.name = '$p_callable_name' and $sql_where_to_append 
                 )
-                select 
-                       case
-                           when type != 'P'
-                               -- remove the () from the function definition
-                               then left(right(definition, len(definition) - 1),
-                                         case when definition = '()' then 0 else len(definition) - 2 end)
-                           -- Procedure have parameters?
-                           when charindex('@', definition) > 0 then definition
-                           else ''
-                           end
-                           as args
-                from (select lower(definition) as ldefinition,
-                             type,
-                             case
-                                 when type != 'P'
-                                     then
-                                     -- if function , break the string between the first '(' and  the word 'returns'
-                                     rtrim(substring(definition, charindex('(', definition),
-                                                     charindex('returns', definition) - charindex('(', definition)))
-                                 else
-                                     -- if procedure ,break the string to left the beginning on the first parameter
-                                     -- until the 'as' word.
-                                     substring(definition, charindex('@', definition),
-                                               charindex(' AS', definition) - charindex('@', definition))
-                                 end           as definition
-                      from (
-                               -- remove carriage return , line feeds
-                               select type, replace(replace(replace(definition, char(10), ' '), char(13), ' '),char(9),' ') as definition
-                               from def_cte) xx) zz";
+            select
+                  sm2.name
+                 -- Remove definitions like @int NOT NULL OUT or @int NULL OUT
+                 -- for example.
+                 ,REPLACE(REPLACE(case
+                                      --  No @ means no parameters
+                                      when charindex('@', sm2.params) <= 0
+                                          then ''
+                                      -- remove a trailing right parenthesis
+                                      -- and also NOT NULL and NULL from the parameter definition because is useless for my purposes.
+                                      when sm2.have_parentesis = 1
+                                          then reverse(SUBSTRING(REVERSE(rtrim(sm2.params)), 2, 9999))
+                                      else
+                                          sm2.params
+                                      end ,' NOT NULL ',' '),' NULL ',' ') as args
+            FROM (SELECT
+                      type
+                       , definition
+                       , have_parentesis
+                       , name
+                       -- Remove first RETURNS , WITH or AS in that order and then remove that part
+                       -- to left only the parameter list.
+                       , case
+                             when CHARINDEX(' RETURNS ', definition) > 0 then
+                                 SUBSTRING(definition, 0,
+                                           CHARINDEX(' RETURNS ', definition))
+                             when CHARINDEX(' WITH ', definition) > 0 then
+                                 SUBSTRING(definition, 0,
+                                           CHARINDEX(' WITH ', definition))
+                             else
+                                 SUBSTRING(definition, 0,
+                                           CHARINDEX(' AS ', definition))
+                    end as params
+                  FROM def_params) sm2";
+
         $res = $this->execute_query($sql);
         if ($res) {
             $answers = [];
@@ -952,11 +1217,11 @@ class flcMssqlDriver extends flcDriver {
 
                                     } else {
                                         // not default , then the third element is the direction
-                                        $vardirection = $parts[2];
+                                        $vardirection = strtolower($parts[2]);
                                     }
                                 } else {
                                     $vardefault = $parts[2];
-                                    $vardirection = $parts[3];
+                                    $vardirection = strtolower($parts[3]);
 
                                 }
 
@@ -988,7 +1253,7 @@ class flcMssqlDriver extends flcDriver {
                             // generate the descriptor entry.
                             $answers[$varname] = [
                                 $varsqltype,
-                                $vardirection,
+                                $vardirection == 'output' ? 'out' : $vardirection,
                                 $appendstr
                             ];
                             if ($vardefault !== null) {
@@ -1034,7 +1299,7 @@ class flcMssqlDriver extends flcDriver {
         $res = $this->execute_query($sql);
         if ($res) {
             $insert_id = $res->row()->last_id ?? 0;
-            $res->free_result();;
+            $res->free_result();
 
             return $insert_id;
         } else {
@@ -1095,4 +1360,51 @@ class flcMssqlDriver extends flcDriver {
         }
     }
 
+
+    /***********************************************************
+     * Private helpers
+     */
+
+
+    /**
+     * Helper function to get the type of callable , function / sp.
+     *
+     * @param string $p_callable_name the name of the sp/function
+     *
+     * @return string|null if the functon doesnt exist return null , otherwise
+     * 'p' for procedure , 'f' for functiom.
+     *
+     */
+    private function _get_callable_type(string $p_callable_name): ?string {
+        $answer = null;
+
+        $sql = "SELECT o.name          as procname,
+               o.type
+        FROM sys.sql_modules AS sm
+                 JOIN sys.objects AS o ON sm.object_id = o.object_id
+                 JOIN sys.schemas AS ss ON o.schema_id = ss.schema_id
+        where o.name = '$p_callable_name'";
+
+
+        // detect type function or procedure.
+        $res = $this->execute_query($sql);
+
+        if ($res) {
+            // more than on sp or function with the same name or same name/num parameters is not allowed
+            if ($res->num_rows() == 1) {
+                $answer = 'p';
+
+                $row = $res->row_array(0);
+                if (trim($row['type']) != 'P') {
+                    $answer = 'f';
+                }
+
+            }
+            $res->free_result();
+        }
+
+        return $answer;
+    }
+
+    // --------------------------------------------------------------------
 }

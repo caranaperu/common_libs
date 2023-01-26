@@ -58,7 +58,10 @@ class flcDbAccessor extends flcPersistenceAccessor {
     /**
      * @inheritdoc
      */
-    public function add(flcBaseEntity &$p_entity, ?string $p_suboperation = null, ?flcConstraints $p_constraints = null): int {
+    public function add(flcBaseEntity &$p_entity, ?string $p_suboperation = null, ?flcConstraints $p_constraints = null): flcPersistenceAccessorAnswer {
+
+        $answer = new flcPersistenceAccessorAnswer();
+        $answer->set_success(false);
 
         $res = null;
 
@@ -67,7 +70,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
             // do add
             $res = $this->db->execute_query($this->get_add_query($p_entity, $p_suboperation));
             if ($res) {
-                $this->log_error('affected rows add '.$res->affected_rows(),'I');
+                $this->log_error('affected rows add '.$res->affected_rows(), 'I');
 
                 $id_field = $p_entity->get_id_field();
 
@@ -81,14 +84,20 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
                 // Read to load all the values from the record in the entity , important to update some automatic fields
                 // or fields with defaults not currently in the received entity..
-                $ret = $this->read($p_entity, $p_suboperation, $p_constraints);
+                $answer = $this->read($p_entity, $p_suboperation, $p_constraints);
 
             } else {
-                $ret = $this->_process_db_error('add');
+                $answer->set_return_code($this->_process_db_error('add'));
+
             }
 
         } catch (Throwable $ex) {
             $ret = $this->_process_exception($ex, 'add');
+            if ($ret == self::$db_error_codes['DB_OPERATION_FAIL']) {
+                $answer->set_exception($ex);
+            } else {
+                $answer->set_return_code($ret);
+            }
         } finally {
 
             if ($res) {
@@ -99,17 +108,23 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
 
         // announce we have an error
-        if ($ret !== self::$db_error_codes['DB_OPERATION_OK']) {
+        if ($answer->is_success()) {
+            $answer->set_result_array($p_entity->get_all_fields('rc'));
+        } else {
+            // mark transaction error
             $this->db->trans_mark_dirty();
         }
 
-        return $ret;
+        return $answer;
     }
 
     /**
      * @inheritdoc
      */
-    public function update(flcBaseEntity &$p_entity, ?string $p_suboperation = null, ?flcConstraints $p_constraints = null): int {
+    public function update(flcBaseEntity &$p_entity, ?string $p_suboperation = null, ?flcConstraints $p_constraints = null): flcPersistenceAccessorAnswer {
+
+        $answer = new flcPersistenceAccessorAnswer();
+        $answer->set_success(false);
 
         $res = null;
 
@@ -117,15 +132,14 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
             $rowversion_support = $this->is_rowversion_supported($p_entity);
 
-            $sql = $this->get_update_query($p_entity, $p_suboperation);
-
-            $res = $this->db->execute_query($sql);
+            $res = $this->db->execute_query($this->get_update_query($p_entity, $p_suboperation));
 
             if ($res) {
-                $this->log_error('affected rows update '.$res->affected_rows(),'I');
+                $this->log_error('affected rows update '.$res->affected_rows(), 'I');
+
+                $answer->set_success(true);
 
                 $affected_rows = $res->affected_rows();
-
 
                 if ($affected_rows <= 0) {
                     // Probably nothing in the record is change or a real error ocurred
@@ -135,30 +149,37 @@ class flcDbAccessor extends flcPersistenceAccessor {
                     if (!$this->is_db_error($error)) {
                         // if simply nothing was changed , then no error , next step
                         // reread to verify changes.
-                        $ret = $this->read($p_entity, $p_suboperation);
+                        $answer = $this->read($p_entity, $p_suboperation);
 
                         if ($rowversion_support) {
                             // its deleted or modified?
                             // its delete will return self::$db_error_codes['DB_RECORD_NOT_EXIST']
-                            if ($ret == self::$db_error_codes['DB_OPERATION_OK']) {
-                                $ret = self::$db_error_codes['DB_RECORD_MODIFIED'];
+
+                            if ($answer->is_success()) {
+                                $answer->set_return_code(self::$db_error_codes['DB_RECORD_MODIFIED']);
                             }
+
 
                         }
                     } else {
-                        $ret = $this->_process_db_error('update');
+                        $answer->set_return_code($this->_process_db_error('update'));
                     }
 
                 } else {
-                    $ret = $this->read($p_entity, $p_suboperation, $p_constraints);
+                    $answer = $this->read($p_entity, $p_suboperation, $p_constraints);
                 }
 
 
             } else {
-                $ret = $this->_process_db_error('update');
+                $answer->set_return_code($this->_process_db_error('update'));
             }
         } catch (Throwable $ex) {
             $ret = $this->_process_exception($ex, 'update');
+            if ($ret == self::$db_error_codes['DB_OPERATION_FAIL']) {
+                $answer->set_exception($ex);
+            } else {
+                $answer->set_return_code($ret);
+            }
         } finally {
 
             if ($res) {
@@ -166,89 +187,138 @@ class flcDbAccessor extends flcPersistenceAccessor {
             }
         }
 
-        // announce we have an error
-        if ($ret !== self::$db_error_codes['DB_OPERATION_OK']) {
+        if ($answer->is_success()) {
+            $answer->set_result_array($p_entity->get_all_fields('rc'));
+        } else {
+            // mark transaction error
             $this->db->trans_mark_dirty();
         }
 
-        return $ret;
+
+        return $answer;
     }
 
     /**
      * @inheritdoc
      */
-    public function delete(flcBaseEntity &$p_entity, bool $p_verify_deleted_check = true): int {
+    public function delete(flcBaseEntity &$p_entity, bool $p_verify_deleted_check = true): flcPersistenceAccessorAnswer {
 
+        $answer = new flcPersistenceAccessorAnswer();
+        $answer->set_success(false);
+
+        $res = null;
         $ret = self::$db_error_codes['DB_OPERATION_OK'];
 
         try {
             $res = $this->db->execute_query($this->get_delete_query($p_entity));
 
             if ($res) {
-                $this->log_error('affected rows delete '.$res->affected_rows(),'I');
+                $this->log_error('affected rows delete '.$res->affected_rows(), 'I');
+
+                $answer->set_success(true);
 
                 if ($p_verify_deleted_check) {
                     if ($res->affected_rows() <= 0) {
                         // Is modified or not exist.
-                        $ret = $this->read($p_entity);
+                        $answer = $this->read($p_entity);
                         // if we can read without taking account of the rowversion field , means is modificed
                         // otherwise doesnt exist.
-                        if ($ret == self::$db_error_codes['DB_OPERATION_OK']) {
-                            $ret = self::$db_error_codes['DB_RECORD_MODIFIED'];
+                        if ($answer->is_success()) {
+                            $answer->set_return_code(self::$db_error_codes['DB_RECORD_MODIFIED']);
                         } else {
-                            $ret = self::$db_error_codes['DB_RECORD_NOT_EXIST'];
+                            if ($answer->get_exception() == null) {
+                                $answer->set_return_code(self::$db_error_codes['DB_RECORD_NOT_EXIST']);
+                            }
                         }
                     }
                 }
             } else {
-                $ret = $this->_process_db_error('delete');
+                $answer->set_return_code($this->_process_db_error('delete'));
             }
         } catch (Throwable $ex) {
             $ret = $this->_process_exception($ex, 'delete');
+            if ($ret == self::$db_error_codes['DB_OPERATION_FAIL']) {
+                $answer->set_exception($ex);
+            } else {
+                $answer->set_return_code($ret);
+            }
+        } finally {
+            if ($res) {
+                $res->free_result();
+            }
+
         }
 
-        // announce we have an error
-        if ($ret !== self::$db_error_codes['DB_OPERATION_OK']) {
+        if ($answer->is_success()) {
+            $answer->set_result_array([]);
+        } else {
+            // mark transaction error
             $this->db->trans_mark_dirty();
         }
 
-        return $ret;
+
+
+        return $answer;
     }
 
     /**
      * @inheritdoc
      */
-    public function delete_full(flcBaseEntity &$p_entity, flcConstraints $p_constraints): int {
+    public function delete_full(flcBaseEntity &$p_entity, flcConstraints $p_constraints): flcPersistenceAccessorAnswer {
+        $answer = new flcPersistenceAccessorAnswer();
+        $answer->set_success(false);
+
         $ret = self::$db_error_codes['DB_OPERATION_OK'];
+        $res = null;
 
         try {
             $res = $this->db->execute_query($this->get_delete_query_full($p_entity, $p_constraints));
 
             if ($res) {
-                $this->log_error('affected rows delete full'.$res->affected_rows(),'I');
+                $this->log_error('affected rows delete full'.$res->affected_rows(), 'I');
 
                 if ($res->affected_rows() <= 0) {
-                    $ret = self::$db_error_codes['DB_RECORD_NOT_EXIST'];
+                    $answer->set_return_code(self::$db_error_codes['DB_RECORD_NOT_EXIST']);
+                } else {
+                    $answer->set_success(true);
+
                 }
             } else {
-                $ret = $this->_process_db_error('delete full');
+                $answer->set_return_code($this->_process_db_error('delete full'));
+
             }
         } catch (Throwable $ex) {
-            $ret = $this->_process_exception($ex, 'delete full');
+            $ret = $this->_process_exception($ex, 'delete');
+            if ($ret == self::$db_error_codes['DB_OPERATION_FAIL']) {
+                $answer->set_exception($ex);
+            } else {
+                $answer->set_return_code($ret);
+            }
+        } finally {
+
+            if ($res) {
+                $res->free_result();
+            }
         }
 
-        // announce we have an error
-        if ($ret !== self::$db_error_codes['DB_OPERATION_OK']) {
+        if ($answer->is_success()) {
+            $answer->set_result_array([]);
+        } else {
+            // mark transaction error
             $this->db->trans_mark_dirty();
         }
 
-        return $ret;
+
+        return $answer;
     }
 
     /**
      * @inheritdoc
      */
-    public function read(flcBaseEntity &$p_entity, ?string $p_suboperation = null, ?flcConstraints $p_constraints = null): int {
+    public function read(flcBaseEntity &$p_entity, ?string $p_suboperation = null, ?flcConstraints $p_constraints = null): flcPersistenceAccessorAnswer {
+
+        $answer = new flcPersistenceAccessorAnswer();
+        $answer->set_success(false);
 
         $res = null;
         $ret = self::$db_error_codes['DB_OPERATION_OK'];
@@ -258,60 +328,83 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
             if ($res) {
                 if ($res->num_rows() == 0) {
-                    $ret = self::$db_error_codes['DB_RECORD_NOT_EXIST'];
+                    $answer->set_return_code(self::$db_error_codes['DB_RECORD_NOT_EXIST']);
+
                 } else {
                     $p_entity->set_values($res->row_array());
+                    $answer->set_success(true);
                 }
 
             } else {
-                $ret = $this->_process_db_error('read');
+                $answer->set_return_code($this->_process_db_error('read'));
+
             }
         } catch (Throwable $ex) {
             $ret = $this->_process_exception($ex, 'read');
+            if ($ret == self::$db_error_codes['DB_OPERATION_FAIL']) {
+                $answer->set_exception($ex);
+            } else {
+                $answer->set_return_code($ret);
+            }
         } finally {
             if ($res) {
                 $res->free_result();
             }
 
         }
-        // announce we have an error
-        if ($ret == self::$db_error_codes['DB_OPERATION_FAIL']) {
+
+        if ($answer->is_success()) {
+            $answer->set_result_array($p_entity->get_all_fields('rc'));
+        } else {
+            // mark transaction error
             $this->db->trans_mark_dirty();
         }
 
-        return $ret;
+
+        return $answer;
     }
 
 
     /**
      * @inheritdoc
      */
-    public function fetch(flcBaseEntity $p_entity, ?flcConstraints $p_constraints = null, ?string $p_suboperation = null) {
+    public function fetch(flcBaseEntity $p_entity, ?flcConstraints $p_constraints = null, ?string $p_suboperation = null): flcPersistenceAccessorAnswer {
         return $this->fetch_full($p_entity, null, $p_constraints, $p_suboperation);
     }
 
     /**
      * @inheritdoc
      */
-    public function fetch_full(flcBaseEntity $p_entity, ?array $p_ref_entities, ?flcConstraints $p_constraints = null, ?string $p_suboperation = null) {
+    public function fetch_full(flcBaseEntity $p_entity, ?array $p_ref_entities, ?flcConstraints $p_constraints = null, ?string $p_suboperation = null): flcPersistenceAccessorAnswer {
+        $answer = new flcPersistenceAccessorAnswer();
+        $answer->set_success(false);
+
         try {
             $sql = $this->get_fetch_query_full($p_entity, $p_ref_entities, $p_constraints, $p_suboperation);
             $res = $this->db->execute_query($sql);
             if ($res) {
-                $ret = $res->result_array();
+                $answer->set_result_array($res->result_array());
+                $answer->set_success(true);
             } else {
-                $ret = $this->_process_db_error('fetch full');
+                $answer->set_return_code($this->_process_db_error('fetch full'));
+
             }
         } catch (Throwable $ex) {
+
             $ret = $this->_process_exception($ex, 'fetch full');
+            if ($ret == self::$db_error_codes['DB_OPERATION_FAIL']) {
+                $answer->set_exception($ex);
+            } else {
+                $answer->set_return_code($ret);
+            }
         }
 
         // announce we have an error
-        if ($ret == self::$db_error_codes['DB_OPERATION_FAIL']) {
+        if (!$answer->is_success()) {
             $this->db->trans_mark_dirty();
         }
 
-        return $ret;
+        return $answer;
     }
 
 
@@ -329,14 +422,14 @@ class flcDbAccessor extends flcPersistenceAccessor {
         // search on field operations to remove not supported in the operation
         foreach ($p_entity->get_fields_operations() as $ofield => $soperation) {
             // if it is a computed field? then skipL
-            if (strpos($soperation,'c') !== false) {
+            if (strpos($soperation, 'c') !== false) {
                 continue;
             }
 
             // if a field with operations defined exist in the field list , but the operation
             // is not suppported remove element.
-            if (array_key_exists($ofield,$fields)) {
-                if (strpos($soperation,'a') === false) {
+            if (array_key_exists($ofield, $fields)) {
+                if (strpos($soperation, 'a') === false) {
                     unset($fields[$ofield]);
                 }
             }
@@ -387,7 +480,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
         $sql = substr($sql, 0, strrpos($sql, ','));
         $sql .= ')';
 
-        $this->log_error($sql,'I');
+        $this->log_error($sql, 'I');
 
 
         return $sql;
@@ -407,14 +500,14 @@ class flcDbAccessor extends flcPersistenceAccessor {
         // search on field operations to remove not supported in the operation
         foreach ($p_entity->get_fields_operations() as $ofield => $soperation) {
             // if it is a computed field? then skip
-            if (strpos($soperation,'c') !== false) {
+            if (strpos($soperation, 'c') !== false) {
                 continue;
             }
 
             // if a field with operations defined exist in the field list , but the operation
             // is not suppported remove element.
-            if (array_key_exists($ofield,$fields)) {
-                if (strpos($soperation,'u') === false) {
+            if (array_key_exists($ofield, $fields)) {
+                if (strpos($soperation, 'u') === false) {
                     unset($fields[$ofield]);
                 }
             }
@@ -495,7 +588,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
         $sql = substr($sql, 0, strrpos($sql, ' and '));
 
 
-        $this->log_error($sql,'I');
+        $this->log_error($sql, 'I');
 
         return $sql;
 
@@ -563,7 +656,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
         $sql = substr($sql, 0, strrpos($sql, ' and '));
 
-        $this->log_error($sql,'I');
+        $this->log_error($sql, 'I');
 
 
         return $sql;
@@ -596,7 +689,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
             throw new InvalidArgumentException('Not where clause defined to delete, dangerous operation', self::$db_error_codes['DB_DELETE_NO_WHERE_CLAUSE']);
         }
 
-        $this->log_error($sql,'I');
+        $this->log_error($sql, 'I');
 
         return $sql;
     }
@@ -625,19 +718,18 @@ class flcDbAccessor extends flcPersistenceAccessor {
         // search on field operations to remove not supported in the operation
         foreach ($p_entity->get_fields_operations() as $ofield => $soperation) {
             // if it is a computed field? then skip
-            if (strpos($soperation,'c') !== false) {
+            if (strpos($soperation, 'c') !== false) {
                 continue;
             }
 
             // if a field with operations defined exist in the field list , but the operation
             // is not suppported remove element.
-            if (array_key_exists($ofield,$fields)) {
-                if (strpos($soperation,'r') === false) {
+            if (array_key_exists($ofield, $fields)) {
+                if (strpos($soperation, 'r') === false) {
                     unset($fields[$ofield]);
                 }
             }
         }
-
 
 
         // verify key fields are defined or at least an id
@@ -681,7 +773,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
         }
 
-        $this->log_error($sql,'I');
+        $this->log_error($sql, 'I');
 
         return $sql;
     }
@@ -728,8 +820,8 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
             // if a field with operations defined exist in the field list , but the operation
             // is not suppported remove element.
-            if (array_key_exists($ofield,$fields)) {
-                if (strpos($soperation,'f') === false) {
+            if (array_key_exists($ofield, $fields)) {
+                if (strpos($soperation, 'f') === false) {
                     unset($fields[$ofield]);
                 }
             }
@@ -772,7 +864,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
         }
 
-        $this->log_error($sql,'I');
+        $this->log_error($sql, 'I');
 
         return $sql;
     }
@@ -1045,7 +1137,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
                         $direction = '';
                     }
 
-                    if (array_key_exists($field,$p_fields)) {
+                    if (array_key_exists($field, $p_fields)) {
                         $sql .= $field.$direction.',';
                     } else {
                         throw new InvalidArgumentException("Order by field '$field' doesnt exist in the entity", self::$db_error_codes['DB_INVALID_WHERE_FIELD']);
@@ -1165,13 +1257,24 @@ class flcDbAccessor extends flcPersistenceAccessor {
     private function _process_exception(Throwable $p_ex, string $p_operation): int {
         // si es exception posiblemente no es error de database
         $error = $this->db->error();
-        if ($this->is_db_error($error)) {
-            $this->db->log_error("Cant execute $p_operation", 'E');
+        if (!$this->is_db_error($error)) {
+            $error['code'] = $p_ex->getCode();
+            $error['message'] = $p_ex->getMessage();
         } else {
-            $this->db->log_error("Cant execute read - {$p_ex->getMessage()} / {$p_ex->getCode()}", 'e');
+            return $this->_process_db_error($p_operation);
         }
 
-        return self::$db_error_codes['DB_OPERATION_FAIL'];
+        $this->db->log_error("Error executing $p_operation : {$error['code']} - {$error['message']}", 'E');
+
+        $ret = self::$db_error_codes['DB_OPERATION_FAIL'];
+        if ($this->db->is_duplicate_key_error($error)) {
+            $ret = self::$db_error_codes['DB_DUPLICATE_KEY'];
+
+        } elseif ($this->db->is_foreign_key_error($error)) {
+            $ret = self::$db_error_codes['DB_FOREIGN_KEY_ERROR'];
+        }
+
+        return $ret;
     }
 
     /**

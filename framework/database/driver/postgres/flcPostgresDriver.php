@@ -692,7 +692,7 @@ class flcPostgresDriver extends flcDriver {
     /**
      * @inheritdoc
      */
-    public function execute_stored_procedure_extended(string $p_fn_name, string $p_type, ?array $p_params_values = null, ?array $p_exclude_casts = null): ?flcDbResults {
+    public function execute_callable(string $p_callable_name, string $p_type, ?array $p_params_values = null, ?array $p_exclude_casts = null): ?flcDbResults {
         $params = [];
         $outparams_count = 0;
         $sqlpre = '';
@@ -702,7 +702,7 @@ class flcPostgresDriver extends flcDriver {
         $refcursors = [];
 
         // Analize if is a function/procedure and if has refcursor returns
-        $type_and_ret = $this->_get_callable_type_and_ref_return($p_fn_name);
+        $type_and_ret = $this->_get_callable_type_and_ref_return($p_callable_name);
         if ($type_and_ret !== null) {
             [$is_function, $refcursors_ret] = $type_and_ret;
         } else {
@@ -714,9 +714,9 @@ class flcPostgresDriver extends flcDriver {
         }
 
         // parameter analisys
-        $parameters = $this->get_callable_parameter_types($p_fn_name, !$is_function ? 'procedure' : 'function');
-        if ($parameters !== null) {
-            foreach ($parameters as $param_name => $parameter_descriptor) {
+        $parameter_descriptors = $this->get_callable_parameter_types($p_callable_name, !$is_function ? 'procedure' : 'function');
+        if ($parameter_descriptors !== null) {
+            foreach ($parameter_descriptors as $param_name => $parameter_descriptor) {
                 // get the descriptors of the parameter
                 // the form is : [param1=> ['varchar','INOUT'],param2=>['int','IN'],param3=>['varchar','IN','(20)']]
                 $sqltype = $parameter_descriptor[0];
@@ -756,10 +756,10 @@ class flcPostgresDriver extends flcDriver {
 
         // Get the callable string
         if ($is_function) {
-            $sqlfunc = $this->callable_string_extended($p_fn_name, 'function', ($is_resultset || $is_multiresultset) ? 'records' : 'scalar', $params, $p_exclude_casts);
+            $sqlfunc = $this->callable_string_extended($p_callable_name, 'function', ($is_resultset || $is_multiresultset) ? 'records' : 'scalar', $params, $parameter_descriptors, $p_exclude_casts);
 
         } else {
-            $sqlfunc = $this->callable_string_extended($p_fn_name, 'procedure', 'scalar', $params, $p_exclude_casts);
+            $sqlfunc = $this->callable_string_extended($p_callable_name, 'procedure', 'scalar', $params, $parameter_descriptors, $p_exclude_casts);
 
         }
 
@@ -767,7 +767,7 @@ class flcPostgresDriver extends flcDriver {
         //echo $sqlfunc.PHP_EOL;
 
         // Process and execute sp/function
-        return $this->_process_callable($p_type, $sqlfunc, $results, $is_outparams, $is_resultset, $is_multiresultset, $refcursors, $refcursors_ret, $p_fn_name);
+        return $this->_process_callable($p_type, $sqlfunc, $results, $is_outparams, $is_resultset, $is_multiresultset, $refcursors, $refcursors_ret, $p_callable_name);
 
 
     }
@@ -784,7 +784,7 @@ class flcPostgresDriver extends flcDriver {
         // use AND n.nspname = 'public' i f schema name required , here is in the current schema , no need to specify
         $version = $this->get_version();
         if (version_compare($version, '11', '>=')) {
-            $sqlappend = 'AND p.prokind = ';
+            $sqlappend = 'AND prokind = ';
             if ($p_callable_type != 'procedure') {
                 $sqlappend .= "'f'";
             } else {
@@ -793,10 +793,42 @@ class flcPostgresDriver extends flcDriver {
             }
         } else {
             // version < 11 doesnt have stored procedures
-            $sqlappend = 'AND p.proisagg = FALSE';
+            $sqlappend = 'AND proisagg = FALSE';
         }
 
-        $sql = "SELECT pg_catalog.pg_get_function_arguments(p.oid) as args FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace WHERE p.proname = '$p_callable_name' AND pg_catalog.pg_function_is_visible(p.oid) ".$sqlappend;
+        //$sql = "SELECT pg_catalog.pg_get_function_arguments(p.oid) as args FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace WHERE p.proname = '$p_callable_name' AND pg_catalog.pg_function_is_visible(p.oid) ".$sqlappend;
+
+        $sql = "
+                select
+            a.parameter_name as p_name,
+            case when typeall is null
+                then types
+            else
+                typeall
+            end as  p_type,
+            coalesce(a.parameter_mode,'i') as p_mode,
+            coalesce(b.optargdefaults,'') as p_default
+        from(
+                -- get all the parameters
+                select
+                        unnest(proargnames) as parameter_name,
+                       unnest(proargmodes) as parameter_mode,
+                        regtype(unnest(proallargtypes)) as typeall,
+                        regtype(unnest(proargtypes)) as types
+                FROM   pg_catalog.pg_proc
+                WHERE  proname = '$p_callable_name'
+                    AND pg_catalog.pg_function_is_visible(oid) $sqlappend
+        ) a
+        left join(
+                     -- search for the parameters default and join
+                     SELECT
+                             unnest(proargnames[pronargs-pronargdefaults+1:pronargs] )optargnames,
+                             unnest(string_to_array(pg_get_expr(proargdefaults, 0)::text,',')) optargdefaults
+                     FROM   pg_catalog.pg_proc
+                     WHERE  proname = '$p_callable_name'
+        ) b on b.optargnames = a.parameter_name
+        where parameter_mode in('i','o','b') or parameter_mode is null";
+
 
         // IMPORTANT . we dont expect length , precision , etc in parameters because in postgres is not allowed .
         // in the docs we found :
@@ -812,59 +844,26 @@ class flcPostgresDriver extends flcDriver {
             $numrows = $res->num_rows();
 
             if ($numrows > 0) {
-                if ($numrows == 1) {
+                $rows = $res->result_array();
+                foreach ($rows as $row) {
                     $default_value = null;
+                    $p_name = $row['p_name'];
+                    $p_mode =  $row['p_mode'];
+                    $p_default = $row['p_default'];
 
-                    $row = $res->row();
-                    $param_descriptor = $row->args;
-                    // separate each parameter descriptor
-                    $rowfields = explode(', ', $param_descriptor);
-
-                    foreach ($rowfields as $element) {
-                        // first check if exist a default value
-                        $row_with_default = explode('DEFAULT ', $element);
-                        if (count($row_with_default) == 2) {
-                            $default_value = trim($row_with_default[1]);
-                            $parts = explode(' ', $row_with_default[0], 3);
-                        } else {
-                            $parts = explode(' ', $element, 3);
-                        }
-
-                        // separate each elemen parts
-                        //$parts = explode(' ', $element, 3);
-
-                        if (count($parts) == 2) {
-                            // example
-                            // who integer, ref1 refcursor, ......
-                            $answers[$parts[0]] = [$parts[1], 'in', ''];
-                            if ($default_value !== null) {
-                                $answers[$parts[0]][] = $default_value;
-                            }
-                        } else {
-                            if (count($parts) == 3) {
-                                // allways 3, example
-                                // IN who integer, IN ref1 refcursor, .....
-                                $answers[$parts[1]] = [$parts[2], strtolower($parts[0]), ''];
-                                if ($default_value !== null) {
-                                    $answers[$parts[1]][] = $default_value;
-                                }
-                            }
-                        }
-                        // otherwise no parameters
+                    if ($p_mode == 'i') {
+                        $answers[$p_name] = [$row['p_type'], 'in', ''];
+                    } elseif ($p_mode == 'b') {
+                        $answers[$p_name] = [$row['p_type'], 'inout', ''];
+                    } else {
+                        $answers[$p_name] = [$row['p_type'], 'out', ''];
                     }
-                } else {
-                    $answers = null;
 
-                    // log an error and return null , more than one funtion/stored procedure with the same name is
-                    // not allowed.                }
-                    $this->log_error('get_callable_parameter_types - The existence of one sp or function with the same name is not allowed', 'e');
+                    if (!empty($p_default)) {
+                        $answers[$p_name][] = $p_default;
+                    }
+
                 }
-            } else {
-                $answers = null;
-
-                // log an error and return null , more than one funtion/stored procedure with the same name is
-                // not allowed.                }
-                $this->log_error("get_callable_parameter_types - sp/function $p_callable_name doesnt exist", 'e');
             }
 
             $res->free_result();
@@ -873,7 +872,7 @@ class flcPostgresDriver extends flcDriver {
             $answers = null;
         }
 
-        print_r($answers);
+        //print_r($answers);
 
         return $answers;
 
@@ -1020,7 +1019,7 @@ class flcPostgresDriver extends flcDriver {
      * @return flcDbResults|null
      *
      * @see flcPostgresDriver::execute_stored_procedure()
-     * @see flcPostgresDriver::execute_stored_procedure_extended()
+     * @see flcPostgresDriver::execute_callable()
      *
      */
     private function _process_callable(string $p_type, string $sqlfunc, flcDbResults $results, bool $is_outparams, bool $is_resultset, bool $is_multiresultset, array $refcursors, bool $refcursors_ret, string $p_fn_name): ?flcDbResults {

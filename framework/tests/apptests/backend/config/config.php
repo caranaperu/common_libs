@@ -196,9 +196,24 @@ $config['proxy_ips'] = '';
 $config['base_url'] = 'http://localhost/tests/apptests/';
 
 
+/*
+|--------------------------------------------------------------------------
+|
+|
+*/
 $config['namespaces'] = [
     'controllers' => 'framework\tests\apptests\backend\controllers',
     'handlers' => 'framework\tests\handlers'
 ];
 
 $config['default_controller'] = 'main_entry_controller';
+
+
+/*
+|--------------------------------------------------------------------------
+| Application controllers data
+|
+*/
+$config['controllers_data'] = [
+    'atletas' => ['','']
+];

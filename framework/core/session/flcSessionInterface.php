@@ -53,7 +53,6 @@ interface flcSessionInterface {
      * Otherwise, returns an array of any temp or flash data values with the
      * property key.
      *
-     * Replaces the legacy method $session->userdata();
      *
      * @param string|null $p_key Identifier of the session property to retrieve
      *

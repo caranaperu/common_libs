@@ -3,12 +3,12 @@
 namespace framework\tests\apptests\backend\model;
 
 use framework\core\accessor\flcDbAccessor;
-use framework\core\dto\flcInputData;
+use framework\core\dto\flcInputDataProcessor;
 use framework\core\entity\flcBaseEntity;
 use framework\database\driver\flcDriver;
 
 class  paises_model extends flcBaseEntity {
-    public function __construct(flcDriver $p_driver, ?flcInputData $p_input_data) {
+    public function __construct(flcDriver $p_driver, ?flcInputDataProcessor $p_input_data) {
         $this->fields = [
             'paises_codigo' => null,
             'paises_descripcion' => null,

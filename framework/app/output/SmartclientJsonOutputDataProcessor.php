@@ -1,22 +1,29 @@
 <?php
+/**
+ * This file is part of Future Labs Code 1 framework.
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ *
+ * Inspired in codeigniter , all kudos for his authors
+ *
+ * @author Carlos Arana Reategui.
+ *
+ */
 
-namespace framework\tests\apptests\backend\output;
+namespace framework\app\output;
 
 use framework\core\dto\flcOutputData;
+use framework\core\dto\flcOutputDataProcessor;
 use framework\core\entity\flcBaseEntity;
 
 /**
- * Clase que implemente el JSON encoding para el DTO, ESTE ES EL DEFAULT
- * sino se implementa ninguno en especial
+ * Class that implements data output processror specific for the smartclient
+ * library.
  *
- * @author Carlos Arana Reategui
- * @version 1.00 , 15 JUN 2011
- *          1.01 , 15 Mayo 2013 , se hace que siempre los errores se devuelvan como
- *                  arreglo para facilitar el trabajo del cliente
  *
- * @since 1.00
+ * If it is a query to the persistence and no errors the answer will be something like this:
  *
- * Por ejemplo si es un query a la persistencia y no hay errores se retornara lo siguiente
  * <pre>
  * {
  *      "response":
@@ -31,17 +38,25 @@ use framework\core\entity\flcBaseEntity;
  * }
  * </pre>
  *
+ * with errors will be something like this:
+ *
+ * <pre>
+ * {
+ *      "response":{status:"-4",
+ *                      "errors":{
+ *                              field1:" The field field1 need to be a decimal."}
+ *                       }
+ * }
+ * </pre>
+ *
  */
-class TestOutputData {
+class SmartclientJsonOutputDataProcessor extends flcOutputDataProcessor {
 
     /**
-     * Generate json output for smartclient
      *
-     * @param flcOutputData $p_output_data wiht the data to process
-     *
-     * @return mixed en este caso un String con el DTO en formato JSON
+     * @inheritdoc
      */
-    public function &process(flcOutputData $p_output_data) {
+    public function process_output_data(flcOutputData $p_output_data) {
         $out = null;
 
         if (strlen($p_output_data->get_answer_message()) > 0) {
@@ -57,13 +72,11 @@ class TestOutputData {
                 $out = 'status:"-4"';
                 $fldErrors = $p_output_data->get_field_errors();
 
-                // Si ya tiene longitud , ponemos una coma para indicar
-                // un nuevo elemento.
                 if (strlen($out) > 0) {
                     $out .= ',';
                 }
 
-                // la lista de field errors.
+                // the field errors list
                 $out .= '"errors":{';
 
                 foreach ($fldErrors as $field => $msg) {
@@ -79,7 +92,7 @@ class TestOutputData {
 
                     $process_errors = $p_output_data->get_process_errors();
 
-                    // la lista de process errors.
+                    // process errors.
                     $out .= '"data":';
                     $count = count($process_errors);
 
@@ -90,26 +103,26 @@ class TestOutputData {
                         $out .= '"';
 
                         $perr = str_replace(["\"", "\r", "\n", "\r\n"], ' ', $process_errors[$i][1]);
-                        // Si tiene excepcion procesamos.
+                        // if exception process
                         $ex = $process_errors[$i][2];
-                        if (isset($ex)) {
+                        if (!empty($ex)) {
                             if (strlen(trim($perr)) > 0) {
                                 $out .= $perr.' - '.str_replace([
                                         "\"",
                                         "\r",
                                         "\n",
                                         "\r\n"
-                                    ], ' ', $ex->getMessage()).' ** CodError = '.$process_errors[$i][1];
+                                    ], ' ', $ex->getMessage()).' ** CodError = '.$process_errors[$i][0];
                             } else {
                                 $out .= str_replace([
                                         "\"",
                                         "\r",
                                         "\n",
                                         "\r\n"
-                                    ], ' ', $ex->getMessage()).' ** CodError ='.$process_errors[$i][1];
+                                    ], ' ', $ex->getMessage()).' ** CodError ='.$process_errors[$i][0];
                             }
                         } else {
-                            $out .= $perr.' ** CodError ='.$process_errors[$i][1];
+                            $out .= $perr.' ** CodError ='.$process_errors[$i][0];
                         }
 
                         $out .= '"';
@@ -126,7 +139,8 @@ class TestOutputData {
                 $out = '"status":0';
             }
         }
-        // Si tiene parametros de salida los agregamos  antres de la data.
+
+        // if have output parameters to output , we put befor data-
         $out_params = $p_output_data->get_output_parameters();
         if (is_array($out_params)) {
             foreach ($out_params as $i => $value) {
@@ -134,15 +148,15 @@ class TestOutputData {
             }
         }
 
-        // Si no hay errores de proceso evaluamos la data
+        // if doesnt exist any kind of error , process the data to uoutput
         if (!$p_output_data->has_process_errors() && strlen($p_output_data->get_answer_message()) == 0) {
             $one_record = false;
-            // Procesamos la data
+            // data procesing
             $data = $p_output_data->get_result_data();
 
 
             if (isset($data)) {
-                // Si no es un arreglo solo posee un registro
+                // f not an array , only one record to output
                 if (!is_array($data)) {
                     $one_record = true;
                 }
@@ -150,32 +164,16 @@ class TestOutputData {
                 $out .= ',"data":';
 
 
-                $this->_process_extra_data($data);
+                $this->_process_data($data);
                 $out .= json_encode($data);
 
-                switch (json_last_error()) {
-                    case JSON_ERROR_NONE:
-                        break;
-                    case JSON_ERROR_DEPTH:
-                        break;
-                    case JSON_ERROR_STATE_MISMATCH:
-                        break;
-                    case JSON_ERROR_CTRL_CHAR:
-                        break;
-                    case JSON_ERROR_SYNTAX:
-                        break;
-                    case JSON_ERROR_UTF8:
-                        break;
-                    default:
-                        break;
-                }
 
-                // Numero de registros = al numero de registros leidos + la posicion inicial en el set
-                // siempre que haya mas de una respuesta
+                //  number of recorsd = number of readed records + initial position , when exist more than one
+                // record.
                 $numRecords = $one_record === false ? $p_output_data->get_start_row() + count($data) : 1;
 
-                // SE hace de tal forma que si no es el ultimo registro osea numRecords es menor a la ultima fila solicitada
-                // Ponemos como el total de registros una pagina mas (esto para evitar hacer un count)
+                // If not the last record => numRecords < the last record required , then the total number of records
+                // we put as total recods one page more (to avoid to do count of records)
                 $out .= ',"endRow" : "'.$numRecords.'"';
                 $out .= ',"totalRows": "'.(($numRecords < $p_output_data->get_end_row() || $p_output_data->get_end_row() == 0) ? ($numRecords) : $p_output_data->get_end_row() + ($p_output_data->get_end_row() - $p_output_data->get_start_row())).'"';
             } else {
@@ -187,17 +185,18 @@ class TestOutputData {
             }
         }
 
-        $out = '{"response":{'.$out.'}}';
-
-        return $out;
+        return '{"response":{'.$out.'}}';
 
     }
 
 
     /**
+     * Process the data to output as real answers , like a record or records obtaines from the
+     *  persistence after a call from the client side.
+     *
      * @param mixed | flcBaseEntity $p_extdata
      */
-    private function _process_extra_data(&$p_extdata): void {
+    private function _process_data(&$p_extdata): void {
         if (isset($p_extdata)) {
             $extdata = $p_extdata;
             // IF not an array

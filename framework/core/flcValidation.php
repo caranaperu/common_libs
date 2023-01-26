@@ -541,7 +541,7 @@ class flcValidation {
         // If we find one, but there's no translation for the string - just return it
         if (sscanf($p_fieldname, 'lang:%s', $line) === 1 ) {
             $p_fieldname = $this->_lang->line($line);
-            if (substr( $p_fieldname, 0, 18 ) !== "No translation for") {
+            if (substr( $p_fieldname, 0, 18 ) == "No translation for") {
                 return $line;
             }
         }

@@ -102,12 +102,12 @@ class flcServiceLocator {
      * this params set the class name. if its null only load the base controller and the exteneded
      * controller if exist.
      *
-     * @return flcIController|null if $p_class not defined return null otherwise return the class.
+     * @return flcController|null if $p_class not defined return null otherwise return the class.
      *
      * @throws RuntimeException
      * @throws Exception
      */
-    private function _get_controller(?string $p_class = null): ?flcIController {
+    private function _get_controller(?string $p_class = null): ?flcController {
         $config = flcCommon::get_config();
 
         if ($p_class) {
@@ -477,7 +477,7 @@ class flcServiceLocator {
         static $session;
 
         $user_handler = false;
-        if (!isset($$session) || !$session) {
+        if (!isset($session) || !$session) {
             $config = flcCommon::get_config();
             $handler = $config->item('sess_driver');
 

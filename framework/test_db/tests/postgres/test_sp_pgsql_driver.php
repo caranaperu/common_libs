@@ -70,7 +70,7 @@ if ($driver->open()) {
 
     echo PHP_EOL.'---------------------------- Devuelve un solo valor (extended) ------------------------'.PHP_EOL;
 
-    $query = $driver->execute_stored_procedure_extended('getsimplevalue', flcDriver::FLCDRIVER_PROCTYPE_SCALAR, ['_val' => 100]);
+    $query = $driver->execute_callable('getsimplevalue', flcDriver::FLCDRIVER_PROCTYPE_SCALAR, ['_val' => 100]);
 
     print_resultsets($driver, $query);
 
@@ -81,7 +81,7 @@ if ($driver->open()) {
 
     echo PHP_EOL.'---------------------------- Devuelve single resultsets extended) ------------------------'.PHP_EOL;
 
-    $query = $driver->execute_stored_procedure_extended('getresultset', flcDriver::FLCDRIVER_PROCTYPE_RESULTSET);
+    $query = $driver->execute_callable('getresultset', flcDriver::FLCDRIVER_PROCTYPE_RESULTSET);
     print_resultsets($driver, $query);
 
 
@@ -97,7 +97,7 @@ if ($driver->open()) {
     print_resultsets($driver, $query);
 
     echo PHP_EOL.'---------------------------- Devuelve out paramas desde un STORED PROCEDURE (extended) ------------------------'.PHP_EOL;
-    $query = $driver->execute_stored_procedure_extended('assign_demo', flcDriver::FLCDRIVER_PROCTYPE_RESULTSET, [
+    $query = $driver->execute_callable('assign_demo', flcDriver::FLCDRIVER_PROCTYPE_RESULTSET, [
         '_val' => 1000,
         '_val2' => 'en el programa'
     ]);
@@ -118,7 +118,7 @@ if ($driver->open()) {
     echo PHP_EOL.'---------------------------- Devuelve multiple resultsets (extended) ------------------------'.PHP_EOL;
     // CREATE OR REPLACE FUNCTION getMultipleResultset(who int,ref1 refcursor,ref2 refcursor)
 
-    $query = $driver->execute_stored_procedure_extended('getmultipleresultset', flcDriver::FLCDRIVER_PROCTYPE_MULTIRESULTSET, [
+    $query = $driver->execute_callable('getmultipleresultset', flcDriver::FLCDRIVER_PROCTYPE_MULTIRESULTSET, [
         'who' => 3,
         'ref1' => 'ref1',
         'ref2' => 'ref2'
@@ -139,7 +139,7 @@ if ($driver->open()) {
     echo PHP_EOL.'---------------------------- Devuelve multiple resultsets (SP) (extended) ------------------------'.PHP_EOL;
     // CREATE OR REPLACE FUNCTION getMultipleResultset(who int,ref1 refcursor,ref2 refcursor)
 
-    $query = $driver->execute_stored_procedure_extended('p_getmultipleresultset', flcDriver::FLCDRIVER_PROCTYPE_MULTIRESULTSET, [
+    $query = $driver->execute_callable('p_getmultipleresultset', flcDriver::FLCDRIVER_PROCTYPE_MULTIRESULTSET, [
         'who' => 3,
         'ref1' => 'ref1',
         'ref2' => 'ref2'
@@ -173,7 +173,7 @@ if ($driver->open()) {
     echo PHP_EOL.'---------------------------- Devuelve multiple resultsets y inout parameter (SP) 2 parametros inout (extended)  ------------------------'.PHP_EOL;
     // CREATE OR REPLACE PROCEDURE p_getMultipleResultset_3(who int,yy int, ref1 refcursor,ref2 refcursor,inout xx int )
 
-    $query = $driver->execute_stored_procedure_extended('p_getmultipleresultset_3', flcDriver::FLCDRIVER_PROCTYPE_MULTIRESULTSET, [
+    $query = $driver->execute_callable('p_getmultipleresultset_3', flcDriver::FLCDRIVER_PROCTYPE_MULTIRESULTSET, [
         'who' => 3,
         'yy' => 400,
         'ref1' => 'ref1',
@@ -192,7 +192,7 @@ if ($driver->open()) {
     echo PHP_EOL.'---------------------------- Devuelve multiple resultsets (solo en return no parameters) (extended) ------------------------'.PHP_EOL;
     // CREATE OR REPLACE FUNCTION fn_return_data_cursor_2()
 
-    $query = $driver->execute_stored_procedure_extended('fn_return_data_cursor_2', flcDriver::FLCDRIVER_PROCTYPE_MULTIRESULTSET, null);
+    $query = $driver->execute_callable('fn_return_data_cursor_2', flcDriver::FLCDRIVER_PROCTYPE_MULTIRESULTSET, null);
     print_resultsets($driver, $query);
 
 

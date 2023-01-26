@@ -13,7 +13,8 @@ namespace framework\core\entity;
 
 use framework\core\accessor\constraints\flcConstraints;
 use framework\core\accessor\flcPersistenceAccessor;
-use framework\core\dto\flcInputData;
+use framework\core\accessor\flcPersistenceAccessorAnswer;
+use framework\core\dto\flcInputDataProcessor;
 use framework\database\driver\flcDriver;
 use InvalidArgumentException;
 
@@ -103,12 +104,12 @@ class flcBaseEntity {
      */
     protected array $field_types = [];
 
-    protected ?flcInputData $input_data = null;
+    protected ?flcInputDataProcessor $input_data = null;
 
     /**
      * Constructor , need to be called after define the model/entity fields
      * ex:
-     *          public function __construct(flcDriver $p_driver, ?flcInputData $p_input_data) {
+     *          public function __construct(flcDriver $p_driver, ?flcInputDataProcessor $p_input_data) {
      *              $this->fields = ['numero' => null, 'descripcion' => null, 'customer_id' => null];
      *              $this->fields_ro = ['name' => null];
      *
@@ -121,10 +122,10 @@ class flcBaseEntity {
      *              parent::__construct($p_driver, $p_input_data);
      *              }
      *
-     * @param flcDriver         $p_driver
-     * @param flcInputData|null $p_input_data
+     * @param flcDriver                  $p_driver
+     * @param flcInputDataProcessor|null $p_input_data
      */
-    public function __construct(flcDriver $p_driver, ?flcInputData $p_input_data) {
+    public function __construct(flcDriver $p_driver, ?flcInputDataProcessor $p_input_data) {
 
         if ($p_input_data !== null) {
             $this->input_data = $p_input_data;
@@ -180,15 +181,19 @@ class flcBaseEntity {
 
     /**
      * Return the array of computed fields defined.
-     * @return array of fields
+     * Only valid for read and fetch operations otherwise not valid value
+     * will be obtained.
+     *
+     * @return array of fields=>value
      */
     public function get_fields_computed(): array {
         $fields_computed = [];
-        foreach($this->fields_operations as $field => $operator) {
-            if (strpos($operator,'c') !== false) {
-                $fields_computed[] = $field;
+        foreach ($this->fields_operations as $field => $operator) {
+            if (strpos($operator, 'c') !== false) {
+                $fields_computed[$field] = $this->fields_computed[$field];
             }
         }
+
         return $fields_computed;
     }
 
@@ -217,6 +222,7 @@ class flcBaseEntity {
         if (strpos($p_types, 'c') !== false) {
             $all_fields = array_merge($this->fields, $this->get_fields_computed());
         }
+
         return $all_fields;
     }
 
@@ -369,10 +375,12 @@ class flcBaseEntity {
      *
      * @param string|null $p_suboperation
      *
-     * @return int with the error code
+     * @return flcPersistenceAccessorAnswer with the answer.
+     * @see flcPersistenceAccessorAnswer
+     *
      */
-    public function add(?string $p_suboperation = null): int {
-        $c = $this->get_read_constraints($p_suboperation);
+    public function add(?string $p_suboperation = null): flcPersistenceAccessorAnswer {
+        $c = $this->get_add_constraints($p_suboperation);
 
         return $this->accessor->add($this, $p_suboperation, $c);
 
@@ -383,9 +391,11 @@ class flcBaseEntity {
      *
      * @param string|null $p_suboperation
      *
-     * @return int with the error code
+     * @return flcPersistenceAccessorAnswer with the answer.
+     * @see flcPersistenceAccessorAnswer
+     *
      */
-    public function read(?string $p_suboperation = null): int {
+    public function read(?string $p_suboperation = null): flcPersistenceAccessorAnswer {
         $c = $this->get_read_constraints($p_suboperation);
 
         return $this->accessor->read($this, $p_suboperation, $c);
@@ -396,9 +406,14 @@ class flcBaseEntity {
      *
      * @param string|null $p_suboperation
      *
-     * @return int with the error code
+     * @return flcPersistenceAccessorAnswer with the answer.
+     * @see flcPersistenceAccessorAnswer
+     *
      */
-    public function update(?string $p_suboperation = null): int {
+    public function update(?string $p_suboperation = null): flcPersistenceAccessorAnswer {
+        // update to  the model doesnt require specific constraints , but because need to
+        // read the records after an update for update the model , we need to pass
+        // the read constraints.
         $c = $this->get_read_constraints($p_suboperation);
 
         return $this->accessor->update($this, $p_suboperation, $c);
@@ -411,9 +426,11 @@ class flcBaseEntity {
      * @param string|null $p_suboperation
      * @param bool        $p_verify_delete_check is true , check is the entity to delete is already deleted
      *
-     * @return int with the error code
+     * @return flcPersistenceAccessorAnswer with the answer.
+     * @see flcPersistenceAccessorAnswer
+     *
      */
-    public function delete(?string $p_suboperation = null, bool $p_verify_delete_check = true): int {
+    public function delete(?string $p_suboperation = null, bool $p_verify_delete_check = true): flcPersistenceAccessorAnswer {
         $c = $this->get_delete_constraints($p_suboperation);
         if ($c) {
             return $this->accessor->delete_full($this, $c);
@@ -431,9 +448,11 @@ class flcBaseEntity {
      * @param string|null $p_suboperation
      * @param array|null  $p_ref_entities if its joined fetch , set the referenced entities.
      *
-     * @return array|array[]|int with the error code
+     * @return flcPersistenceAccessorAnswer with the answer.
+     * @see flcPersistenceAccessorAnswer
+     *
      */
-    public function fetch(?string $p_suboperation = null, ?array $p_ref_entities = null) {
+    public function fetch(?string $p_suboperation = null, ?array $p_ref_entities = null): flcPersistenceAccessorAnswer {
 
         $c = $this->get_fetch_constraints($p_suboperation);
         if ($p_ref_entities === null) {

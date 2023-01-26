@@ -25,10 +25,10 @@ use \SessionHandlerInterface;
 
 
 /**
- * Implementation of CodeIgniter session container.
+ * Implementation based on CodeIgniter session container.
  *
  * Session configuration is done through session variables and cookie related
- * variables in app/config/App.php
+ * variables in app/config/config.php
  */
 class flcSession implements flcSessionInterface {
 

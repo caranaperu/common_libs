@@ -32,7 +32,7 @@ function print_resultsets($driver, $query) {
                     foreach ($res->result_array() as $row) {
                         print_r($row);
                     }
-                    $res->free_result();;
+                    $res->free_result();
                 }
 
                 // PONER COMO HACER FREEEEEEEE
@@ -52,7 +52,12 @@ function print_resultsets($driver, $query) {
             echo PHP_EOL;
             $paramtoshow = $outparams->get_out_params();
             foreach ($paramtoshow as $key => $value) {
-                echo 'EL RESULTAOD : '.$key.' - '.$value.PHP_EOL;
+                if (is_array($value)) {
+                    print_r($value);
+                } else {
+                    echo 'EL RESULTAOD : '.$key.' - '.$value.PHP_EOL;
+
+                }
             }
 
 
@@ -69,77 +74,192 @@ if ($driver->open()) {
 
     $query = $driver->execute_stored_procedure('getSimpleValue', flcDriver::FLCDRIVER_PROCTYPE_SCALAR, [
         [
-            100, flcDriver::FLCDRIVER_PARAMTYPE_IN, 'int'
+            100,
+            flcDriver::FLCDRIVER_PARAMTYPE_IN,
+            'int'
         ]
     ]);
     print_resultsets($driver, $query);
+
+    echo PHP_EOL.'---------------------------- Devuelve un solo valor (extended) ------------------------'.PHP_EOL;
+
+    $query = $driver->execute_callable('getSimpleValue', flcDriver::FLCDRIVER_PROCTYPE_SCALAR, ['@_val' => 100]);
+    print_resultsets($driver, $query);
+
 
     echo PHP_EOL.'---------------------------- Devuelve single resultsets ------------------------'.PHP_EOL;
 
     $query = $driver->execute_stored_procedure('getResultset', flcDriver::FLCDRIVER_PROCTYPE_RESULTSET, [1, 2018]);
     print_resultsets($driver, $query);
 
+    echo PHP_EOL.'---------------------------- Devuelve single resultsets (extended) ------------------------'.PHP_EOL;
+
+    $query = $driver->execute_callable('getResultset', flcDriver::FLCDRIVER_PROCTYPE_RESULTSET, [
+        '@_mes' => 1,
+        '@ano' => 2018
+    ]);
+    print_resultsets($driver, $query);
+
 
     echo PHP_EOL.'---------------------------- Devuelve single resultsets y output paramas ------------------------'.PHP_EOL;
 
     $query = $driver->execute_stored_procedure('getResultset_out', flcDriver::FLCDRIVER_PROCTYPE_RESULTSET, [
-        1, 2018, [
-            2, flcDriver::FLCDRIVER_PARAMTYPE_OUT
+        1,
+        2018,
+        [
+            2,
+            flcDriver::FLCDRIVER_PARAMTYPE_OUT
         ]
     ]);
     print_resultsets($driver, $query);
+
+    echo PHP_EOL.'---------------------------- Devuelve single resultsets y output paramas (extended) ------------------------'.PHP_EOL;
+
+    $query = $driver->execute_callable('getResultset_out', flcDriver::FLCDRIVER_PROCTYPE_RESULTSET, [
+        '@_mes' => 1,
+        '@ano' => 2018
+    ]);
+    print_resultsets($driver, $query);
+
 
     echo PHP_EOL.'---------------------------- Devuelve multiple resultsets ------------------------'.PHP_EOL;
 
     $query = $driver->execute_stored_procedure('getMultipleResultset', flcDriver::FLCDRIVER_PROCTYPE_MULTIRESULTSET, [
-        1, 2018, ['ref1', flcDriver::FLCDRIVER_PARAMTYPE_OUT, 'refcursor'],
+        1,
+        2018,
+        ['ref1', flcDriver::FLCDRIVER_PARAMTYPE_OUT, 'refcursor'],
         ['ref2', flcDriver::FLCDRIVER_PARAMTYPE_OUT, 'refcursor']
     ]);
     print_resultsets($driver, $query);
+
+    echo PHP_EOL.'---------------------------- Devuelve multiple resultsets (extended) ------------------------'.PHP_EOL;
+
+    $query = $driver->execute_callable('getMultipleResultset', flcDriver::FLCDRIVER_PROCTYPE_MULTIRESULTSET, [
+        '@_mes' => 1,
+        '@ano' => 2018,
+        //'ref1' => '',
+        //'ref2' => ''
+    ]);
+    print_resultsets($driver, $query);
+
 
     echo PHP_EOL.'---------------------------- Devuelve multiples resultsets y out params ------------------------'.PHP_EOL;
 
     $query = $driver->execute_stored_procedure('getMultipleResultset_out', flcDriver::FLCDRIVER_PROCTYPE_MULTIRESULTSET, [
-        1, 2018, [
-            '', flcDriver::FLCDRIVER_PARAMTYPE_OUT
-        ], ['ref1', flcDriver::FLCDRIVER_PARAMTYPE_OUT, 'refcursor'],
+        1,
+        2018,
+        [
+            '',
+            flcDriver::FLCDRIVER_PARAMTYPE_OUT
+        ],
+        ['ref1', flcDriver::FLCDRIVER_PARAMTYPE_OUT, 'refcursor'],
         ['ref2', flcDriver::FLCDRIVER_PARAMTYPE_OUT, 'refcursor']
     ]);
     print_resultsets($driver, $query);
 
+    echo PHP_EOL.'---------------------------- Devuelve multiples resultsets y out params (extended) ------------------------'.PHP_EOL;
+    $query = $driver->execute_callable('getMultipleResultset_out', flcDriver::FLCDRIVER_PROCTYPE_MULTIRESULTSET, [
+        '@_mes' => 1,
+        '@ano' => 2018
+
+    ]);
+    print_resultsets($driver, $query);
 
     echo PHP_EOL.'---------------------------- Devuelve un solo valor - out param (2) ------------------------'.PHP_EOL;
     $query = $driver->execute_stored_procedure('assignDemo', flcDriver::FLCDRIVER_PROCTYPE_RESULTSET, [
         [
-            100, flcDriver::FLCDRIVER_PARAMTYPE_OUT
+            100,
+            flcDriver::FLCDRIVER_PARAMTYPE_OUT
         ]
     ]/*,[0=>'int']*/);
+    print_resultsets($driver, $query);
+
+    echo PHP_EOL.'---------------------------- Devuelve un solo valor - out param (2) (extended) ------------------------'.PHP_EOL;
+    $query = $driver->execute_callable('assignDemo', flcDriver::FLCDRIVER_PROCTYPE_RESULTSET, [
+        '@_val' => 100
+    ]);
     print_resultsets($driver, $query);
 
 
     echo PHP_EOL.'---------------------------- Devuelve 2 valores - out param (2) ------------------------'.PHP_EOL;
     $query = $driver->execute_stored_procedure('assignDemo_2', flcDriver::FLCDRIVER_PROCTYPE_RESULTSET, [
         [
-            'test', flcDriver::FLCDRIVER_PARAMTYPE_INOUT
-        ], [
-            1, flcDriver::FLCDRIVER_PARAMTYPE_OUT
+            'test',
+            flcDriver::FLCDRIVER_PARAMTYPE_INOUT
+        ],
+        [
+            1,
+            flcDriver::FLCDRIVER_PARAMTYPE_OUT
         ]
     ]/*,[0=>'int']*/);
+    print_resultsets($driver, $query);
+
+    echo PHP_EOL.'---------------------------- Devuelve 2 valores - out param (2) (extended) ------------------------'.PHP_EOL;
+    $query = $driver->execute_callable('assignDemo_2', flcDriver::FLCDRIVER_PROCTYPE_RESULTSET, [
+        '@_val' => 'test',
+        '@_val2' => 1,
+    ]);
     print_resultsets($driver, $query);
 
 
     echo PHP_EOL.'---------------------------- Devuelve 2 valores y un input - out param (2) ------------------------'.PHP_EOL;
     $query = $driver->execute_stored_procedure('assignDemo_3', flcDriver::FLCDRIVER_PROCTYPE_RESULTSET, [
         [
-            'test', flcDriver::FLCDRIVER_PARAMTYPE_OUT
-        ], 333, [
-            1, flcDriver::FLCDRIVER_PARAMTYPE_OUT
+            'test',
+            flcDriver::FLCDRIVER_PARAMTYPE_OUT
+        ],
+        333,
+        [
+            1,
+            flcDriver::FLCDRIVER_PARAMTYPE_INOUT
         ]
     ]/*,[0=>'int']*/);
     print_resultsets($driver, $query);
 
-    $results = $driver->get_callable_parameter_types('test_parmeters','procedure');
-    print_r($results);
+    echo PHP_EOL.'---------------------------- Devuelve 2 valores y un input - out param (2) (extended) ------------------------'.PHP_EOL;
+    $query = $driver->execute_callable('assignDemo_3', flcDriver::FLCDRIVER_PROCTYPE_RESULTSET, [
+        '@_val' => 'test',
+        '@_valx' => 333,
+        '@_val2' => 100
+
+    ]);
+    print_resultsets($driver, $query);
+
+
+    echo PHP_EOL.'---------------------------- Table value parameter test  ------------------------'.PHP_EOL;
+    $query = $driver->execute_stored_procedure('TVPOrderEntry', flcDriver::FLCDRIVER_PROCTYPE_RESULTSET, [
+        'Primer',
+        [[
+            ['0062836700', 367, "2009-03-12", 'AWC Tee Male Shirt', '20.75', null],
+            ['1250153272', 256, "2017-11-07", 'Superlight Black Bicycle', '998.45', null],
+            ['1328781505', 260, "2010-03-03", 'Silver Chain for Bikes', '88.98', null],
+        ],'readonly','TVPParam'],
+        [0,flcDriver::FLCDRIVER_PARAMTYPE_INOUT], // OrdNo
+        ['',flcDriver::FLCDRIVER_PARAMTYPE_INOUT]  // OrdDate
+    ]);
+    print_resultsets($driver, $query);
+
+
+    echo PHP_EOL.'---------------------------- Table value parameter test (extended) ------------------------'.PHP_EOL;
+    $query = $driver->execute_callable('TVPOrderEntry', flcDriver::FLCDRIVER_PROCTYPE_RESULTSET, [
+        '@CustID' => 'Primer',
+        '@Items' => [
+            ['0062836700', 367, "2009-03-12", 'AWC Tee Male Shirt', '20.75', null],
+            ['1250153272', 256, "2017-11-07", 'Superlight Black Bicycle', '998.45', null],
+            ['1328781505', 260, "2010-03-03", 'Silver Chain for Bikes', '88.98', null],
+        ]
+    ]);
+    print_resultsets($driver, $query);
+
+
+    echo PHP_EOL.'---------------------------- Table value parameter test  ------------------------'.PHP_EOL;
+    $query = $driver->execute_stored_procedure('sp_test_boolean_01', flcDriver::FLCDRIVER_PROCTYPE_RESULTSET, [
+        [
+            1,
+            flcDriver::FLCDRIVER_PARAMTYPE_INOUT
+        ]
+    ]);
+    print_resultsets($driver, $query);
 
     $driver->close();
 }

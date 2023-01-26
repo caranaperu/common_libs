@@ -29,9 +29,10 @@ abstract class  flcPersistenceAccessor {
      * if the implementation support that stuff , if no constraints exist the reread record
      * if implemented can read joined files.
      *
-     * @return int with the error code.
+     * @return flcPersistenceAccessorAnswer with the answer.
+     * @see flcPersistenceAccessorAnswer
      */
-    public abstract function add(flcBaseEntity &$p_entity, ?string $p_suboperation = null, ?flcConstraints $p_constraints = null): int;
+    public abstract function add(flcBaseEntity &$p_entity, ?string $p_suboperation = null, ?flcConstraints $p_constraints = null): flcPersistenceAccessorAnswer;
 
     /**
      * update an instance of the entity on the persistence based on his keys or id.
@@ -42,9 +43,10 @@ abstract class  flcPersistenceAccessor {
      * if the implementation support that stuff , if no constraints exist the reread record
      * if implemented can read joined files.
      *
-     * @return int with the error code.
+     * @return flcPersistenceAccessorAnswer with the answer.
+     * @see flcPersistenceAccessorAnswer
      */
-    public abstract function update(flcBaseEntity &$p_entity, ?string $p_suboperation = null, ?flcConstraints $p_constraints = null): int;
+    public abstract function update(flcBaseEntity &$p_entity, ?string $p_suboperation = null, ?flcConstraints $p_constraints = null): flcPersistenceAccessorAnswer;
 
     /**
      * delete an instance of the entity from the persistence.
@@ -52,9 +54,10 @@ abstract class  flcPersistenceAccessor {
      * @param flcBaseEntity $p_entity the entity to delete from the persistence
      * @param bool          $p_verify_deleted_check an error will be returned if already deleted the entity.
      *
-     * @return int with the error code.
+     * @return flcPersistenceAccessorAnswer with the answer.
+     * @see flcPersistenceAccessorAnswer
      */
-    public abstract function delete(flcBaseEntity &$p_entity, bool $p_verify_deleted_check = true): int;
+    public abstract function delete(flcBaseEntity &$p_entity, bool $p_verify_deleted_check = true): flcPersistenceAccessorAnswer;
 
     /**
      * delete an instance or multiple instances from the persistence, based on the constraints
@@ -62,9 +65,10 @@ abstract class  flcPersistenceAccessor {
      * @param flcBaseEntity  $p_entity the entity to delete from the persistence
      * @param flcConstraints $p_constraints
      *
-     * @return int with the error code.
+     * @return flcPersistenceAccessorAnswer with the answer.
+     * @see flcPersistenceAccessorAnswer
      */
-    public abstract function delete_full(flcBaseEntity &$p_entity, flcConstraints $p_constraints): int;
+    public abstract function delete_full(flcBaseEntity &$p_entity, flcConstraints $p_constraints): flcPersistenceAccessorAnswer;
 
     /**
      * read an instance of the entity from the persistence.
@@ -73,9 +77,10 @@ abstract class  flcPersistenceAccessor {
      * @param string|null         $p_suboperation optional user defined suboperation.
      * @param flcConstraints|null $p_constraints the constraints to use reading , useful when joins exist.
      *
-     * @return int with the error code.
+     * @return flcPersistenceAccessorAnswer with the answer.
+     * @see flcPersistenceAccessorAnswer
      */
-    public abstract function read(flcBaseEntity &$p_entity, ?string $p_suboperation = null, ?flcConstraints $p_constraints = null): int;
+    public abstract function read(flcBaseEntity &$p_entity, ?string $p_suboperation = null, ?flcConstraints $p_constraints = null): flcPersistenceAccessorAnswer;
 
     /**
      * Read a set of instances from the persistence based on the constraints,joins are allowed but the were
@@ -85,9 +90,10 @@ abstract class  flcPersistenceAccessor {
      * @param flcConstraints|null $p_constraints the constraints to use on the fecth clauses.
      * @param string|null         $p_suboperation optional user defined suboperation.
      *
-     * @return array|array[]|int an array of results or an error code.
+     * @return flcPersistenceAccessorAnswer with the answer.
+     * @see flcPersistenceAccessorAnswer
      */
-    public abstract function fetch(flcBaseEntity $p_entity, ?flcConstraints $p_constraints = null, ?string $p_suboperation = null);
+    public abstract function fetch(flcBaseEntity $p_entity, ?flcConstraints $p_constraints = null, ?string $p_suboperation = null) : flcPersistenceAccessorAnswer;
 
     /**
      * Read a set of instances from the persistence based on the constraints, but this one allow joins of fields
@@ -99,10 +105,11 @@ abstract class  flcPersistenceAccessor {
      * @param flcConstraints|null $p_constraints the constraints to use on the fecth clauses.
      * @param string|null         $p_suboperation optional user defined suboperation.
      *
-     * @return array|array[]|int an array of results or an error code.
+     * @return flcPersistenceAccessorAnswer with the answer.
+     * @see flcPersistenceAccessorAnswer
      *
      */
-    public abstract function fetch_full(flcBaseEntity $p_entity, ?array $p_ref_entities, ?flcConstraints $p_constraints = null, ?string $p_suboperation = null);
+    public abstract function fetch_full(flcBaseEntity $p_entity, ?array $p_ref_entities, ?flcConstraints $p_constraints = null, ?string $p_suboperation = null) : flcPersistenceAccessorAnswer;
 
 
 }
