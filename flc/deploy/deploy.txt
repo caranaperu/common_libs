@@ -1,0 +1,17 @@
+Under this deploy directory are all the needed minimal files to begin the development
+of an application using flc library.
+
+The directory apppath_directory represent the real directory that need to be created to
+deploy the library.
+
+In the index.php is required to define the $application_folder pointing to the apppath_directory
+that will be used without the trailing directory separator.
+
+If the variable $view_folder is empty by default will we located in the suggested views
+directory in this  deploy otherwise will be in the defined directory but allways
+inside the application folder (APPPATH).
+
+
+-----------------------------------------------------------
+
+Under each directory exist a minimal explanation of his usage.

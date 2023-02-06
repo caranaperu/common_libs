@@ -1,0 +1,5 @@
+Under this directory create one directory for each languagbe supported.
+under each one of this directories create your language files.
+
+The default language is defined in the config.php file
+variable $config['language'] = 'a language id'

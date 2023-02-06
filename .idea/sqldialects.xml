@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="SqlDialectMappings">
-    <file url="file://$PROJECT_DIR$/framework/database/driver/mssql/flcMssqlDriver.php" dialect="TSQL" />
-    <file url="file://$PROJECT_DIR$/framework/database/driver/mysql/flcMysqlDriver.php" dialect="MySQL" />
-    <file url="file://$PROJECT_DIR$/framework/database/driver/postgres/flcPostgresDriver.php" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/flc/database/driver/mssql/flcMssqlDriver.php" dialect="TSQL" />
+    <file url="file://$PROJECT_DIR$/flc/database/driver/mysql/flcMysqlDriver.php" dialect="MySQL" />
+    <file url="file://$PROJECT_DIR$/flc/database/driver/postgres/flcPostgresDriver.php" dialect="PostgreSQL" />
   </component>
 </project>

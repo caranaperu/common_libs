@@ -1,0 +1,2 @@
+Put your views here.
+See the annotations over the view directory in deploy.txt

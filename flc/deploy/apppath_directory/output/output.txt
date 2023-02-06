@@ -1,0 +1,1 @@
+Inside this directory put all classes that inherits from flcOutputDataProcessor class.

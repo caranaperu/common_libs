@@ -1,0 +1,2 @@
+Inside this directory put all classes that inherits from flcBaseController class.
+flcCRUDController for example or any other that inherits.
