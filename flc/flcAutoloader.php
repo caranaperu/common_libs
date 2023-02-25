@@ -18,6 +18,7 @@ spl_autoload_register(function (string $class) {
         'flcValidation' => BASEPATH.'/core/',
         'flcMessageTrait' => BASEPATH.'/core/',
         'flcErrorHandler' => BASEPATH.'/core/',
+        'flcFileUploader' => BASEPATH.'/core/',
 
         // session stuff
         'flcSession' => BASEPATH.'/core/session/',
@@ -55,6 +56,8 @@ spl_autoload_register(function (string $class) {
         // app impl
         'flcBaseController' => BASEPATH.'/impl/controller/',
         'flcCRUDController' => BASEPATH.'/impl/controller/',
+        'flcControllerHelperTrait' => BASEPATH.'/impl/controller/',
+        'flcBaseUploadController' => BASEPATH.'/impl/controller/',
 
 
         // others

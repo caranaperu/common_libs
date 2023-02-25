@@ -16,6 +16,7 @@ namespace flc\impl\controller;
 use flc\core\accessor\flcPersistenceAccessorAnswer;
 use flc\core\FLC;
 use RuntimeException;
+use Throwable;
 
 
 /**
@@ -54,6 +55,19 @@ abstract class flcCRUDController extends flcBaseController {
         FLC::get_instance()->db->close();
 
         return $answer;
+    }
+
+    /**
+     * @inheritdoc
+     *
+     * Support for close db
+     */
+    public function controller_exception_handler(Throwable $ex) {
+        parent::controller_exception_handler($ex);
+
+        if (FLC::get_instance()->db) {
+            FLC::get_instance()->db->close();
+        }
     }
 
 }

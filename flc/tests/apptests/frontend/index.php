@@ -33,6 +33,7 @@
     <SCRIPT SRC=view/atletas/AtletasWindow.js></SCRIPT>
     <SCRIPT SRC=view/atletas/AtletasMarcasForm.js></SCRIPT>
     <SCRIPT SRC=view/atletas/AtletasForm.js></SCRIPT>
+    <SCRIPT SRC=view/upload/UploadFotoWindow.js></SCRIPT>
 
 
 </head>
