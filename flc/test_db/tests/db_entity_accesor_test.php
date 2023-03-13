@@ -24,6 +24,7 @@ use flc\core\accessor\constraints\flcJoinEntry;
 use flc\core\accessor\constraints\flcJoins;
 use flc\core\accessor\flcDbAccessor;
 use flc\core\accessor\flcPersistenceAccessorAnswer;
+use flc\core\dto\flcInputDataProcessor;
 use flc\core\model\flcBaseModel;
 use flc\database\driver\flcDriver;
 use flc\database\driver\mssql\flcMssqlDriver;
@@ -58,8 +59,8 @@ $driver->trans_mark_clean();
 $driver->trans_begin();
 
 
-class factura_header_model extends flcBaseModel {
-    public function __construct(flcDriver $p_driver) {
+class factura_header_entity extends flcBaseModel {
+    public function __construct(?flcDriver $p_driver, ?flcInputDataProcessor $p_input_data) {
         $this->fields = ['numero' => null, 'descripcion' => null, 'customer_id' => null];
         $this->fields_ro = ['name' => null];
 
@@ -67,7 +68,13 @@ class factura_header_model extends flcBaseModel {
         $this->table_name = 'tb_factura_header';
         $this->field_types = ['numero' => 'nostring'];
 
-        $this->accessor = new flcDbAccessor($p_driver);
+        if ($p_driver) {
+            $this->accessor = new flcDbAccessor($p_driver);
+
+        }
+
+        parent::__construct($p_driver, $p_input_data);
+
     }
 
     public function is_valid_field($field, $value): bool {
@@ -101,8 +108,11 @@ class factura_header_model extends flcBaseModel {
                 order by numero
                 offset 0 rows fetch next 5 rows only
              */
+            $factitems = new factura_items_entity(null, null);
+            $factitems->factura_nro = 200;
+
             $join1 = new flcJoinEntry();
-            $join1->initialize('tb_factura_items', 'tb_factura_header', [
+            $join1->initialize($factitems, $this, [
                 'factura_nro' => 'numero'
             ], ['item_id', 'producto', 'cantidad']);
             $joins = new flcJoins();
@@ -122,30 +132,40 @@ class factura_header_model extends flcBaseModel {
             // do a joined fetch factura/items
             // using full constraints and join
             $c->set_where_fields([['numero', '=']]);
-            $c->set_select_fields(['numero', 'descripcion','customer_id']);
+            $c->set_select_fields(['numero', 'descripcion', 'customer_id']);
+
+
+            $custmodel = new customer_model(null, null);
+            $custmodel->id = $this->customer_id;
 
             $j = new flcJoinEntry();
-            $j->initialize('tb_customer',$this->get_table_name(), ['id' => 'customer_id'], ['name']);
+            $j->initialize($custmodel, $this, ['id' => 'customer_id'], ['name']);
 
             $joins = new flcJoins();
             $joins->add_join($j);
 
             $c->set_joins($joins);
         }
+
         return $c;
     }
 
 }
 
 
-class factura_items_model extends flcBaseModel {
-    public function __construct(flcDriver $p_driver) {
+class factura_items_entity extends flcBaseModel {
+    public function __construct(?flcDriver $p_driver, ?flcInputDataProcessor $p_input_data) {
         $this->fields = ['item_id' => null, 'producto' => null, 'cantidad' => null, 'factura_nro' => null];
         $this->key_fields = ['item_id'];
         //$this->id_field = 'item_id';
         $this->table_name = 'tb_factura_items';
         $this->field_types = ['item_id' => 'nostring', 'factura_nro' => 'nostring'];
-        $this->accessor = new flcDbAccessor($p_driver);
+        if ($p_driver) {
+            $this->accessor = new flcDbAccessor($p_driver);
+        }
+
+        parent::__construct($p_driver, $p_input_data);
+
     }
 
     public function &get_fetch_constraints(?string $p_suboperation = null): flcConstraints {
@@ -169,8 +189,9 @@ class factura_items_model extends flcBaseModel {
                     where factura_nro = 200
                     order by item_id
                  */
+                $fh = new factura_header_entity(null,null);
                 $join1 = new flcJoinEntry();
-                $join1->initialize('tb_factura_header', 'tb_factura_items', [
+                $join1->initialize($fh, $this, [
                     'numero' => 'factura_nro'
                 ], ['numero', 'descripcion']);
                 $joins = new flcJoins();
@@ -192,8 +213,11 @@ class factura_items_model extends flcBaseModel {
                     $c->set_where_fields([['factura_nro', '='], ['tb_factura_header.descripcion', 'ilike']]);
                     $c->set_select_fields(['item_id', 'producto', 'cantidad', 'factura_nro']);
 
+                    $fh = new factura_header_entity(null,null);
+                    $fh->descripcion = 'prod';
+
                     $join1 = new flcJoinEntry();
-                    $join1->initialize('tb_factura_header', 'tb_factura_items', [
+                    $join1->initialize($fh, $this, [
                         'numero' => 'factura_nro'
                     ], ['numero', 'descripcion']);
                     $joins = new flcJoins();
@@ -209,8 +233,6 @@ class factura_items_model extends flcBaseModel {
 }
 
 
-//$driver->set_rowversion_field('aboolean');
-
 // clear the records to do the test
 $ret = delete_factura($driver, 200);
 if ($ret !== flcDbAccessor::$db_error_codes['DB_OPERATION_OK']) {
@@ -223,7 +245,7 @@ if ($ret !== flcDbAccessor::$db_error_codes['DB_OPERATION_OK']) {
 add_factura($driver, 200, 9, 'readjoined');
 
 
-$factura_header = new factura_header_entity($driver);
+$factura_header = new factura_header_entity($driver, null);
 $factura_header->set_values(['descripcion' => 'Producto 1 - updated', 'numero' => 100]);
 
 $ret = $factura_header->update();
@@ -232,67 +254,86 @@ print_r($ret).PHP_EOL;
 
 // do a fetch
 $results = $factura_header->fetch();
-if (is_array($results)) {
-    foreach ($results as $record) {
+if ($results->is_success()) {
+    foreach ($results->get_result_array() as $record) {
         print_r($record);
     }
+} else {
+    print_r($results);
 }
 
 
 // fetch childs of factura 100
-$factura_items = new factura_items_entity($driver);
+$factura_items = new factura_items_entity($driver, null);
 $factura_items->factura_nro = 200;
 
 $results = $factura_items->fetch('itemsxfactura');
-if (is_array($results)) {
-    foreach ($results as $record) {
+if ($results->is_success()) {
+    foreach ($results->get_result_array() as $record) {
         print_r($record);
     }
+} else {
+    print_r($results);
 }
+
 
 
 $factura_header->numero = 200;
 $results = $factura_header->fetch('fetchjoined');
 echo PHP_EOL;
-if (is_array($results)) {
-    foreach ($results as $record) {
-        print_r($record).PHP_EOL;
+if ($results->is_success()) {
+    foreach ($results->get_result_array() as $record) {
+        print_r($record);
     }
+} else {
+    print_r($results);
 }
+
+
 
 $factura_items->factura_nro = 100;
 $results = $factura_items->fetch('itemsxfactura_joined');
-if (is_array($results)) {
-    foreach ($results as $record) {
+if ($results->is_success()) {
+    foreach ($results->get_result_array() as $record) {
         print_r($record);
     }
+} else {
+    print_r($results);
 }
 
+
+
 $factura_items->factura_nro = 300;
-$factura_header->descripcion = 'prod';
 $results = $factura_items->fetch('itemsxfactura_complex', [$factura_header]);
-if (is_array($results)) {
-    foreach ($results as $record) {
+if ($results->is_success()) {
+    foreach ($results->get_result_array() as $record) {
         print_r($record);
     }
+} else {
+    print_r($results);
 }
+
+
 
 
 /*******************************************************************
  * tEST DE ADD Y UPDATE PARA PRUEBA DE RELECTURA STANDARD Y JOINED
  */
 class customer_model extends flcBaseModel {
-    public function __construct($driver) {
+    public function __construct(?flcDriver $p_driver, ?flcInputDataProcessor $p_input_data) {
         $this->fields = ['id' => null, 'name' => null];
         //$this->key_fields = ['item_id'];
         $this->id_field = 'id';
         $this->table_name = 'tb_customer';
         $this->field_types = ['id' => 'nostring'];
-        $this->accessor = new flcDbAccessor($driver);
+        $this->accessor = new flcDbAccessor($p_driver);
+
+        parent::__construct($p_driver, $p_input_data);
+
     }
 }
 
-$customer = new customer_entity($driver);
+$customer = new customer_model($driver,null);
 $customer->name = 'un nombre';
 
 // Lcctura standard
@@ -301,9 +342,10 @@ print_r($ret).PHP_EOL;
 
 print_r($customer->get_fields());
 
+
 // Lcctura joined
 $factura_header->numero = 800;
-$factura_header->descripcion='la descripcion 800';
+$factura_header->descripcion = 'la descripcion 800';
 $factura_header->customer_id = 9;
 
 $ret = $factura_header->add('readjoined');
@@ -332,37 +374,40 @@ exit();
 function delete_factura($driver, int $factura_nro) {
     echo '  ***************** Eliminando factura numero = '.$factura_nro.PHP_EOL;
 
-    $fh = new factura_header_entity($driver);
+    $fh = new factura_header_entity($driver, null);
     $fh->numero = $factura_nro;
 
-    $ret = $fh->delete();
-    if ($ret !== flcDbAccessor::$db_error_codes['DB_OPERATION_OK']) {
-        return $ret;
-    }
-    echo $ret.PHP_EOL;
 
-    // now delete the left behind items associated to the header
-    $factura_items = new factura_items_entity($driver);
+    // delete the items associated to the header
+    $factura_items = new factura_items_entity($driver, null);
     $factura_items->factura_nro = $fh->numero;
 
     $results = $factura_items->fetch('itemsxfactura');
-    if (is_array($results)) {
-        foreach ($results as $record) {
+    if ($results->is_success()) {
+        foreach ($results->get_result_array() as $record) {
             print_r($record);
             $factura_items->item_id = $record['item_id'];
             $ret = $factura_items->delete();
             print_r($ret).PHP_EOL;
         }
+    } else {
+        return $results->get_return_code();
     }
 
-    return $ret;
+    // delete the main header
+    $ret = $fh->delete();
+    if (!$ret->is_success()) {
+        return $ret->get_return_code();
+    }
+
+    print_r($ret).PHP_EOL;
 }
 
 
-function add_factura($driver, int $factura_nro, ?int $customer_id = null, ?string $suboperation = null): flcPersistenceAccessorAnswer {
+function add_factura($driver, int $factura_nro, ?int $customer_id = null, ?string $suboperation = null): int {
     echo '  ***************** Agregando factura numero = '.$factura_nro.PHP_EOL;
 
-    $factura_header = new factura_header_entity($driver);
+    $factura_header = new factura_header_entity($driver, null);
     $factura_header->numero = $factura_nro;
     $factura_header->descripcion = 'Producto '.$factura_nro;
     if ($customer_id) {
@@ -374,8 +419,8 @@ function add_factura($driver, int $factura_nro, ?int $customer_id = null, ?strin
     print_r($factura_header->get_all_fields()).PHP_EOL;
     print_r($ret).PHP_EOL;
 
-    if ($ret === flcDbAccessor::$db_error_codes['DB_OPERATION_OK']) {
-        $factura_items = new factura_items_entity($driver);
+    if ($ret->is_success()) {
+        $factura_items = new factura_items_entity($driver, null);
         $factura_items->factura_nro = $factura_nro;
 
         for ($i = 0; $i < 4; $i++) {
@@ -383,11 +428,25 @@ function add_factura($driver, int $factura_nro, ?int $customer_id = null, ?strin
             $factura_items->producto = 'Item '.($i + 1).' - '.($i + $factura_nro * 1000);
             $factura_items->cantidad = 500 + ($i + $factura_nro * 1000);
             $ret = $factura_items->add();
-            print_r($ret).PHP_EOL;
+            if ($ret->is_success()) {
+                print_r($ret).PHP_EOL;
+            } else {
+                break;
+
+            }
+
         }
 
-    }
-    echo '  ***************** Fin factura numero = '.$factura_nro.PHP_EOL;
+        echo '  ***************** Fin factura numero = '.$factura_nro.PHP_EOL;
+        if (!$ret->is_success()) {
+            return $ret->get_return_code();
+        } else {
+            return flcDbAccessor::$db_error_codes['DB_OPERATION_OK'];
+        }
 
-    return $ret;
+    } else {
+        echo '  ***************** Fin factura numero = '.$factura_nro.PHP_EOL;
+
+        return $ret->get_return_code();
+    }
 }

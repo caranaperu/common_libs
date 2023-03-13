@@ -43,7 +43,6 @@ use flc\database\driver\flcDriver;
 use flc\database\flcDbResult;
 use flc\database\flcDbResultOutParams;
 use flc\database\flcDbResults;
-use stdClass;
 
 
 /**
@@ -147,6 +146,7 @@ class flcPostgresDriver extends flcDriver {
 
     ];
 
+
     /**
      * For scalar functions pgsql use the same syntax to get a set of records.
      *
@@ -163,7 +163,6 @@ class flcPostgresDriver extends flcDriver {
      */
     public function __construct(?array $p_options = null) {
         parent::__construct($p_options);
-        $this->rowversion_field = 'xmin';
     }
 
     /**
@@ -221,7 +220,7 @@ class flcPostgresDriver extends flcDriver {
     /**
      * @inheritdoc
      */
-    protected function _set_charset(string $p_charset): bool {
+    public function set_charset(string $p_charset): bool {
         // Check if open is called before
         if ($this->_connId) {
             return (pg_set_client_encoding($this->_connId, $p_charset) === 0);
@@ -333,7 +332,9 @@ class flcPostgresDriver extends flcDriver {
     /**
      * @inheritdoc
      */
-    public function primary_key(string $p_table): ?string {
+    public function primary_key(string $p_table): array {
+        $pkeys = [];
+
         // PGSQL way to obtain the primary key field name
         $qry = 'SELECT a.attname
                     FROM   pg_index i
@@ -344,11 +345,13 @@ class flcPostgresDriver extends flcDriver {
         $RES = $this->execute_query($qry);
 
         if ($RES && $RES->num_rows() > 0) {
-            return $RES->first_row()->attname;
-        } else {
-            return null;
+            $rows = $RES->result_array();
+            foreach ($rows as $row) {
+                $pkeys[] = $row['attname'];
+            }
         }
 
+        return $pkeys;
     }
 
     // --------------------------------------------------------------------
@@ -356,8 +359,34 @@ class flcPostgresDriver extends flcDriver {
     /**
      * @inheritdoc
      */
-    protected function _column_data_qry(string $p_table): string {
-        return 'SELECT  * FROM '.$p_table.' LIMIT 1';
+    protected function _column_data_qry(string $p_table, ?string $p_schema = null): string {
+        return "select
+                    col_name
+                    ,col_type
+                    ,case when col_length_1 isnull  then coalesce(col_length_2,col_length_1)  else col_length_1 end as col_length
+                    ,col_scale
+                    ,col_definition
+                    ,case when col_is_pkey = true then 1 else 0 end as col_is_pkey
+                    ,col_default
+                    ,case when col_is_nullable = true then 1 else 0 end as col_is_nullable
+                    from (SELECT a.attname                                                                   AS col_name
+                               , a.atttypid::regtype                                                         as col_type
+                               , substring(format_type(a.atttypid, a.atttypmod) from '\((\d+),(\d+)\)')::int AS col_length_1
+                               , substring(format_type(a.atttypid, a.atttypmod) from ',(\d+)\)')::int        AS col_scale
+                               , format_type(a.atttypid, a.atttypmod)                                        AS col_definition
+                               , coalesce(p.indisprimary, FALSE)                                             AS col_is_pkey
+                               , pg_get_expr(f.adbin, f.adrelid)                                             AS col_default
+                               , case when a.attnotnull = true then false else true end                      AS col_is_nullable
+                               , substring(format_type(a.atttypid, a.atttypmod) from '\((\d+)\)')::int       AS col_length_2
+                    
+                          FROM pg_attribute a
+                                   LEFT JOIN pg_index p ON p.indrelid = a.attrelid AND a.attnum = ANY (p.indkey)
+                                   LEFT JOIN pg_description d ON d.objoid = a.attrelid AND d.objsubid = a.attnum
+                                   LEFT JOIN pg_attrdef f ON f.adrelid = a.attrelid AND f.adnum = a.attnum
+                          WHERE a.attnum > 0
+                            AND NOT a.attisdropped
+                            AND a.attrelid = '".$p_schema.$p_table."'::regclass -- table may be schema-qualified
+                          ORDER BY a.attnum) res";
     }
 
     // --------------------------------------------------------------------
@@ -372,25 +401,7 @@ class flcPostgresDriver extends flcDriver {
             $schema = $p_schema;
         }
 
-        $sql = 'SELECT "column_name", "data_type", "character_maximum_length", "numeric_precision", "column_default"
-			FROM "information_schema"."columns"
-			WHERE table_schema = '.$this->escape(strtolower($schema)).' and LOWER("table_name") = '.$this->escape(strtolower($p_table));
-
-        if (($query = $this->execute_query($sql)) === null) {
-            return null;
-        }
-        $query = $query->result_object();
-
-        $retval = [];
-        for ($i = 0, $c = count($query); $i < $c; $i++) {
-            $retval[$i] = new stdClass();
-            $retval[$i]->name = $query[$i]->column_name;
-            $retval[$i]->type = $query[$i]->data_type;
-            $retval[$i]->max_length = ($query[$i]->character_maximum_length > 0) ? $query[$i]->character_maximum_length : $query[$i]->numeric_precision;
-            $retval[$i]->default = $query[$i]->column_default;
-        }
-
-        return $retval;
+        return parent::column_data($p_table, $p_schema);
     }
 
     /**
@@ -411,6 +422,15 @@ class flcPostgresDriver extends flcDriver {
     /*************************************************************
      * Helpers
      */
+
+    /**
+     * @inheritdoc
+     *
+     */
+    public function cast_to_rowversion($p_value) {
+        // in pgsql xmin is the rowversion field no transformation required
+        return $p_value;
+    }
 
     /**
      * @inheritdoc
@@ -847,7 +867,7 @@ class flcPostgresDriver extends flcDriver {
                 $rows = $res->result_array();
                 foreach ($rows as $row) {
                     $p_name = $row['p_name'];
-                    $p_mode =  $row['p_mode'];
+                    $p_mode = $row['p_mode'];
                     $p_default = $row['p_default'];
 
                     if ($p_mode == 'i') {
@@ -888,7 +908,7 @@ class flcPostgresDriver extends flcDriver {
 
             $res = $this->execute_query($sql);
             if ($res) {
-                $insert_id = $res->row()->insert_id ?? 0;
+                $insert_id = $res->row()->ins_id ?? 0;
                 $res->free_result();
 
                 return $insert_id;

@@ -141,10 +141,13 @@ class flcMssqlResult extends flcDbResult {
         $retval = [];
         foreach (sqlsrv_field_metadata($this->result_id) as $i => $field) {
             $retval[$i] = new stdClass();
-            $retval[$i]->name = $field['Name'];
-            $retval[$i]->type = flcMssqlResult::$_fieldTypes[$field['Type']];
+            $retval[$i]->col_name = $field['Name'];
+            $retval[$i]->col_type = flcMssqlResult::$_fieldTypes[$field['Type']];
 
-            $retval[$i]->max_length = $field['Size'];
+            $retval[$i]->col_length = $field['Size'] ?? $field['Precision'];
+            $retval[$i]->col_scale = $field['Scale'];
+            $retval[$i]->col_is_nullable = $field['Nullable'] == SQLSRV_NULLABLE_YES ? 1 : 0;
+
         }
 
         return $retval;

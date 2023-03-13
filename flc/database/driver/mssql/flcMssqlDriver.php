@@ -19,7 +19,6 @@ use flc\database\driver\flcDriver;
 use flc\database\flcDbResult;
 use flc\database\flcDbResultOutParams;
 use flc\database\flcDbResults;
-use stdClass;
 
 
 /**
@@ -298,7 +297,7 @@ class flcMssqlDriver extends flcDriver {
     /**
      * @inheritdoc
      */
-    protected function _set_charset(string $p_charset): bool {
+    public function set_charset(string $p_charset): bool {
         // Not supported only can be set on the connection.
         return false;
     }
@@ -424,7 +423,8 @@ class flcMssqlDriver extends flcDriver {
     /**
      * @inheritdoc
      */
-    public function primary_key(string $p_table): ?string {
+    public function primary_key(string $p_table): array {
+        $pkeys = [];
         // MSSQL way to obtain the primary key field name
         $qry = "select C.COLUMN_NAME FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS T
                     JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE C ON C.CONSTRAINT_NAME=T.CONSTRAINT_NAME
@@ -434,14 +434,14 @@ class flcMssqlDriver extends flcDriver {
         $RES = $this->execute_query($qry);
 
         if ($RES && $RES->num_rows() > 0) {
-            $colname = $RES->first_row()->COLUMN_NAME;
+            $rows = $RES->result_array();
+            foreach ($rows as $row) {
+                $pkeys[] = $row['COLUMN_NAME'];
+            }
             $RES->free_result();
 
-            return $colname;
-        } else {
-            return null;
         }
-
+        return $pkeys;
     }
 
     // --------------------------------------------------------------------
@@ -449,8 +449,56 @@ class flcMssqlDriver extends flcDriver {
     /**
      * @inheritdoc
      */
-    protected function _column_data_qry(string $p_table): string {
-        return 'SELECT  * FROM '.$p_table.' LIMIT 1';
+    protected function _column_data_qry(string $p_table,?string $p_schema = null): string {
+        return "select col_name, col_type, case when charindex('(',col_definition) > 0 then col_length else null end as col_length, col_scale,col_definition,col_default,col_is_pkey,col_is_nullable
+                FROM(
+                        SELECT I.COLUMN_NAME as col_name, DATA_TYPE as col_type, coalesce(CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION) as col_length,NUMERIC_SCALE as col_scale,
+                               DATA_TYPE +
+                               CASE
+                                   --types without length, precision, or scale specifiecation
+                                   WHEN DATA_TYPE IN (N'int', N'bigint', N'smallint', N'tinyint', N'money', N'smallmoney', N'real', N'datetime',
+                                                      N'smalldatetime', N'bit', N'image', N'text', N'uniqueidentifier', N'date', N'ntext',
+                                                      N'sql_variant', N'hierarchyid', 'geography', N'timestamp', N'xml')
+                                       THEN N''
+                                   --types with precision and scale specification
+                                   WHEN DATA_TYPE in (N'decimal', N'numeric')
+                                       THEN N'(' + CAST(NUMERIC_PRECISION AS varchar(5)) + N',' + CAST(NUMERIC_SCALE AS varchar(5)) + N')'
+                                   --types with scale specification only
+                                   WHEN DATA_TYPE in (N'time', N'datetime2', N'datetimeoffset')
+                                       THEN N'(' + CAST(NUMERIC_SCALE AS varchar(5)) + N')'
+                                   --float default precision is 53 - add precision when column has a different precision value
+                                   WHEN DATA_TYPE in (N'float')
+                                       THEN CASE
+                                                WHEN NUMERIC_PRECISION = 53 THEN N''
+                                                ELSE N'(' + CAST(NUMERIC_PRECISION AS varchar(5)) + N')' END
+                                   --types with length specifiecation
+                                   ELSE N'(' + CASE CHARACTER_MAXIMUM_LENGTH
+                                                   WHEN -1 THEN N'MAX'
+                                                   ELSE CAST(CHARACTER_MAXIMUM_LENGTH AS nvarchar(20)) END + N')'
+                                   END                                                            as col_definition,
+                               CASE
+                                   when left(COLUMN_DEFAULT, 2) = '((' then
+                                       REPLACE(SUBSTRING(COLUMN_DEFAULT, 3, LEN(COLUMN_DEFAULT) - 4), '''', '')
+                                   else
+                                       case
+                                           when left(COLUMN_DEFAULT, 1) = '(' then
+                                                   STUFF(SUBSTRING(COLUMN_DEFAULT, 1, 1), 1, 1, '') + SUBSTRING(COLUMN_DEFAULT, 2, LEN(COLUMN_DEFAULT) - 2) +
+                                                   STUFF(SUBSTRING(COLUMN_DEFAULT, LEN(COLUMN_DEFAULT), 1), 1, 1, '')
+                                           else
+                                               COLUMN_DEFAULT
+                                           end
+                                   end                                                            as col_default,
+                               case when COALESCE(C.COLUMN_NAME, NULL) IS NULL THEN 0 ELSE 1 end  as col_is_pkey,
+                               case when IS_NULLABLE = 'YES' THEN 1 else 0 end as col_is_nullable
+                    FROM INFORMATION_SCHEMA.Columns I
+                    LEFT JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS T
+                                   ON T.TABLE_CATALOG = I.TABLE_CATALOG and T.TABLE_SCHEMA = I.TABLE_SCHEMA and
+                                      T.TABLE_NAME = I.TABLE_NAME
+                    LEFT JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE C
+                                   ON C.CONSTRAINT_NAME = T.CONSTRAINT_NAME AND C.COLUMN_NAME = I.COLUMN_NAME
+                    WHERE I.TABLE_SCHEMA = ".$this->escape($p_schema).
+            ' and UPPER(I.TABLE_NAME) = '.$this->escape(strtoupper($p_table)).
+            ') res';
     }
 
     // --------------------------------------------------------------------
@@ -465,28 +513,11 @@ class flcMssqlDriver extends flcDriver {
             $schema = $p_schema;
         }
 
-        $sql = 'SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, COLUMN_DEFAULT
-			FROM INFORMATION_SCHEMA.Columns
-			WHERE TABLE_SCHEMA = '.$this->escape($schema).' and UPPER(TABLE_NAME) = '.$this->escape(strtoupper($p_table));
+        return parent::column_data($p_table,$schema);
 
-        if (($query = $this->execute_query($sql)) === null) {
-            return null;
-        }
-        $ans = $query->result_object();
-
-        $retval = [];
-        for ($i = 0, $c = count($ans); $i < $c; $i++) {
-            $retval[$i] = new stdClass();
-            $retval[$i]->name = $ans[$i]->COLUMN_NAME;
-            $retval[$i]->type = $ans[$i]->DATA_TYPE;
-            $retval[$i]->max_length = ($ans[$i]->CHARACTER_MAXIMUM_LENGTH > 0) ? $ans[$i]->CHARACTER_MAXIMUM_LENGTH : $ans[$i]->NUMERIC_PRECISION;
-            $retval[$i]->default = $ans[$i]->COLUMN_DEFAULT;
-        }
-
-        $query->free_result();
-
-        return $retval;
     }
+
+    // --------------------------------------------------------------------
 
     /**
      * @inheritdoc
@@ -498,7 +529,7 @@ class flcMssqlDriver extends flcDriver {
         }
 
         $sql = "SELECT  TABLE_NAME as table_name FROM  INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=".$this->escape($p_schema);
-
+        
         if (isset($p_table_constraints) && $p_table_constraints !== '') {
             $sql .= ' AND TABLE_NAME LIKE \'%'.$p_table_constraints.'%\'';
         }
@@ -511,6 +542,16 @@ class flcMssqlDriver extends flcDriver {
     /*************************************************************
      * Helpers
      */
+
+    /**
+     * @inheritdoc
+     *
+     */
+    public function cast_to_rowversion($p_value) {
+        // in ms sql server is a timestamp , this si the way to convert
+        return '0x'.bin2hex($p_value);
+    }
+
 
     /**
      * @inheritdoc

@@ -11,10 +11,10 @@
 
 namespace flc;
 
-use Exception;
 use flc\core\flcConfig;
 use flc\core\flcServiceLocator;
 use RuntimeException;
+use Throwable;
 
 
 /**
@@ -30,10 +30,7 @@ class flcCommon {
      * config files
      *
      * @return flcConfig instance with the config options
-     * @throws Exception
-     *
-     * if fails throw  an exception.
-     *
+     * @throws Throwable
      */
     static private function &_load_config(): flcConfig {
         /**
@@ -60,7 +57,7 @@ class flcCommon {
 
     /**
      * @return flcConfig the config instance containing at least the main config.
-     * @throws Exception
+     * @throws Throwable
      */
     static function &get_config(): flcConfig {
         return self::_load_config();
@@ -201,7 +198,7 @@ class flcCommon {
      * this parameter its ignored.
      *
      * @return string the controller name from the uri or the default one is not found.
-     * @throws Exception
+     * @throws Throwable
      */
     static function uri_get_controller(string $p_uri): string {
         $config = self::get_config();
@@ -268,14 +265,13 @@ class flcCommon {
     // --------------------------------------------------------------------
 
 
-
     /**
      *
      * @param string $p_type The error level: 'error', 'debug' or 'info'
      * @param string $p_message
      *
      * @return void
-     * @throws Exception
+     * @throws Throwable
      */
     static function log_message(string $p_type, string $p_message) {
         //echo $p_type.' : '.$p_message.PHP_EOL;

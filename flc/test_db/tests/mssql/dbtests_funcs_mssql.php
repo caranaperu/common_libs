@@ -40,7 +40,7 @@ function print_results($driver, $query) {
                 foreach ($query->result_array() as $row) {
                     print_r($row);
                 }
-                $query->free_result();;
+                $query->free_result();
             }
         }
 

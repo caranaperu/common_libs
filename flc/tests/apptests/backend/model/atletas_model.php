@@ -6,9 +6,10 @@ require_once '/var/www/common/flc/tests/apptests/backend/accessors/atletas_acces
 
 
 use flc\core\dto\flcInputDataProcessor;
+use flc\core\flcServiceLocator;
 use flc\core\model\flcBaseModel;
 use flc\database\driver\flcDriver;
-use flc\tests\apptests\backend\accessors\atletas_accessor;
+
 
 class  atletas_model extends flcBaseModel {
     public function __construct(flcDriver $p_driver, ?flcInputDataProcessor $p_input_data) {
@@ -38,7 +39,8 @@ class  atletas_model extends flcBaseModel {
             'usuario' => null,
             'fecha_creacion' => null,
             'usuario_mod' => null,
-            'fecha_modificacion' => null
+            'fecha_modificacion' => null,
+            'xmin' => null // this is a rowversion id for this model
         ];
 
 
@@ -60,10 +62,13 @@ class  atletas_model extends flcBaseModel {
             'atletas_talla_zapatillas' => 'nostring',
             'atletas_protected' => 'bool',
             'activo' => 'bool',
-            'atletas_agno' => 'nostring'
+            'atletas_agno' => 'nostring',
+            'xmin' => 'rowversion'
         ];
 
-        $this->accessor = new atletas_accessor($p_driver);
+        //$this->accessor = new atletas_accessor($p_driver);
+        $this->accessor = flcServiceLocator::get_instance()->service('accessor','flc\tests\apptests\backend\accessors\atletas_accessor',$p_driver);
+
 
         parent::__construct($p_driver, $p_input_data);
 

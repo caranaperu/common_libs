@@ -313,20 +313,6 @@ abstract class flcDriver {
      */
     protected static array $_cast_conversion = [];
 
-    /**
-     * The field that identified the rowversion of a record.
-     * Normal
-     *  postgres had xmin allways
-     *  mssql server uses rowversion field but is optional and defined by the user in the record
-     *  mysql doesnt have anyone an can be use a timestamp or an int to do this , but requires
-     *      a trigger or stored procedure to support.
-     *
-     *  IS highly recommended to define.
-     *
-     * @var string
-     */
-    protected string $rowversion_field = '';
-
 
     public const FLCDRIVER_PROCTYPE_RESULTSET      = 1;
     public const FLCDRIVER_PROCTYPE_MULTIRESULTSET = 2;
@@ -358,7 +344,6 @@ abstract class flcDriver {
             $this->encrypt = $p_options['encrypt'] ?? false;
             $this->compress = $p_options['compress'] ?? false;
             $this->dbprefix = $p_options['dbprefix'] ?? '';
-            $this->rowversion_field = $p_options['rowversion_field'] ?? '';
 
         }
     }
@@ -410,7 +395,7 @@ abstract class flcDriver {
         }
 
 
-        $this->_set_charset($this->_charset);
+        $this->set_charset($this->_charset);
 
         return true;
     }
@@ -843,26 +828,27 @@ abstract class flcDriver {
     /**
      * primary_key
      *
-     * Retrieves the primary key. It assumes that the row in the first
+     * Retrieves the list of fields part of the primary key. It assumes that the row in the first
      * position is the primary key.
      * If the database support how to obtain the primary key need to override
      * this method.
      *
      * @param string $p_table Table name
      *
-     * @return    string
+     * @return array with the list of primary keys or an empty array
      */
-    public function primary_key(string $p_table): ?string {
+    public function primary_key(string $p_table): array {
         $fields = $this->list_columns($p_table);
 
-        return is_array($fields) && count($fields) > 0 ? array_values(array_values($fields)[0])[0] : null;
+        return is_array($fields) && count($fields) > 0 ? array_values(array_values($fields)[0])[0] : [];
     }
 
     // --------------------------------------------------------------------
 
     /**
-     * Returns an object with column data , this is the default implementation
-     * and need to be override for specific databases.
+     * Returns an array of column information for a given table and schema,
+     * this is the default implementation and need to be override for specific databases.
+     *
      * Each database use in different ways the schema , for
      * postgresql : The schemas are inside the databases , this is why for example the
      * information_schema is inside the database and exist one for each.
@@ -876,9 +862,16 @@ abstract class flcDriver {
      * @return    array|null
      */
     public function column_data(string $p_table, string $p_schema = ''): ?array {
-        $query = $this->execute_query($this->_column_data_qry($p_table));
 
-        return ($query) ? $query->field_data() : null;
+        if (($query = $this->execute_query($this->_column_data_qry($p_table, $p_schema))) === null) {
+            return null;
+        }
+
+        $ans = $query->result_object();
+        $query->free_result();
+
+        return $ans;
+
     }
 
     /**
@@ -900,27 +893,18 @@ abstract class flcDriver {
      * Helpers
      */
 
-    /**
-     * Set the row version field for the record.
-     *
-     * @param string $p_fieldname the field name that contains the row version
-     *
-     * @return void
-     */
-    public function set_rowversion_field(string $p_fieldname) {
-        $this->rowversion_field = $p_fieldname;
-    }
 
     // --------------------------------------------------------------------
 
+
     /**
-     * Get the rowversion field
+     * Get an input value and convert to an specific database rowversion.
      *
-     * @return string
+     * @param mixed $p_value
+     *
+     * @return mixed
      */
-    public function get_rowversion_field(): string {
-        return $this->rowversion_field;
-    }
+    abstract public function cast_to_rowversion($p_value);
 
     // --------------------------------------------------------------------
 
@@ -1554,7 +1538,7 @@ abstract class flcDriver {
      *
      * @return    bool false if cant set the character encoding
      */
-    protected abstract function _set_charset(string $p_charset): bool;
+    public abstract function set_charset(string $p_charset): bool;
 
     // --------------------------------------------------------------------
 
@@ -1664,11 +1648,13 @@ abstract class flcDriver {
      *
      * Generates a platform-specific query so that the column data can be retrieved
      *
-     * @param string $p_table
+     * @param string      $p_table
+     * @param string|null $p_schema database schema to search in.
+     *
      *
      * @return    string
      */
-    abstract protected function _column_data_qry(string $p_table): string;
+    abstract protected function _column_data_qry(string $p_table, ?string $p_schema = null): string;
 
     // --------------------------------------------------------------------
 
@@ -2185,8 +2171,8 @@ abstract class flcDriver {
                             $sqlvalue = 'NULL';
                         } else {
                             // special hack for output parameters that need to be represented as ?
-                            if (substr($value,0,strlen('<outparam=?>')) == '<outparam=?>') {
-                                $parts = explode('<outparam=?>',$value);
+                            if (substr($value, 0, strlen('<outparam=?>')) == '<outparam=?>') {
+                                $parts = explode('<outparam=?>', $value);
                                 if (isset($parts[1]) && !empty($parts[1])) {
                                     $sqlvalue = $parts[1];
                                 } else {

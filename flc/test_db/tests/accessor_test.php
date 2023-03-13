@@ -19,7 +19,7 @@ use flc\database\driver\mysql\flcMysqlDriver;
 
 flcDriver::$dblog_console = true;
 
-class class_model extends flcBaseModel {
+class class_entity extends flcBaseModel {
     public function __construct() {
         $this->fields = ['id'=> null,'name'=>null,'afloat'=> null,'aboolean'=>null];
         $this->key_fields = ['id'];
@@ -54,7 +54,6 @@ $driver->trans_mark_clean();
 
 $driver->trans_begin();
 
-$driver->set_rowversion_field('aboolean');
 
 $da = new dbAcc($driver);
 

@@ -31,7 +31,7 @@ use flc\database\driver\postgres\flcPostgresDriver;
 
 flcDriver::$dblog_console = true;
 
-class factura_header_model extends flcBaseModel {
+class factura_header_entity extends flcBaseModel {
     public function __construct() {
         $this->fields = ['numero' => null, 'descripcion' => null];
         //$this->key_fields = ['numero', 'descripcion'];
@@ -52,7 +52,7 @@ class factura_header_model extends flcBaseModel {
 
 }
 
-class factura_items_model extends flcBaseModel {
+class factura_items_entity extends flcBaseModel {
     public function __construct() {
         $this->fields = ['item_id' => null, 'producto' => null, 'cantidad' => null, 'factura_nro' => null];
         $this->key_fields = ['item_id'];
@@ -98,7 +98,6 @@ $driver->trans_mark_clean();
 
 $driver->trans_begin();
 
-//$driver->set_rowversion_field('aboolean');
 
 $factura_da = new dbFacturaAccessor($driver);
 $factura_items_db = new dbFacturaItemsAccessor($driver);
@@ -200,8 +199,16 @@ $c->set_select_fields(['numero', 'descripcion']);
 $c->set_start_row(0);
 $c->set_end_row(5);
 
+$lfields = $factura_items->get_fields();
+print_r($lfields);
+if (!in_array('factura_nro',$lfields)) {
+    echo 'no esta'.PHP_EOL;
+} else {
+    echo 'esta'.PHP_EOL;
+}
+
 $join1 = new flcJoinEntry();
-$join1->initialize('tb_factura_items', 'tb_factura_header', [
+$join1->initialize($factura_items, $factura_header, [
     'factura_nro' => 'numero'
 ], ['item_id', 'producto', 'cantidad']);
 $joins = new flcJoins();
@@ -233,7 +240,7 @@ $c->set_where_fields([['factura_nro', '=']]);
 $c->set_select_fields(['item_id', 'producto', 'cantidad', 'factura_nro']);
 
 $join1 = new flcJoinEntry();
-$join1->initialize('tb_factura_header', 'tb_factura_items', [
+$join1->initialize($factura_header, $factura_items, [
     'numero' => 'factura_nro'
 ], ['numero', 'descripcion']);
 $joins = new flcJoins();
@@ -264,7 +271,7 @@ $c->set_where_fields([['factura_nro', '='], ['tb_factura_header.descripcion', 'i
 $c->set_select_fields(['item_id', 'producto', 'cantidad', 'factura_nro']);
 
 $join1 = new flcJoinEntry();
-$join1->initialize('tb_factura_header', 'tb_factura_items', [
+$join1->initialize($factura_header, $factura_items, [
     'numero' => 'factura_nro'
 ], ['numero', 'descripcion']);
 $joins = new flcJoins();
@@ -279,7 +286,7 @@ $c->set_joins($joins);
 //  where factura_nro=300 and lower(tb_factura_header.descripcion) like '%%'
 //  order by item_id
 
-$results = $factura_items_db->fetch_full($factura_items,[$factura_header], $c);
+$results = $factura_items_db->fetch($factura_items, $c);
 print_r($results).PHP_EOL;
 
 $c = new flcConstraints();

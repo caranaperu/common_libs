@@ -12,6 +12,7 @@
 namespace flc\core;
 
 use Exception;
+use flc\core\accessor\flcDbAccessor;
 use flc\core\session\flcSession;
 use flc\database\driver\flcDriver;
 use flc\flcCommon;
@@ -25,6 +26,8 @@ use Throwable;
 /**
  * Service locator class.
  * Singleton to load instances of several common services like , controllers , views and databases.
+ *
+ * @history 14-02-2022  _get_db_accessor added
  */
 class flcServiceLocator {
     private static flcServiceLocator $_instance;
@@ -89,6 +92,10 @@ class flcServiceLocator {
 
             case 'session':
                 $ret = $this->_get_session($p_vars);
+                break;
+
+            case 'accessor':
+                $ret = $this->_get_db_accessor($p_service_id, $p_vars);
         }
 
         return $ret;
@@ -442,7 +449,7 @@ class flcServiceLocator {
     /**
      * @throws Exception
      */
-    public function _get_session($p_ip_address): flcSession {
+    private function _get_session($p_ip_address): flcSession {
         static $session;
 
         $user_handler = false;
@@ -534,4 +541,82 @@ class flcServiceLocator {
         return $session;
     }
 
+    /*--------------------------------------------------------------*/
+
+
+    /**
+     * Load a derived accessor from flcDbAccessor, checking first if a specific one exists
+     * for the indicated driver's database.
+     *
+     * If one is used for a particular database, it should have the format accessorname_dbid,
+     * for example invoice_controller_mssql where mssql corresponds to the database indicator
+     * obtained from the driver through the get_db_driver() method.
+     *
+     * If the specific one does not exist, it will try to load the normal one.
+     *
+     * If the accessor class doesn't directly derive from flcDbAccessor, it should have the
+     *  corresponding include or use, or otherwise it should exist in the class autoload.
+     *
+     * @param string    $p_accessor_class The base class name of the accessor without
+     * indicating the database ID , BUT WITH THE NAMESPACE SPECIFIED!!!
+     *
+     * @param flcDriver $p_driver db driver instance (constructor parameter of an accessor)
+     *
+     * @return flcDbAccessor the instance class
+     * @throws Exception
+     */
+    private function _get_db_accessor(string $p_accessor_class, flcDriver $p_driver): flcDbAccessor {
+        // what database ?
+        $db_driverid = $p_driver->get_db_driver();
+
+        //$config = flcCommon::get_config();
+
+        $parts = explode('\\',$p_accessor_class);
+
+        // Check if the specific db accessor file exist (allways need to be in the APPPATH controllers subdirectory)
+        $accessor_class = $p_accessor_class.'_'.$db_driverid;
+        $accessor_file = APPPATH.'accessors/'.end($parts).'-'.$db_driverid.'.php';
+        if (!file_exists($accessor_file)) {
+            // if not exist search the file
+            $accessor_class = $p_accessor_class;
+            $accessor_file = APPPATH.'accessors/'.end($parts).'.php';
+            if (!file_exists($accessor_file)) {
+                throw new RuntimeException("The accessor [ $p_accessor_class ] doesnt exist, terminal error - SL0030");
+            }
+        }
+
+
+        // always include the base standard controller
+        $accessor_base_file = BASEPATH."/core/accessor/flcDbAccessor.php";
+        if (file_exists($accessor_base_file)) {
+            include_once $accessor_base_file;
+
+        } else {
+            throw new RuntimeException("Base accessor [ $accessor_base_file ] doesnt exist, check deployment of library - SL0031");
+        }
+
+        include_once $accessor_file;
+
+        // class validation
+        if (!class_exists($accessor_class, false)) {
+            throw new RuntimeException("Cant load the accessor [ $accessor_class ] - SL00032");
+
+        }
+
+        try {
+            $reflection = new ReflectionClass($accessor_class);
+            if ($reflection->isSubclassOf('flc\core\accessor\flcDbAccessor')) {
+                return new $accessor_class($p_driver);
+
+            } else {
+                throw new RuntimeException("accessor [ $accessor_class ] need to be an instance of flc\core\\accessor\\flcController - SL00033");
+
+            }
+
+        } catch (ReflectionException $ex) {
+            throw new RuntimeException("accessor [ $accessor_class ] doesnt exist - SL00034");
+
+        }
+
+    }
 }

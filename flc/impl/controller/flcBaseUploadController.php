@@ -13,7 +13,6 @@
 
 namespace flc\impl\controller;
 
-use Exception;
 use flc\core\FLC;
 use flc\core\flcController;
 use flc\core\flcFileUploader;
@@ -70,14 +69,16 @@ abstract class flcBaseUploadController extends flcController {
      * - call the view.
      *
      * @return void
-     * @throws Exception
+     *
+     * @throws Throwable
      */
     public function index() {
         try {
+            $FLC = FLC::get_instance();
 
             // load the classes
             // Input data processor
-            $this->input_data_processor = $this->class_loader('input_data_processor', [$_REQUEST]);
+            $this->input_data_processor = $this->class_loader('input_data_processor', [$FLC->request->request()]);
             // The output data holder
             $this->output_data = $this->class_loader('output_data');
 
@@ -122,11 +123,11 @@ abstract class flcBaseUploadController extends flcController {
      *
      * Overload this method is required.
      *
-     * @param $p_uploaded_filename the uploaded filename (encrypted or not depending)
+     * @param string $p_uploaded_filename the uploaded filename (encrypted or not depending)
      *
      * @return string with the websetite relative path.
      */
-    protected function get_uploaded_filepath($p_uploaded_filename)  : string {
+    protected function get_uploaded_filepath(string $p_uploaded_filename)  : string {
         // If the upload path ends with the directory separator?
         if (substr( $this->options['upload_path'], -strlen(DIRECTORY_SEPARATOR) ) === DIRECTORY_SEPARATOR){
             return $this->options['upload_path'].$p_uploaded_filename;

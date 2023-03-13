@@ -194,6 +194,19 @@ class flcRequest {
     // --------------------------------------------------------------------
 
     /**
+     * Set an entry on the  GET array
+     * If exist the index the value is replaced
+     *
+     * @param mixed $p_index Index for item to be set on the $_SET array
+     * @param mixed $p_value
+     */
+    public function set_get($p_index, $p_value): void {
+        $_GET[$p_index] = $p_value;
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
      * Fetch an item from the POST array
      *
      * @param mixed $p_index Index for item to be fetched from $_POST
@@ -202,6 +215,45 @@ class flcRequest {
      */
     public function post($p_index = null) {
         return $this->_fetch_from_array($_POST, $p_index);
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Set an entry on the  POST array
+     * If exist the index the value is replaced
+     *
+     * @param mixed $p_index Index for item to be set on the $_POST array
+     * @param mixed $p_value
+     */
+    public function set_post($p_index, $p_value): void {
+        $_POST[$p_index] = $p_value;
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Fetch an item from the REQUEST array
+     *
+     * @param mixed $p_index Index for item to be fetched from $_REQUEST
+     *
+     * @return    mixed
+     */
+    public function request($p_index = null) {
+        return $this->_fetch_from_array($_REQUEST, $p_index);
+    }
+    // ----
+    //----------------------------------------------------------------
+
+    /**
+     * Set an entry on the  REQUEST array
+     * If exist the index the value is replaced
+     *
+     * @param mixed $p_index Index for item to be set on the $_REQUEST array
+     * @param mixed $p_value
+     */
+    public function set_request($p_index, $p_value): void {
+        $_REQUEST[$p_index] = $p_value;
     }
 
     // --------------------------------------------------------------------
@@ -585,6 +637,7 @@ class flcRequest {
         } elseif ($p_name === 'ip_address') {
             return $this->ip_address;
         }
+
         return null;
     }
 

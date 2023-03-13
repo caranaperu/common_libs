@@ -41,6 +41,15 @@ class flcJoins {
     /*--------------------------------------------------------------*/
 
     /**
+     * @return array of flcJoinEntry
+     */
+    public function get_joins() : array {
+        return $this->joins;
+    }
+
+    /*--------------------------------------------------------------*/
+
+    /**
      * Get all joins based on each join entry.
      *
      * @return string

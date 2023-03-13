@@ -356,7 +356,7 @@ class FLC {
      * @param mixed  $p_vars an object or array of variables.
      *
      * @return void
-     * @throws Exception
+     * @throws Throwable
      */
     public function view(string $p_view, $p_vars) {
         flcServiceLocator::get_instance()->service('views', $p_view, $p_vars);
@@ -369,7 +369,7 @@ class FLC {
      * because session only works in http environments not cli.
      *
      * @return flcSession with the session instance class
-     * @throws Exception
+     * @throws Throwable
      */
     public function session(): flcSession {
         return flcServiceLocator::get_instance()->service('session', '', $this->request->ip_address());

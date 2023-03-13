@@ -20,6 +20,7 @@ use flc\core\model\flcBaseModel;
 use flc\core\FLC;
 use flc\core\flcController;
 use flc\core\flcValidation;
+use flc\flcCommon;
 use RuntimeException;
 use Throwable;
 
@@ -115,21 +116,22 @@ abstract class flcBaseController extends flcController {
      * - call the view.
      *
      * @return void
-     * @throws Exception
+     * @throws Throwable
      */
     public function index() {
 
         try {
 
+            $FLC = FLC::get_instance();
             // load the classes
             // Input data processor
-            $this->input_data_processor = $this->class_loader('input_data_processor', [$_REQUEST]);
+            $this->input_data_processor = $this->class_loader('input_data_processor', [$FLC->request->request()]);
             // The output data holder
             $this->output_data = $this->class_loader('output_data');
 
             if ($this->is_logged_in()) {
                 // create model and parse input data (inside)
-                $this->model = $this->class_loader('model', [FLC::get_instance()->db, $this->input_data_processor]);
+                $this->model = $this->class_loader('model', [$FLC->db, $this->input_data_processor]);
 
                 // get operation/ suboperation
                 $operation = $this->input_data_processor->get_operation();
@@ -165,6 +167,8 @@ abstract class flcBaseController extends flcController {
             }
             $this->output_data->add_process_error($ex->getCode(), 'Unexpected errror', $ex);
             $this->output_data->set_success(false);
+
+            flcCommon::log_message('error',$ex->getMessage());
         }
 
         $out_processor = $this->class_loader('output_data_processor');

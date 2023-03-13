@@ -98,11 +98,38 @@ class flcBaseModel {
 
     /**
      * List of field names associated with his types.
-     * Now are supported 'nostring' or 'bool' otherwise are assumed numerics.
+     * Now are supported 'rowversion','nostring' or 'bool' otherwise are assumed numerics.
      *
      * @var array
      */
     protected array $field_types = [];
+
+    /**
+     * This field is obtained from the field_types array , if that array contains
+     * an entry with the type 'rowversion'  that field will be recognized as the
+     * rowversion field.
+     * NOTES:
+     *
+     *  postgres had xmin allways
+     *
+     *  mssql server uses rowversion field but is optional and defined by the user in the record
+     *
+     *  mysql For MySQL, there is no native 'rowversion' field type, so a 'timestamp' field is used instead. Starting
+     *  from version 5.6.4, the resolution of the 'timestamp' field is one microsecond. However, before that version,
+     *  the resolution was only one second, which is not ideal for implementing MVCC. It is recommended to avoid using
+     *  older versions for better control.
+     *  For use the microsecond version the field need to be defined as :
+     *          my_rowversion_field TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),     *
+     *
+     *  The "rowversion" field behaves differently depending on the database. For example, in PostgreSQL, within the
+     *  same transaction, this field does not change. This means that after adding a record and immediately executing an
+     *  update, the value of this field will remain the same. However, unlike PostgreSQL, in MSSQL Server, this field
+     *  changes within the same transaction. It is important to know this for the MVCC strategy of the library.
+     *
+     * @var string with the field that identifies the rowversion field
+     *
+     */
+    protected string $rowversion_field = '';
 
     protected ?flcInputDataProcessor $input_data = null;
 
@@ -119,13 +146,23 @@ class flcBaseModel {
      *
      *              $this->accessor = new flcDbAccessor($p_driver);
      *
-     *              parent::__construct($p_driver, $p_input_data);
+     *              parent::__construct($p_driver, $p_input_data); // --> Important is not a pure model
      *              }
      *
-     * @param flcDriver                  $p_driver
-     * @param flcInputDataProcessor|null $p_input_data
+     * @param flcDriver|null             $p_driver is null means not persistence operations allowed (fetch,add,etc cant
+     *     be called) in other words is a pure model. Basically will be used for create an instance od the data
+     *     accessor if required.
+     * @param flcInputDataProcessor|null $p_input_data In case this parameter is defined, it should be an instance of a
+     *     flcInputDataProcessor class which will convert input data to model data.
      */
-    public function __construct(flcDriver $p_driver, ?flcInputDataProcessor $p_input_data) {
+    public function __construct(?flcDriver $p_driver, ?flcInputDataProcessor $p_input_data) {
+
+        // add support to row version field if its allowed
+        $rowversion_field = $this->get_rowversion_field();
+        // if exist put the operations supported
+        if (!empty($rowversion_field)) {
+            $this->fields_operations[$rowversion_field] = 'fr';
+        }
 
         if ($p_input_data !== null) {
             $this->input_data = $p_input_data;
@@ -137,13 +174,6 @@ class flcBaseModel {
                 $this->{$field} = $value;
             }
 
-        }
-
-        // add support to row version field if its allowed
-        if ($p_driver->get_rowversion_field() !== null) {
-            $this->fields[$p_driver->get_rowversion_field()] = null;
-            $this->field_types[$p_driver->get_rowversion_field()] = 'nostring';
-            $this->fields_operations[$p_driver->get_rowversion_field()] = 'fr';
         }
 
     }
@@ -220,7 +250,7 @@ class flcBaseModel {
         }
 
         if (strpos($p_types, 'c') !== false) {
-            $all_fields = array_merge($this->fields, $this->get_fields_computed());
+            $all_fields = array_merge(count($all_fields) > 0 ? $all_fields : $this->fields, $this->get_fields_computed());
         }
 
         return $all_fields;
@@ -250,6 +280,36 @@ class flcBaseModel {
      */
     public function get_field_types(): array {
         return $this->field_types;
+    }
+
+    /**
+     * Returns the field that acts as rowversion, determined by the 'field_types' array. If a field indicated as a
+     * 'rowversion' type exists, it will be selected, otherwise an empty field will be returned
+     *
+     * @return string empty if no rowversion field exist.
+     */
+    public function get_rowversion_field(): string {
+        if (empty($this->rowversion_field)) {
+            if (in_array('rowversion', $this->field_types)) {
+                $this->rowversion_field = array_search('rowversion', $this->field_types);
+            }
+        }
+
+        return $this->rowversion_field;
+    }
+
+    /**
+     *
+     * Return if a rowversion field is defined , then rowversion is supported
+     *
+     * @return bool
+     */
+    public function is_rowversion_supported(): bool {
+        if (!empty($this->get_rowversion_field())) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -446,22 +506,17 @@ class flcBaseModel {
      * Do the fetch operation to the persistence
      *
      * @param string|null $p_suboperation
-     * @param array|null  $p_ref_models if its joined fetch , set the referenced entities.
      *
      * @return flcPersistenceAccessorAnswer with the answer.
      * @see flcPersistenceAccessorAnswer
      *
      */
-    public function fetch(?string $p_suboperation = null, ?array $p_ref_models = null): flcPersistenceAccessorAnswer {
+    public function fetch(?string $p_suboperation = null): flcPersistenceAccessorAnswer {
 
         $c = $this->get_fetch_constraints($p_suboperation);
-        if ($p_ref_models === null) {
-            return $this->accessor->fetch($this, $c, $p_suboperation);
 
-        } else {
-            return $this->accessor->fetch_full($this, $p_ref_models, $c, $p_suboperation);
+        return $this->accessor->fetch($this, $c, $p_suboperation);
 
-        }
     }
 
     /***************************************************************

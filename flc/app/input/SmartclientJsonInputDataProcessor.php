@@ -97,9 +97,9 @@ class SmartclientJsonInputDataProcessor extends flcInputDataProcessor {
         if (isset($input_data['_sortBy'])) {
             $pos = strpos($input_data['_sortBy'], '-');
             if ($pos !== false) {
-                $this->sort_fields[] = [trim($input_data['_sortBy'],'-'), 'desc'];
+                $this->sort_fields[trim($input_data['_sortBy'],'-')] ='desc';
             } else {
-                $this->sort_fields[] = [$input_data['_sortBy'], 'asc'];
+                $this->sort_fields[$input_data['_sortBy']] = 'asc';
             }
         }
 

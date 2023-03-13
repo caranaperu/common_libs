@@ -3,7 +3,6 @@
 namespace flc\utils;
 
 use ErrorException;
-use Exception;
 use flc\core\flcRequest;
 use flc\core\flcResponse;
 use flc\core\flcServiceLocator;
@@ -36,7 +35,7 @@ class flcErrorHandlers {
      *
      * @param Throwable $exception
      *
-     * @throws Exception
+     * @throws Throwable
      */
     public function _exception_handler(Throwable $exception) {
         $this->ob_level = ob_get_level();
@@ -134,7 +133,7 @@ class flcErrorHandlers {
      * @param           $data
      *
      * @return void
-     * @throws Exception
+     * @throws Throwable
      */
     private function _show_exception(Throwable $exception, $response,$data) {
         $templates_path = flcCommon::get_config()->item('error_views_path');

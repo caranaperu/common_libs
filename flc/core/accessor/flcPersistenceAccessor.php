@@ -95,21 +95,5 @@ abstract class  flcPersistenceAccessor {
      */
     public abstract function fetch(flcBaseModel $p_model, ?flcConstraints $p_constraints = null, ?string $p_suboperation = null) : flcPersistenceAccessorAnswer;
 
-    /**
-     * Read a set of instances from the persistence based on the constraints, but this one allow joins of fields
-     * from another entities.also  were conditions with other entities (tables) referenced fields.
-     *
-     * @param flcBaseModel        $p_model with the values requiered for the constraints
-     * @param array|null          $p_ref_models an array of entities in case we need to reference other table fields
-     *     in constraints.
-     * @param flcConstraints|null $p_constraints the constraints to use on the fecth clauses.
-     * @param string|null         $p_suboperation optional user defined suboperation.
-     *
-     * @return flcPersistenceAccessorAnswer with the answer.
-     * @see flcPersistenceAccessorAnswer
-     *
-     */
-    public abstract function fetch_full(flcBaseModel $p_model, ?array $p_ref_models, ?flcConstraints $p_constraints = null, ?string $p_suboperation = null) : flcPersistenceAccessorAnswer;
-
 
 }

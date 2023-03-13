@@ -518,7 +518,7 @@ class flcDbResult {
     // --------------------------------------------------------------------
 
     /**
-     * Field data
+     * Field data of the results from a query
      *
      * Generates an array of objects containing field meta-data.
      *

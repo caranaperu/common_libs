@@ -251,13 +251,7 @@ abstract class flcInputDataProcessor {
                 }
 
                 // sort fields
-                $fields = [];
-                foreach ($this->get_sort_fields() as $sfield) {
-                    $fields[] = $sfield;
-                }
-                if (count($fields) > 0) {
-                    $c->set_order_by_fields($fields);
-                }
+                $c->set_order_by_fields($this->get_sort_fields());
 
                 // pagination
                 $start_row = $this->get_start_row();

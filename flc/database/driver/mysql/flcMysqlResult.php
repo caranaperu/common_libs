@@ -15,6 +15,7 @@ namespace flc\database\driver\mysql;
  */
 
 use flc\database\flcDbResult;
+use mysqli_result;
 use stdClass;
 
 
@@ -119,15 +120,15 @@ class flcMysqlResult extends flcDbResult {
         $field_data = $this->result_id->fetch_fields();
         for ($i = 0, $c = count($field_data); $i < $c; $i++) {
             $bytesxchar = $this->_get_charset_bytes_per_character($field_data[$i]->charsetnr);
-            echo $bytesxchar.PHP_EOL;
 
             $retval[$i] = new stdClass();
-            $retval[$i]->name = $field_data[$i]->name;
-            $retval[$i]->type = flcMysqlResult::$_mysql_data_type[$field_data[$i]->type];
-            $retval[$i]->length = $field_data[$i]->length / $bytesxchar;
+            $retval[$i]->col_name = $field_data[$i]->name;
+            $retval[$i]->col_type = flcMysqlResult::$_mysql_data_type[$field_data[$i]->type];
+            $retval[$i]->col_length = $field_data[$i]->length / $bytesxchar;
+            $retval[$i]->col_scale = $field_data[$i]->decimals;
 
-            $retval[$i]->primary_key = ($field_data[$i]->flags & 2) == 2 ? 1 : 0;
-            $retval[$i]->default = $field_data[$i]->def;
+            $retval[$i]->col_is_nullable = ($field_data[$i]->flags & 1) == 1 ? 0 : 1;
+            $retval[$i]->default = null;
         }
 
         return $retval;
@@ -140,7 +141,7 @@ class flcMysqlResult extends flcDbResult {
      */
     public function free_result(): void {
         // mysqli return objects not resources , dont us is_resource here
-        if ($this->result_id instanceof \mysqli_result) {
+        if ($this->result_id instanceof mysqli_result) {
             $this->result_id->free();
             $this->result_id = null;
         }

@@ -7,8 +7,10 @@
  *
  * @author Carlos Arana Reategui.
  */
+
 namespace flc\core\accessor\constraints;
 
+use flc\core\model\flcBaseModel;
 use InvalidArgumentException;
 
 /**
@@ -19,25 +21,29 @@ class flcJoinEntry {
     public static string $LEFT_JOIN  = 'LEFT JOIN';
     public static string $RIGHT_JOIN = 'RIGHT JOIN';
 
-    protected string $table;
-    protected string $ref_table;
-    protected array  $fields = [];
+    protected flcBaseModel $left_model;
+    protected flcBaseModel $right_model;
+
+
+    protected array  $fields      = [];
     protected array  $show_fields = [];
     protected string $join_type;
 
+
     /**
-     * @param string      $p_table the table name
-     * @param string      $p_ref_table the joined table name
-     * @param array       $p_fields of fields that join the tables ex: ['field from $p_table' => 'field from $p_ref_table,..]
-     * @param array       $p_show_fields of fields from $p_table
-     * @param string|null $p_type if it is left join,inner join , right join , for easy definition
+     * @param flcBaseModel $p_left_model the model for the left side of the join
+     * @param flcBaseModel $p_right_model the model for the right side of the join
+     * @param array        $p_fields of fields that join the tables ex: ['field from $p_table' => 'field from
+     *     $p_ref_table,..]
+     * @param array        $p_show_fields of fields from $p_table
+     * @param string|null  $p_type if it is left join,inner join , right join , for easy definition
      * use flcJoinEbtry::$INNER_JOIN , flcJoinEntry::$LEFT_JOIM, flcJoinEntry::$RIGHT_JOIM
      *
      * @return void
      */
-    public function initialize(string $p_table, string $p_ref_table, array $p_fields, array $p_show_fields, ?string $p_type = null) {
-        $this->table = $p_table;
-        $this->ref_table = $p_ref_table;
+    public function initialize(flcBaseModel $p_left_model, flcBaseModel $p_right_model, array $p_fields, array $p_show_fields, ?string $p_type = null) {
+        $this->left_model = $p_left_model;
+        $this->right_model = $p_right_model;
         $this->fields = $p_fields;
         $this->show_fields = $p_show_fields;
 
@@ -65,13 +71,15 @@ class flcJoinEntry {
         if (!$this->validate()) {
             throw new InvalidArgumentException('Join definition is invalid');
         }
+        $ltable = $this->left_model->get_table_name();
+        $rtable = $this->right_model->get_table_name();
 
-        $sql = $this->join_type." $this->table on ";
+        $sql = $this->join_type." $ltable on ";
         foreach ($this->fields as $field => $field_ref) {
-            $sql .= "$this->table.$field = $this->ref_table.$field_ref and ";
+            $sql .= "$ltable.$field = $rtable.$field_ref and ";
         }
 
-        return substr($sql,0,strrpos($sql,' and '));
+        return substr($sql, 0, strrpos($sql, ' and '));
     }
 
     /*--------------------------------------------------------------*/
@@ -87,12 +95,33 @@ class flcJoinEntry {
         }
 
         $sql = '';
+        $ltable_name = $this->left_model->get_table_name();
         foreach ($this->show_fields as $field) {
-            $sql .= "$this->table.$field,";
+            $sql .= "$ltable_name.$field,";
         }
 
-        return substr($sql,0,strrpos($sql,','));
+        return substr($sql, 0, strrpos($sql, ','));
 
+    }
+
+    /*--------------------------------------------------------------*/
+
+    /**
+     * Return the left side model of the join
+     * @return flcBaseModel
+     */
+    public function &get_left_model() : flcBaseModel {
+        return $this->left_model;
+    }
+
+    /*--------------------------------------------------------------*/
+
+    /**
+     * Return the right side model of the join
+     * @return flcBaseModel
+     */
+    public function &get_right_model() : flcBaseModel {
+        return $this->right_model;
     }
 
     /*--------------------------------------------------------------*/
@@ -104,19 +133,31 @@ class flcJoinEntry {
      *
      * @return bool if its ok
      */
-    public function validate() : bool {
-        if (empty($this->table) || empty($this->ref_table)) {
-            return false;
-        }
+    public function validate(): bool {
 
         if (count($this->fields) == 0 || count($this->show_fields) == 0) {
             return false;
         }
 
-        foreach ($this->fields as $field) {
+
+        // verify fields are part of respective models
+        $lfields = $this->left_model->get_fields();
+        $rfields = $this->right_model->get_fields();
+        foreach ($this->fields as $field => $field_ref) {
             if (!is_string($field)) {
                 return false;
             }
+            if (!is_string($field_ref)) {
+                return false;
+            }
+
+            if (!array_key_exists($field,$lfields)) {
+                return false;
+            }
+            if (!array_key_exists($field_ref,$rfields)) {
+                return false;
+            }
+
         }
 
         foreach ($this->show_fields as $field) {

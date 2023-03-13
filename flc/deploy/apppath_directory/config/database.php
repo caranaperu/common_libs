@@ -56,12 +56,7 @@
 |							- good for ensuring strict SQL while developing
 |	['ssl_options']	Used to set various SSL options that can be used when making SSL connections.
 |	['failover'] array - A array with 0 or more data for connections if the main should fail.
-|	['rowversion_field'] A field name that the database support for row versioning, this field can be used
-|                       if a record is modified previous an update or delete for example.
-|                       Postgresql have xmin allways accesible , sql server allow to define one field in each table
-|                       named rowversion for this usage , mysql need help from developers doesnt have a dedicated one.
-|                       If the programmer require a rowversion check define this field , otherwise remove this key
-|                       from the options array.
+
 |
 | The $active_group variable lets you choose which connection group to
 | make active.  By default there is only one group (the 'default' group).
@@ -88,5 +83,4 @@ $db['default'] = [
     'encrypt' => false,
     'compress' => false,
     'stricton' => false,
-    'rowversion_field' => 'xmin'
 ];

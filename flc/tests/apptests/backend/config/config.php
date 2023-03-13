@@ -203,7 +203,8 @@ $config['base_url'] = 'http://localhost/tests/apptests/';
 */
 $config['namespaces'] = [
     'controllers' => 'flc\tests\apptests\backend\controllers',
-    'handlers' => 'flc\tests\handlers'
+    'handlers' => 'flc\tests\handlers',
+    'accessors' => 'flc\tests\apptests\backend\accessors'
 ];
 
 $config['default_controller'] = 'main_entry_controller';

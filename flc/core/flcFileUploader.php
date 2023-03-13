@@ -1,9 +1,22 @@
 <?php
+/**
+ * This file is part of Future Labs Code 1 framework.
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ *
+ * @author Carlos Arana Reategui.
+ *
+ */
 
 namespace flc\core;
 
 use flc\flcCommon;
 
+/**
+ * File loader class , this class allow the load of one file not multiple files ,
+ * check mime types allowed , max size , valid upload path and also can encrypt the name.
+ */
 class flcFileUploader {
 
     /**
@@ -422,12 +435,12 @@ class flcFileUploader {
     // --------------------------------------------------------------------
 
     /**
-     * Return the final name with or without encryption.
+     * Return the final name with or without encryption. (no path)
      *
      * @return string the filename
      */
     public function get_uploaded_filename(): string {
-        return $this->file_name_uploaded;;
+        return $this->file_name_uploaded;
     }
 
     // --------------------------------------------------------------------

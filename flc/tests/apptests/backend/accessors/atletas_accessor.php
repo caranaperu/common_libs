@@ -9,7 +9,7 @@ use flc\core\model\flcBaseModel;
 
 class atletas_accessor extends flcDbAccessor {
 
-    protected function get_fetch_query_full(flcBaseModel $p_model, ?array $p_ref_models, ?flcConstraints $p_constraints = null, ?string $p_suboperation = null): string {
+    protected function get_fetch_query(flcBaseModel $p_model, ?flcConstraints $p_constraints = null, ?string $p_suboperation = null): string {
 
         // exclude protected records
         if ($p_constraints == null) {
@@ -24,14 +24,14 @@ class atletas_accessor extends flcDbAccessor {
         $sql = $this->select_clause($p_model->get_fields(), $p_model->get_table_name(), $p_constraints);
         [$select, $from] = explode('from', $sql);
         $sql = $select.', EXTRACT(YEAR FROM atletas_fecha_nacimiento)::CHARACTER VARYING AS atletas_agno from '.$from;
-        $sql = 'select * from ('.$sql.') a';
+        $sql = 'select * from ('.$sql.') tb_atletas';
 
         // where and order by
 
         // all fields including computed in case is part of the where or order by clause.
         $fields_ext = $p_model->get_all_fields('c');
-        $sql .= $this->where_clause($fields_ext, $p_model->get_field_types(), $p_constraints);
-        $sql .= $this->order_by_clause($fields_ext, $p_model->get_key_fields(), $p_model->get_id_field(), $p_constraints);
+        $sql .= $this->where_clause($p_model->get_table_name(),$fields_ext, $p_model->get_field_types(), $p_constraints);
+        $sql .= $this->order_by_clause($p_model->get_table_name(),$fields_ext, $p_model->get_key_fields(), $p_model->get_id_field(), $p_constraints);
 
         // limit offset (warning , is better with an order by
         $sql .= ' '.$this->db->get_limit_offset_str($p_constraints->get_start_row(), $p_constraints->get_end_row());

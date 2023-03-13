@@ -23,7 +23,7 @@ use flc\database\driver\mysql\flcMysqlDriver;
 
 flcDriver::$dblog_console = true;
 
-class class_model extends flcBaseModel {
+class class_entity extends flcBaseModel {
     public function __construct() {
         $this->fields = ['id' => null, 'name' => null, 'afloat' => null, 'aboolean' => null];
         $this->key_fields = ['id'];
@@ -51,7 +51,7 @@ class dbFacturaAccessor extends flcDbAccessor {
 }
 
 
-class factura_header_model extends flcBaseModel {
+class factura_header_entity extends flcBaseModel {
     public function __construct() {
         $this->fields = ['numero' => null, 'descripcion' => null];
         $this->key_fields = ['numero'];
@@ -76,7 +76,6 @@ $driver->trans_mark_clean();
 $driver->trans_begin();
 
 
-//$driver->set_rowversion_field('aboolean');
 
 $factura_da = new dbFacturaAccessor($driver);
 $factura_header = new factura_header_entity();
@@ -115,87 +114,3 @@ $driver->close();
 
 
 exit();
-
-$factura_items_db = new dbFacturaItemsAccessor($driver);
-$factura_items = new factura_items_entity();
-$factura_items->item_id = 100;
-$factura_items->producto = 'Item 1/1';
-$factura_items->cantidad = 1000;
-$factura_items->factura_nro = $factura_header->numero;
-//$factura_items->factura_nro = 30000;
-
-$ret = $factura_items_db->add($factura_items);
-echo $ret.PHP_EOL;
-
-$factura_header->descripcion = 'Producto 1 - updated';
-$factura_header->numero = 28;
-
-$ret = $factura_da->update($factura_header);
-echo $ret.PHP_EOL;
-
-$factura_items->item_id = 29;
-$ret = $factura_items_db->delete($factura_items);
-echo $ret.PHP_EOL;
-
-
-$ret = $factura_da->delete($factura_header);
-echo $ret.PHP_EOL;
-
-
-$c = new flcConstraints();
-$c->set_where_fields([['descripcion', 'like'], ['numero', '>']]);
-$c->set_order_by_fields(['numero']);
-$c->set_select_fields(['numero', 'descripcion']);
-$c->set_start_row(0);
-$c->set_end_row(4);
-
-$join1 = new flcJoinEntry();
-$join1->initialize('tb_factura_items', 'tb_factura_header', [
-    'factura_nro' => 'numero'
-], ['item_id', 'producto', 'cantidad']);
-$joins = new flcJoins();
-$joins->add_join($join1);
-
-$c->set_joins($joins);
-
-$factura_header->numero = 4;
-$factura_header->descripcion = 'producto';
-
-$factura_da->get_fetch_query($factura_header, $c);
-echo PHP_EOL;
-
-$results = $factura_da->fetch($factura_header, $c);
-if (is_array($results)) {
-    foreach ($results as $record) {
-        print_r($record);
-    }
-}
-
-
-$join1 = new flcJoinEntry();
-$join1->initialize('table1', 'table_ref', [
-    'tb1_field1' => 'tbref_field1',
-    'tb1_field2' => 'tbref_field2'
-], ['tb1_field3 as field3', 'tbl_field4']);
-
-
-echo $join1->get_join_str().PHP_EOL;
-echo $join1->get_joined_fields_str().PHP_EOL;
-
-
-$joins = new flcJoins();
-$joins->add_join($join1);
-
-$join2 = new flcJoinEntry();
-$join2->initialize('table2', 'table_ref_2', [
-    'tb1_field1' => 'tbref_field1',
-    'tb1_field2' => 'tbref_field2'
-], ['tb1_field3', 'tbl_field4 as field4']);
-echo $join2->get_join_str().PHP_EOL;
-echo $join2->get_joined_fields_str().PHP_EOL;
-
-$joins->add_join($join2);
-echo $joins->get_join_string().PHP_EOL;
-echo $joins->get_join_fields_string().PHP_EOL;
-
-$c->set_joins($joins);

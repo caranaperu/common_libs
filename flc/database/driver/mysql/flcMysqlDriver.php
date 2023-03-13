@@ -44,7 +44,6 @@ use flc\database\flcDbResult;
 use flc\database\flcDbResultOutParams;
 use flc\database\flcDbResults;
 use mysqli;
-use stdClass;
 
 
 /**
@@ -307,7 +306,7 @@ class flcMysqlDriver extends flcDriver {
     /**
      * @inheritdoc
      */
-    protected function _set_charset(string $p_charset): bool {
+    public function set_charset(string $p_charset): bool {
         // Check if open is called before
         if ($this->_mysqli != null) {
             return $this->_mysqli->set_charset($p_charset);
@@ -461,26 +460,7 @@ class flcMysqlDriver extends flcDriver {
             $schema = $p_schema;
         }
 
-        $sql = 'SELECT column_name, data_type, character_maximum_length,numeric_precision,column_default,column_key
-			FROM INFORMATION_SCHEMA.COLUMNS
-			WHERE table_schema = '.$this->escape($schema).' and table_name = '.$this->escape($p_table);
-
-        if (($query = $this->execute_query($sql)) === null) {
-            return null;
-        }
-        $query = $query->result_object();
-
-        $retval = [];
-        for ($i = 0, $c = count($query); $i < $c; $i++) {
-            $retval[$i] = new stdClass();
-            $retval[$i]->name = $query[$i]->COLUMN_NAME;
-            $retval[$i]->type = $query[$i]->DATA_TYPE;
-            $retval[$i]->max_length = ($query[$i]->CHARACTER_MAXIMUM_LENGTH > 0) ? $query[$i]->CHARACTER_MAXIMUM_LENGTH : $query[$i]->NUMERIC_PRECISION;
-            $retval[$i]->default = $query[$i]->COLUMN_DEFAULT;
-            $retval[$i]->primary_key = (int)($query[$i]->COLUMN_KEY === 'PRI');
-        }
-
-        return $retval;
+        return parent::column_data($p_table, $schema);
     }
 
     // --------------------------------------------------------------------
@@ -488,17 +468,19 @@ class flcMysqlDriver extends flcDriver {
     /**
      * @inheritdoc
      */
-    public function primary_key(string $p_table): ?string {
+    public function primary_key(string $p_table): array {
+        $pkeys = [];
         // PGSQL way to obtain the primary key field name
-        $qry = 'show columns from '.$p_table.' where `Key` = "PRI";';
-        $RES = $this->execute_query($qry);
+        $RES = $this->execute_query('show columns from '.$p_table.' where `Key` = "PRI";');
 
         if ($RES && $RES->num_rows() > 0) {
-            return $RES->first_row()->Field;
-        } else {
-            return null;
+            $rows = $RES->result_array();
+            foreach ($rows as $row) {
+                $pkeys[] = $row['Field'];
+            }
+            $RES->free_result();
         }
-
+        return $pkeys;
     }
 
     // --------------------------------------------------------------------
@@ -506,8 +488,37 @@ class flcMysqlDriver extends flcDriver {
     /**
      * @inheritdoc
      */
-    protected function _column_data_qry(string $p_table): string {
-        return 'SHOW COLUMNS FROM '.$p_table;
+    protected function _column_data_qry(string $p_table, ?string $p_schema = null): string {
+        return "select COLUMN_NAME as col_name,
+                        DATA_TYPE as col_type,
+                        case
+                           when valid_len = 1
+                               then coalesce(CHARACTER_MAXIMUM_LENGTH,NUMERIC_PRECISION)
+                           else null end as col_length,
+                        case
+                           when valid_len = 1 then
+                               NUMERIC_SCALE
+                           else null end as col_scale,
+                        COLUMN_TYPE                    as col_definition,
+                        case when COLUMN_KEY = 'PRI' then true else false end  as col_is_pkey,
+                        COLUMN_DEFAULT as col_default,
+                        case when IS_NULLABLE ='YES' then true else false end as col_is_nullable
+                from (SELECT column_name,
+                             data_type,
+                             character_maximum_length,
+                             numeric_precision,
+                             NUMERIC_SCALE,
+                             column_default,
+                             column_type,
+                             column_key,
+                             is_nullable,
+                             case
+                                 when locate('(', column_type) > 0
+                                     then 1
+                                 else 0
+                                 end as valid_len
+                      FROM INFORMATION_SCHEMA.COLUMNS
+                      WHERE table_schema = '".$p_schema."' and table_name = '".$p_table."') res";
     }
 
     // --------------------------------------------------------------------
@@ -573,7 +584,7 @@ class flcMysqlDriver extends flcDriver {
      *
      * @inheritdoc
      */
-    public function cast_param(string $p_param, string $p_type, ?string $p_appendstr = null,bool $p_is_mapped_cast = true): string {
+    public function cast_param(string $p_param, string $p_type, ?string $p_appendstr = null, bool $p_is_mapped_cast = true): string {
         if (strtolower($p_type) == 'boolean') {
             $conv = $p_param;
         } else {
@@ -582,6 +593,15 @@ class flcMysqlDriver extends flcDriver {
 
         return $conv;
     }
+
+    /**
+     * @inheritdoc
+     *
+     */
+    public function cast_to_rowversion($p_value) {
+        return "'$p_value'";
+    }
+
 
     // --------------------------------------------------------------------
 
@@ -873,7 +893,7 @@ class flcMysqlDriver extends flcDriver {
                     $params[] = '<outparam=?>'.'@'.$param_name;
                 } else {
                     $ntype = $this->get_normalized_type($sqltype);
-                    $params[] = ($ntype == 'string'  ? '\''.$value.'\'' : $value);
+                    $params[] = ($ntype == 'string' ? '\''.$value.'\'' : $value);
                 }
             }
         }

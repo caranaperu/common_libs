@@ -1,15 +1,29 @@
 <?php
+/**
+ * This file is part of Future Labs Code 1 framework.
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ *
+ * @author Carlos Arana Reategui.
+ *
+ */
 
 namespace flc\impl\controller;
 
+use Exception;
 use flc\core\dto\flcInputDataProcessor;
 use flc\core\dto\flcOutputData;
 use flc\core\FLC;
+use flc\flcCommon;
 use ReflectionClass;
 use ReflectionException;
 use RuntimeException;
 use Throwable;
 
+/**
+ * Trait with a common functions to implement specific controllers
+ */
 trait flcControllerHelperTrait {
     protected flcInputDataProcessor $input_data_processor;
     protected flcOutputData         $output_data;
@@ -175,12 +189,13 @@ trait flcControllerHelperTrait {
     // --------------------------------------------------------------------
 
 
-
     /**
      * Funcion callback for not controlled exceptions,
      * Need to be public !!!!!
      *
      * @param Throwable $ex
+     *
+     * @throws Exception
      */
     public function controller_exception_handler(Throwable $ex) {
         // just in case is not already loaded , because a prematre exception
@@ -193,7 +208,7 @@ trait flcControllerHelperTrait {
         $out_processor = $this->class_loader('output_data_processor');
 
         echo $out_processor->process_output_data($this->output_data);
-
+        flcCommon::log_message('error',$ex->getMessage());
     }
 
     // --------------------------------------------------------------------

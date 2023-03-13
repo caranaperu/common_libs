@@ -20,7 +20,8 @@ class  paises_model extends flcBaseModel {
             'usuario' => null,
             'fecha_creacion' => null,
             'usuario_mod'  => null,
-            'fecha_modificacion' => null
+            'fecha_modificacion' => null,
+            'xmin'=>null
         ];
 
         //$this->fields_ro = ['name' => null];

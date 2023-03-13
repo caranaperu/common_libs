@@ -1,8 +1,8 @@
 <?php
 
 
-$connectionInfo = ["Database" => "veritrade", "UID" => "sa", "PWD" => "melivane"];
-$conn = sqlsrv_connect('192.168.18.9', $connectionInfo);
+$connectionInfo = ["Database" => "veritrade", "UID" => "sa", "PWD" => "202106"];
+$conn = sqlsrv_connect('192.168.18.49', $connectionInfo);
 
 echo PHP_EOL.'---------------------------- Devuelve single resultsets ------------------------'.PHP_EOL;
 

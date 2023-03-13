@@ -34,9 +34,9 @@ class flcHeaderInputDataProcessorFetch extends flcInputDataProcessor {
     public function process_input_data(flcBaseModel $p_model) {
         // simulated parser
         $this->operation = 'fetch';
-        $this->fields = ['numero' => 100, 'descripcion' => '300'];
+        $this->fields = ['numero' => 200, 'descripcion' => '00'];
         $this->filter_fields = ['numero' => '>', 'descripcion' => 'like'];
-        $this->sort_fields = ['descripcion' => 'desc'];
+        $this->sort_fields = ['descripcion' => 'desc','numero'];
     }
 
 }
@@ -82,7 +82,6 @@ class flcHeaderInputDataProcessorRead extends flcInputDataProcessor {
 }
 
 
-
 flcDriver::$dblog_console = true;
 
 
@@ -110,14 +109,42 @@ $driver->trans_mark_clean();
 
 $driver->trans_begin();
 
-class factura_header_model extends flcBaseModel {
-    public function __construct(flcDriver $p_driver, ?flcInputDataProcessor $p_input_data) {
+class customer_model extends flcBaseModel {
+    public function __construct(?flcInputDataProcessor $p_input_data) {
+        $this->fields = ['id' => null, 'name' => null];
+        $this->key_fields = ['id'];
+        $this->table_name = 'tb_customer';
+        $this->field_types = ['id' => 'nostring'];
+
+        parent::__construct($p_input_data);
+
+    }
+
+}
+
+class factura_items_entity extends flcBaseModel {
+    public function __construct(?flcDriver $p_driver, ?flcInputDataProcessor $p_input_data) {
+        $this->fields = ['item_id' => null, 'producto' => null, 'cantidad' => null, 'factura_nro' => null];
+        $this->key_fields = ['item_id'];
+        //$this->id_field = 'item_id';
+        $this->table_name = 'tb_factura_items';
+        $this->field_types = ['item_id' => 'nostring', 'factura_nro' => 'nostring'];
+
+        parent::__construct($p_driver, $p_input_data);
+
+    }
+
+}
+
+class factura_header_entity extends flcBaseModel {
+    public function __construct(?flcDriver $p_driver, ?flcInputDataProcessor $p_input_data) {
         $this->fields = ['numero' => null, 'descripcion' => null, 'customer_id' => null];
         $this->fields_ro = ['name' => null];
 
         $this->key_fields = ['numero'];
         $this->table_name = 'tb_factura_header';
-        $this->field_types = ['numero' => 'nostring'];
+        $this->field_types = ['numero' => 'nostring','customer_id' => 'nostring'];
+        $this->fields_operations = ['name'=> 'f'];
 
         $this->accessor = new flcDbAccessor($p_driver);
 
@@ -136,6 +163,7 @@ class factura_header_model extends flcBaseModel {
 
     public function &get_delete_constraints(?string $p_suboperation = null): ?flcConstraints {
         $c = $this->input_data->get_constraints('delete');
+
         return $c;
     }
 
@@ -148,6 +176,8 @@ class factura_header_model extends flcBaseModel {
             // using full constraints and join
             $c->set_select_fields(['numero', 'descripcion']);
 
+            $factura_items = new factura_items_entity(null,null);
+
             /*
                 select numero, descripcion, tb_factura_items.item_id, tb_factura_items.producto, tb_factura_items.cantidad
                 from tb_factura_header
@@ -157,7 +187,7 @@ class factura_header_model extends flcBaseModel {
                 offset 0 rows fetch next 5 rows only
              */
             $join1 = new flcJoinEntry();
-            $join1->initialize('tb_factura_items', 'tb_factura_header', [
+            $join1->initialize($factura_items, $this, [
                 'factura_nro' => 'numero'
             ], ['item_id', 'producto', 'cantidad']);
             $joins = new flcJoins();
@@ -179,8 +209,10 @@ class factura_header_model extends flcBaseModel {
             // using full constraints and join
             $c->set_select_fields(['numero', 'descripcion', 'customer_id']);
 
+            $cmodel = new customer_model(null,null);
+
             $j = new flcJoinEntry();
-            $j->initialize('tb_customer', $this->get_table_name(), ['id' => 'customer_id'], ['name'],flcJoinEntry::$LEFT_JOIN);
+            $j->initialize($cmodel, $this, ['id' => 'customer_id'], ['name'], flcJoinEntry::$LEFT_JOIN);
 
             $joins = new flcJoins();
             $joins->add_join($j);
@@ -200,17 +232,18 @@ $id = new flcHeaderInputDataProcessorFetch([]);
 $factura_header = new factura_header_entity($driver, $id);
 
 // do a fetch
+echo 'Resultados primer fetch'.PHP_EOL;
 $results = $factura_header->fetch();
-if (is_array($results)) {
-    foreach ($results as $record) {
+if ($results->is_success()) {
+    foreach ($results->get_result_array() as $record) {
         print_r($record);
     }
 }
 
 // do a fetch with suboperation
 $results = $factura_header->fetch('fetchjoined');
-if (is_array($results)) {
-    foreach ($results as $record) {
+if ($results->is_success()) {
+    foreach ($results->get_result_array() as $record) {
         print_r($record);
     }
 }

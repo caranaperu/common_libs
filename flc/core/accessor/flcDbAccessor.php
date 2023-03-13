@@ -72,7 +72,6 @@ class flcDbAccessor extends flcPersistenceAccessor {
             // do add
             $res = $this->db->execute_query($this->get_add_query($p_model, $p_suboperation));
             if ($res) {
-                $this->log_error('affected rows add '.$res->affected_rows(), 'I');
 
                 $id_field = $p_model->get_id_field();
 
@@ -86,6 +85,11 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
                 // Read to load all the values from the record in the model , important to update some automatic fields
                 // or fields with defaults not currently in the received model..
+
+                // doesnt take account of versiom id reading. (where clause , obvious)
+                if ($p_model->is_rowversion_supported()) {
+                    $p_model->{$p_model->get_rowversion_field()} = null;
+                }
                 $answer = $this->read($p_model, $p_suboperation, $p_constraints);
 
             } else {
@@ -134,14 +138,11 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
         try {
 
-            $rowversion_support = $this->is_rowversion_supported($p_model);
+            $rowversion_support = $p_model->is_rowversion_supported();
 
             $res = $this->db->execute_query($this->get_update_query($p_model, $p_suboperation));
 
             if ($res) {
-                $this->log_error('affected rows update '.$res->affected_rows(), 'I');
-
-                $answer->set_success(true);
 
                 $affected_rows = $res->affected_rows();
 
@@ -153,6 +154,12 @@ class flcDbAccessor extends flcPersistenceAccessor {
                     if (!$this->is_db_error($error)) {
                         // if simply nothing was changed , then no error , next step
                         // reread to verify changes.
+
+                        // force to read without rowversion
+                        if ($p_model->is_rowversion_supported()) {
+                            $p_model->{$p_model->get_rowversion_field()} = null;
+                        }
+
                         $answer = $this->read($p_model, $p_suboperation);
 
                         if ($rowversion_support) {
@@ -160,9 +167,9 @@ class flcDbAccessor extends flcPersistenceAccessor {
                             // its delete will return self::$db_error_codes['DB_RECORD_NOT_EXIST']
 
                             if ($answer->is_success()) {
+                                $answer->set_success(false);
                                 $answer->set_return_code(self::$db_error_codes['DB_RECORD_MODIFIED']);
                             }
-
 
                         }
                     } else {
@@ -170,6 +177,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
                     }
 
                 } else {
+                    // in an add record rowversion field value is allways null , because is not known
                     $answer = $this->read($p_model, $p_suboperation, $p_constraints);
                 }
 
@@ -213,30 +221,36 @@ class flcDbAccessor extends flcPersistenceAccessor {
         $answer->set_success(false);
 
         $res = null;
-        $ret = self::$db_error_codes['DB_OPERATION_OK'];
 
         try {
             $res = $this->db->execute_query($this->get_delete_query($p_model));
 
             if ($res) {
-                $this->log_error('affected rows delete '.$res->affected_rows(), 'I');
-
-                $answer->set_success(true);
 
                 if ($p_verify_deleted_check) {
                     if ($res->affected_rows() <= 0) {
                         // Is modified or not exist.
+                        // force read without using rowversion field
+                        if ($p_model->is_rowversion_supported()) {
+                            $p_model->{$p_model->get_rowversion_field()} = null;
+                        }
+
                         $answer = $this->read($p_model);
                         // if we can read without taking account of the rowversion field , means is modificed
                         // otherwise doesnt exist.
                         if ($answer->is_success()) {
+                            $answer->set_success(false);
                             $answer->set_return_code(self::$db_error_codes['DB_RECORD_MODIFIED']);
                         } else {
                             if ($answer->get_exception() == null) {
                                 $answer->set_return_code(self::$db_error_codes['DB_RECORD_NOT_EXIST']);
                             }
                         }
+                    } else {
+                        $answer->set_success(true);
                     }
+                } else {
+                    $answer->set_success(true);
                 }
             } else {
                 $answer->set_return_code($this->_process_db_error('delete'));
@@ -274,14 +288,12 @@ class flcDbAccessor extends flcPersistenceAccessor {
         $answer = new flcPersistenceAccessorAnswer();
         $answer->set_success(false);
 
-        $ret = self::$db_error_codes['DB_OPERATION_OK'];
         $res = null;
 
         try {
             $res = $this->db->execute_query($this->get_delete_query_full($p_model, $p_constraints));
 
             if ($res) {
-                $this->log_error('affected rows delete full'.$res->affected_rows(), 'I');
 
                 if ($res->affected_rows() <= 0) {
                     $answer->set_return_code(self::$db_error_codes['DB_RECORD_NOT_EXIST']);
@@ -329,7 +341,6 @@ class flcDbAccessor extends flcPersistenceAccessor {
         $answer->set_success(false);
 
         $res = null;
-        $ret = self::$db_error_codes['DB_OPERATION_OK'];
         try {
 
             $res = $this->db->execute_query($this->get_read_query($p_model, $p_suboperation, $p_constraints));
@@ -375,24 +386,17 @@ class flcDbAccessor extends flcPersistenceAccessor {
     /*--------------------------------------------------------------*/
 
 
-    /**
-     * @inheritdoc
-     */
-    public function fetch(flcBaseModel $p_model, ?flcConstraints $p_constraints = null, ?string $p_suboperation = null): flcPersistenceAccessorAnswer {
-        return $this->fetch_full($p_model, null, $p_constraints, $p_suboperation);
-    }
-
     /*--------------------------------------------------------------*/
 
     /**
      * @inheritdoc
      */
-    public function fetch_full(flcBaseModel $p_model, ?array $p_ref_models, ?flcConstraints $p_constraints = null, ?string $p_suboperation = null): flcPersistenceAccessorAnswer {
+    public function fetch(flcBaseModel $p_model, ?flcConstraints $p_constraints = null, ?string $p_suboperation = null): flcPersistenceAccessorAnswer {
         $answer = new flcPersistenceAccessorAnswer();
         $answer->set_success(false);
 
         try {
-            $sql = $this->get_fetch_query_full($p_model, $p_ref_models, $p_constraints, $p_suboperation);
+            $sql = $this->get_fetch_query($p_model, $p_constraints, $p_suboperation);
             $res = $this->db->execute_query($sql);
             if ($res) {
                 $answer->set_result_array($res->result_array());
@@ -479,17 +483,21 @@ class flcDbAccessor extends flcPersistenceAccessor {
         }
 
         $id_field = $p_model->get_id_field();
+        $rowid_field = $p_model->get_rowversion_field();
 
-        $sql = "INSERT INTO {$p_model->get_table_name()} (".implode(',', array_keys($fields)).') VALUES (';
-        // remove unique id from list if exist
-        if (!empty($id_field)) {
-            $sql = str_replace(["$id_field,", "$id_field"], '', $sql);
 
+        $sql = "INSERT INTO {$p_model->get_table_name()} (";
+        foreach (array_keys($fields) as $field) {
+            // the id and row id field never will be passed in the list to add , are automatic fields
+            if ($field !== $id_field && $field != $rowid_field ) {
+                $sql .= $field.',';
+            }
         }
+        $sql = rtrim($sql,',').') VALUES (';
 
         foreach ($fields as $field => $value) {
             // if unique id , or autoincrement cant add to add query.
-            if ($p_model->get_id_field() !== $field) {
+            if ($field !== $id_field && $field != $rowid_field ) {
                 $type = $p_model->get_field_type($field) ?? '';
 
                 $sql .= $this->get_normalized_field_value($value, $type).',';
@@ -497,7 +505,8 @@ class flcDbAccessor extends flcPersistenceAccessor {
             }
         }
 
-        $sql = substr($sql, 0, strrpos($sql, ','));
+        //$sql = substr($sql, 0, strrpos($s
+        $sql = rtrim($sql,',');
         $sql .= ')';
 
         $this->log_error($sql, 'I');
@@ -564,12 +573,17 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
         }
 
+        $id_field = $p_model->get_id_field();
+        $rowversion_field = $p_model->get_rowversion_field();
+
         // update list
         $sql = 'update '.$p_model->get_table_name().' set ';
         foreach ($fields as $field => $value) {
-            $type = $p_model->get_field_type($field) ?? '';
-
-            $sql .= $field.'='.$this->get_normalized_field_value($value, $type).',';
+            // the id field and the rowversion field never will be updated, because they are automatic
+            if ($field !== $id_field && $field !== $rowversion_field) {
+                $type = $p_model->get_field_type($field) ?? '';
+                $sql .= $field.'='.$this->get_normalized_field_value($value, $type).',';
+            }
         }
 
         // where list
@@ -608,11 +622,16 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
         // add rowversion field to where
         // check if row version is supported
-        if ($this->is_rowversion_supported($p_model)) {
-            $value = $p_model->{$this->db->get_rowversion_field()};
-            $type = $p_model->get_field_type($this->db->get_rowversion_field()) ?? '';
+        if ($p_model->is_rowversion_supported()) {
+            $rowversion_field = $p_model->get_rowversion_field();
 
-            $sql .= $this->db->get_rowversion_field().' = '.$this->get_normalized_field_value($value, $type);
+            $value = $p_model->{$rowversion_field};
+            // If this value is null , means not use on the query
+            if ($value !== null) {
+                $type = $p_model->get_field_type($rowversion_field) ?? '';
+
+                $sql .= $rowversion_field.' = '.$this->get_normalized_field_value($value, $type).' and '; // trailing and is on purpose
+            }
         }
         $sql = substr($sql, 0, strrpos($sql, ' and '));
 
@@ -678,11 +697,16 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
         // add rowversion field to where
         // check if row version is supported
-        if ($this->is_rowversion_supported($p_model)) {
-            $value = $p_model->{$this->db->get_rowversion_field()};
-            $type = $p_model->get_field_type($this->db->get_rowversion_field()) ?? '';
+        if ($p_model->is_rowversion_supported()) {
+            $rowversion_field = $p_model->get_rowversion_field();
 
-            $sql .= $this->db->get_rowversion_field().' = '.$this->get_normalized_field_value($value, $type);
+            $value = $p_model->{$rowversion_field};
+            // If this value is null , means not use on the query
+            if ($value !== null) {
+                $type = $p_model->get_field_type($rowversion_field) ?? '';
+
+                $sql .= $rowversion_field.' = '.$this->get_normalized_field_value($value, $type).' and '; // trailing and is on purpose
+            }
         }
 
         $sql = substr($sql, 0, strrpos($sql, ' and '));
@@ -713,7 +737,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
         }
 
         $sql = "delete from {$p_model->get_table_name()} ";
-        $sqlwhere = $this->where_clause($fields, $p_model->get_field_types(), $p_constraints);
+        $sqlwhere = $this->where_clause($p_model->get_table_name(), $fields, $p_model->get_field_types(), $p_constraints);
 
         if ($sqlwhere != '') {
             $sql .= $sqlwhere;
@@ -814,6 +838,8 @@ class flcDbAccessor extends flcPersistenceAccessor {
     }
 
 
+
+
     /*--------------------------------------------------------------*/
 
     /**
@@ -828,25 +854,6 @@ class flcDbAccessor extends flcPersistenceAccessor {
      * @throws Exception
      */
     protected function get_fetch_query(flcBaseModel $p_model, ?flcConstraints $p_constraints = null, ?string $p_suboperation = null): string {
-        return $this->get_fetch_query_full($p_model, null, $p_constraints, $p_suboperation);
-    }
-
-    /*--------------------------------------------------------------*/
-
-    /**
-     * This version to construct the fetch query allow join clauses using different tables and where clauses with
-     * fields from referenced entities (tables).
-     *
-     * @param flcBaseModel        $p_model the main model source of the fields and input values to the constraints.
-     * @param array|null          $p_ref_models an array of entities in case we need to reference other table fields
-     *     in constraints.
-     * @param flcConstraints|null $p_constraints the constraints.
-     * @param string|null         $p_suboperation optional user defined suboperation.
-     *
-     * @return string with the fetch query.
-     * @throws Exception
-     */
-    protected function get_fetch_query_full(flcBaseModel $p_model, ?array $p_ref_models, ?flcConstraints $p_constraints = null, ?string $p_suboperation = null): string {
 
         // setup fetch fields
         //
@@ -873,21 +880,38 @@ class flcDbAccessor extends flcPersistenceAccessor {
         // referenced entities exist , add this fields to the list of fields from the mein model.
         // this fields added will have prefixd table name.
         // Also add the field types to the fied types from the main model.
-        if ($p_ref_models !== null) {
-            foreach ($p_ref_models as $p_ref_entity) {
+        if ($p_constraints !== null) {
+            $ref_models = [];
+
+            $joins = $p_constraints->get_joins();
+
+            if ($joins != null) {
+                $joins = $joins->get_joins();
+                foreach ($joins as $join) {
+                    $ref_models[] = $join->get_left_model();
+                    $ref_models[] = $join->get_right_model();
+                }
+            }
+
+
+            foreach ($ref_models as $p_ref_entity) {
                 $table = $p_ref_entity->get_table_name();
+                // if the referenced model equals the main model not process (duplicate fields)
+                if ($table !== $p_model->get_table_name()) {
 
-                // process field name => value
-                $f = $p_ref_entity->get_fields();
-                foreach ($f as $field => $value) {
-                    $fields[$table.'.'.$field] = $value;
+                    // process field name => value
+                    $f = $p_ref_entity->get_fields();
+                    foreach ($f as $field => $value) {
+                        $fields[$table.'.'.$field] = $value;
+                    }
+
+                    // Process the field types from referenced entities.
+                    $ft = $p_ref_entity->get_field_types();
+                    foreach ($ft as $field => $value) {
+                        $fields_types[$table.'.'.$field] = $value;
+                    }
                 }
 
-                // Process the field types from referenced entities.
-                $ft = $p_ref_entity->get_field_types();
-                foreach ($ft as $field => $value) {
-                    $fields_types[$table.'.'.$field] = $value;
-                }
             }
         }
 
@@ -899,8 +923,8 @@ class flcDbAccessor extends flcPersistenceAccessor {
         // verifying with tests.
         $all_fields = $fields;
 
-        $sql .= $this->where_clause($all_fields, $fields_types, $p_constraints);
-        $sql .= $this->order_by_clause($all_fields, $p_model->get_key_fields(), $p_model->get_id_field(), $p_constraints);
+        $sql .= $this->where_clause($p_model->get_table_name(), $all_fields, $fields_types, $p_constraints);
+        $sql .= $this->order_by_clause($p_model->get_table_name(),$all_fields, $p_model->get_key_fields(), $p_model->get_id_field(), $p_constraints);
         // limit offset (warning , is better with an order by
         if (!empty($p_constraints)) {
             $sql .= ' '.$this->db->get_limit_offset_str($p_constraints->get_start_row(), $p_constraints->get_end_row());
@@ -943,21 +967,26 @@ class flcDbAccessor extends flcPersistenceAccessor {
                     $sql .= $field.',';
                 }
 
-                $joins = $p_constraints->get_joins();
-                if (isset($joins)) {
-                    $sql .= $joins->get_join_fields_string().',';
-                }
+            }
+            // use the join fields
+            $joins = $p_constraints->get_joins();
+            if (isset($joins)) {
+                $sql .= $joins->get_join_fields_string().',';
             }
         }
-        // if no select fields in constraints , use the model fields
-        if (!isset($sfields) or count($sfields) == 0) {
+
+        //if no select fields in constraints and not  join fields
+        // use the list in p_fields
+        if ($sql == 'select ') {
+
             foreach ($p_fields as $field => $value) {
                 $sql .= $field.',';
             }
         }
 
 
-        $sql = substr($sql, 0, strrpos($sql, ','));
+        // remove the las charcter (in this case the comma
+        $sql = rtrim($sql, ',');
         $sql .= ' from '.$p_table_name;
 
         return $sql;
@@ -997,6 +1026,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
      *
      * t.invoice_header.invoice_number.
      *
+     * @param string              $p_table the table name of the main entity
      * @param array               $p_fields the list of model or entities  fields with values (field=>value each
      *     element)
      * @param array               $p_field_types the list of field types (field => type each entry)
@@ -1006,7 +1036,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
      *
      * @see flcBaseModel::get_field_types()
      */
-    protected function where_clause(array $p_fields, array $p_field_types, ?flcConstraints $p_constraints = null): string {
+    protected function where_clause(string $p_table, array $p_fields, array $p_field_types, ?flcConstraints $p_constraints = null): string {
 
         // WHERE
         // search on constraints if are defined
@@ -1042,6 +1072,14 @@ class flcDbAccessor extends flcPersistenceAccessor {
                         } else {
                             throw new InvalidArgumentException("Where field '$field' doesnt exist in the model", self::$db_error_codes['DB_INVALID_WHERE_FIELD']);
                         }
+                    }
+
+                    // if the field is not of a joined table (not have a point)
+                    // then prepend the table name  to ensure not ambiguos field
+                    $p_origfield = $field;
+                    if (strpos($field, '.') === false) {
+                        $field = "$p_table.$field";
+
                     }
 
 
@@ -1115,7 +1153,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
                             $sql .= $value;
                         }
                     } else {
-                        $type = $p_field_types[$field] ?? '';
+                        $type = $p_field_types[$p_origfield] ?? '';
                         $sql .= $field.$operator.$this->get_normalized_field_value($value, $type);
                     }
 
@@ -1157,6 +1195,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
      * If not constraints , try to generate order by based on the key fields , if not are specified
      * try to use the unique id of the record , if both exist only key fields will be taken.
      *
+     * @param string              $p_table the table name of the main entity*
      * @param array               $p_fields the list of model fields with values (field=>value each element)
      * @param array               $p_key_fields array of names of the fields that compose the unique record.
      * @param mixed               $p_id if not using key fields this field name identify the  unique id field of the
@@ -1168,7 +1207,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
      * @see flcConstraints
      *
      */
-    protected function order_by_clause(array $p_fields, array $p_key_fields, $p_id, ?flcConstraints $p_constraints = null): string {
+    protected function order_by_clause(string $p_table, array $p_fields, array $p_key_fields, $p_id, ?flcConstraints $p_constraints = null): string {
         $sql = '';
         if (isset($p_constraints)) {
             // order by
@@ -1177,24 +1216,32 @@ class flcDbAccessor extends flcPersistenceAccessor {
             $order_by_fields = $p_constraints->get_order_by_fields();
             if (count($order_by_fields) > 0) {
                 $sql .= ' order by ';
-                foreach ($order_by_fields as $field) {
+                foreach ($order_by_fields as $field => $stype) {
 
-                    // if is an array we expect $field=>$type (asc or desc)
-                    if (is_array($field)) {
-                        $direction = " $field[1] ";
-                        $field = $field[0];
+                    // if $field is string is an associative array
+                    // otherwise standard array.
+                    if (is_string($field)) {
+                        $direction = " $stype ";
                     } else {
+                        $field = $stype;
                         $direction = '';
                     }
 
+
                     if (array_key_exists($field, $p_fields)) {
+                        // if the field is not of a joined table (not have a point)
+                        // then prepend the table name  to ensure not ambiguos field
+                        if (strpos($field, '.') === false) {
+                            $field = "$p_table.$field";
+                        }
+
                         $sql .= $field.$direction.',';
                     } else {
                         throw new InvalidArgumentException("Order by field '$field' doesnt exist in the model", self::$db_error_codes['DB_INVALID_WHERE_FIELD']);
                     }
 
                 }
-                $sql = substr($sql, 0, strrpos($sql, ','));
+                $sql = rtrim($sql,',');
 
             }
         }
@@ -1247,40 +1294,23 @@ class flcDbAccessor extends flcPersistenceAccessor {
     /*--------------------------------------------------------------*/
 
     /**
-     * Search on the array of key fields of the model if the rowversion field
-     * that the database support exist.
-     *
-     * @param flcBaseModel $p_model the model to check if support rowversion field.
-     *
-     * @return bool true if rowversion is supported and also is part of the key on the model.
-     */
-    public function is_rowversion_supported(flcBaseModel $p_model): bool {
-        $rowversion_field = $this->db->get_rowversion_field();
-        if (!empty($rowversion_field)) {
-            if (array_key_exists($rowversion_field, $p_model->get_fields())) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /*--------------------------------------------------------------*/
-
-    /**
      * Return a normalized value based on the type expected.
      *
      * @param mixed  $p_value the original value to process
      * @param string $p_type the output type expected :
      * - 'nostring' means any not string value
      * - 'bool' a boolean value
-     * otherwise treat as any type of number
+     * - 'rowversion' for a field that work as the rowversion field.
      *
      * @return bool|int|float|string with the normalized value
      */
     protected function get_normalized_field_value($p_value, string $p_type) {
 
         $value = $p_value ?? 'NULL';
+
+        if ($p_type == 'rowversion') {
+            return $this->db->cast_to_rowversion($value);
+        }
 
         if ($p_type == 'bool') {
             return ($value ? "'1'" : "'0'");
@@ -1388,6 +1418,5 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
     }
 
-    /*--------------------------------------------------------------*/
 
 }

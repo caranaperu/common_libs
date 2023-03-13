@@ -162,7 +162,6 @@ class flcFileHandler extends flcBaseHandler {
         }
 
         $data = '';
-        $buffer = 0;
         clearstatcache(); // Address https://github.com/codeigniter4/CodeIgniter4/issues/2056
 
         for ($read = 0, $length = filesize($this->file_path.$p_session_id); $read < $length; $read += strlen($buffer)) {

@@ -30,6 +30,53 @@ use stdClass;
 class flcPostgresResult extends flcDbResult {
 
     /**
+     * This array represents the mapping of internal data types in Postgres to standard types
+     *
+     * @var array|string[]
+     */
+    protected static array $_pg_to_std = [
+        'bit' => 'bit',
+        'bool' => 'boolean',
+        'box' => 'box',
+        'bpchar' => 'char',
+        'bytea' => 'bytea',
+        'cidr' => 'cidr',
+        'circle' => 'circle',
+        'date' => 'date',
+        'daterange' => 'daterange',
+        'float4' => 'real',
+        'float8' => 'double precision',
+        'inet' => 'inet',
+        'int2' => 'smallint',
+        'int4' => 'integer',
+        'int4range' => 'int4range',
+        'int8' => 'bigint',
+        'int8range' => 'int8range',
+        'interval' => 'interval',
+        'json' => 'json',
+        'lseg' => 'lseg',
+        'macaddr' => 'macaddr',
+        'money' => 'money',
+        'numeric' => 'numeric',
+        'numrange' => 'numrange',
+        'path' => 'path',
+        'point' => 'point',
+        'polygon' => 'polygon',
+        'text' => 'text',
+        'time' => 'time',
+        'timestamp' => 'timestamp',
+        'timestamptz' => 'timestamp with time zone',
+        'timetz' => 'time with time zone',
+        'tsquery' => 'tsquery',
+        'tsrange' => 'tsrange',
+        'tsvector' => 'tsvector',
+        'uuid' => 'uuid',
+        'varbit' => 'bit varying',
+        'varchar' => 'character varying',
+        'xml' => 'xml',
+    ];
+
+    /**
      * @inheritdoc
      */
     public function num_rows(): int {
@@ -68,9 +115,11 @@ class flcPostgresResult extends flcDbResult {
         $retval = [];
         for ($i = 0, $c = $this->num_fields(); $i < $c; $i++) {
             $retval[$i] = new stdClass();
-            $retval[$i]->name = pg_field_name($this->result_id, $i);
-            $retval[$i]->type = pg_field_type($this->result_id, $i);
-            $retval[$i]->max_length = pg_field_size($this->result_id, $i);
+            $retval[$i]->col_name = pg_field_name($this->result_id, $i);
+            $retval[$i]->col_type = flcPostgresResult::$_pg_to_std[pg_field_type($this->result_id, $i)];
+            $retval[$i]->col_length = pg_field_size($this->result_id, $i);
+            $retval[$i]->col_scale = 0;
+            $retval[$i]->col_is_nullable = 0;
         }
 
         return $retval;
