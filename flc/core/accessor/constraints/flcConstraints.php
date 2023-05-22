@@ -128,13 +128,17 @@ class flcConstraints {
      *
      *
      * @param array $p_where_fields array with the where fields-
+     * @param array $p_exclude_fields array with the field names to exclude form the where
+     * clause.-
      *
      * @return void
      */
-    public function set_where_fields(array $p_where_fields) {
+    public function set_where_fields(array $p_where_fields,?array $p_exclude_fields=null) {
         $this->where_fields = [];
         foreach ($p_where_fields as $field) {
-            $this->add_where_field($field);
+            if ($p_exclude_fields == null || !in_array($field[0],$p_exclude_fields,true)) {
+                $this->add_where_field($field);
+            }
         }
     }
 

@@ -31,7 +31,7 @@ abstract class flcBaseUploadController extends flcController {
      *
      * @var string by default 'flc_file_uploaded'
      */
-    protected string $output_data_key='flc_file_uploaded';
+    protected string $output_data_key = 'flc_file_uploaded';
 
     public function __construct() {
         @set_exception_handler([
@@ -86,6 +86,8 @@ abstract class flcBaseUploadController extends flcController {
             $this->output_data->set_success(false);
             if ($this->is_logged_in()) {
 
+                $this->pre_file_upload();
+
                 $uploader = new flcFileUploader($this->options);
                 if ($uploader->do_upload()) {
                     $this->output_data->set_success(true);
@@ -127,9 +129,9 @@ abstract class flcBaseUploadController extends flcController {
      *
      * @return string with the websetite relative path.
      */
-    protected function get_uploaded_filepath(string $p_uploaded_filename)  : string {
+    protected function get_uploaded_filepath(string $p_uploaded_filename): string {
         // If the upload path ends with the directory separator?
-        if (substr( $this->options['upload_path'], -strlen(DIRECTORY_SEPARATOR) ) === DIRECTORY_SEPARATOR){
+        if (substr($this->options['upload_path'], -strlen(DIRECTORY_SEPARATOR)) === DIRECTORY_SEPARATOR) {
             return $this->options['upload_path'].$p_uploaded_filename;
 
         } else {
@@ -137,6 +139,16 @@ abstract class flcBaseUploadController extends flcController {
             return $this->options['upload_path'].DIRECTORY_SEPARATOR.$p_uploaded_filename;
 
         }
+    }
+
+    /**
+     * Called after input processor but befor upload a file , good moment
+     * for setup for example some options that depends on input data and can be
+     * initialized before this moment.
+     * @return void
+     */
+    protected function pre_file_upload(): void {
+        // override , the default do nothing
     }
 
 }

@@ -132,6 +132,10 @@ abstract class flcInputDataProcessor {
      * and conver to normalized format supported by this class.
      * The input array can be a $_POST array by example.
      *
+     * IMPORTANT: actually is only used if a model is also used, then
+     * if no model , no $fields member will be updated.
+     * If no model use get_input_data to access the input data array.
+     *
      * @param flcBaseModel $p_model used for get the valid model fields to extract from the input data array
      *
      * @throws InvalidArgumentException if the input data have some problems
@@ -282,6 +286,17 @@ abstract class flcInputDataProcessor {
         }
 
         return $c;
+    }
+
+    /*--------------------------------------------------------------*/
+
+    /**
+     * Sometimes , no model is used then we need to access to input data,
+     *
+     * @return array
+     */
+    public function get_input_data() : array {
+        return $this->input_data;
     }
 
     /*--------------------------------------------------------------*/

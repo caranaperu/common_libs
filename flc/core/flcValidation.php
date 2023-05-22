@@ -277,7 +277,8 @@ class flcValidation {
         if (isset($this->_field_data) && count($this->_field_data) == 0) {
             flcCommon::log_message('info', 'flcValitadion->run : no rules to validate');
 
-            return false;
+            // if not rules to run , nothing to validte , all ok.
+            return true;
 
         }
 
@@ -293,7 +294,7 @@ class flcValidation {
 
             // if the data to validate doesnt exist on the field list to validate
             // continue,
-            if (!isset($this->_data[$row['field']])) {
+            if (!array_key_exists($row['field'], $this->_data)) {
                 continue;
             }
 
@@ -311,13 +312,13 @@ class flcValidation {
      * Verify all the rules for a field
      * If one validation fails , put the errors on field data , Lstop and return
      *
-     * @param mixed  $p_row the field data containing the rules for the fields
-     * @param string $p_postdata the field value send to validate.
+     * @param mixed       $p_row the field data containing the rules for the fields
+     * @param string|null $p_postdata the field value send to validate.
      *
      * @return void
-     * @throws Exception
+     * @throws \Throwable
      */
-    protected function _execute($p_row, string $p_postdata): void {
+    protected function _execute($p_row, ?string $p_postdata): void {
         $result = false;
         $rules = $p_row['rules'];
 
@@ -366,7 +367,7 @@ class flcValidation {
             }
 
             // Ignore empty, non-required inputs with a few exceptions ...
-            if (!isset($p_postdata) or trim($p_postdata) === '' && $callback === false && $callable === false && !in_array($rule, [
+            if ((!isset($p_postdata) or trim($p_postdata) === '') && $callback === false && $callable === false && !in_array($rule, [
                     'required',
                     'isset',
                     'matches'
@@ -517,9 +518,9 @@ class flcValidation {
             return $this->_error_messages[$p_rule];
         } else {
             // callable ? only if it is an array
-            $rulecheck = is_array($p_rule)  ?  $p_rule[0] : $p_rule;
+            $rulecheck = is_array($p_rule) ? $p_rule[0] : $p_rule;
             $line = $this->_lang->line('validation_'.$rulecheck);
-            if (substr( $line, 0, 18 ) !== "No translation for") {
+            if (substr($line, 0, 18) !== "No translation for") {
                 return $line;
             }
         }
@@ -539,9 +540,9 @@ class flcValidation {
     protected function _translate_fieldname(string $p_fieldname): string {
         // Do we need to translate the field name? We look for the prefix 'lang:' to determine this
         // If we find one, but there's no translation for the string - just return it
-        if (sscanf($p_fieldname, 'lang:%s', $line) === 1 ) {
+        if (sscanf($p_fieldname, 'lang:%s', $line) === 1) {
             $p_fieldname = $this->_lang->line($line);
-            if (substr( $p_fieldname, 0, 18 ) == "No translation for") {
+            if (substr($p_fieldname, 0, 18) == "No translation for") {
                 return $line;
             }
         }
@@ -603,12 +604,12 @@ class flcValidation {
     /**
      * Required
      *
-     * @param string $p_str with the value to check
+     * @param string|null $p_str with the value to check
      *
      * @return    bool true if the rule is ok otherwise false.
      */
-    public function required(string $p_str): bool {
-        return (trim($p_str) !== '');
+    public function required(?string $p_str): bool {
+        return ($p_str != null && trim($p_str) !== '');
     }
 
     // --------------------------------------------------------------------
@@ -830,7 +831,11 @@ class flcValidation {
      * @return    bool
      */
     public function alpha_numeric_spaces(string $p_str): bool {
-        return (bool)preg_match('/^[A-Z0-9 ]+$/i', $p_str);
+        if (!preg_match('/^[A-Z0-9 ]+$/i', $p_str)) {
+            return false;
+        }
+
+        return true;
     }
 
     // --------------------------------------------------------------------
@@ -843,7 +848,11 @@ class flcValidation {
      * @return    bool
      */
     public function alpha_dash(string $p_str): bool {
-        return (bool)preg_match('/^[a-z0-9_-]+$/i', $p_str);
+        if (!preg_match('/^[a-z0-9_-]+$/i', $p_str)) {
+            return false;
+        }
+
+        return true;
     }
 
     // --------------------------------------------------------------------
@@ -856,8 +865,11 @@ class flcValidation {
      * @return    bool
      */
     public function numeric(string $p_str): bool {
-        return (bool)preg_match('/^[\-+]?[0-9]*\.?[0-9]+$/', $p_str);
+        if (!preg_match('/^[\-+]?[0-9]*\.?[0-9]+$/', $p_str)) {
+            return false;
+        }
 
+        return true;
     }
 
     // --------------------------------------------------------------------
@@ -870,7 +882,11 @@ class flcValidation {
      * @return    bool
      */
     public function integer(string $p_str): bool {
-        return (bool)preg_match('/^[\-+]?[0-9]+$/', $p_str);
+        if (!preg_match('/^[\-+]?[0-9]+$/', $p_str)) {
+            return false;
+        }
+
+        return true;
     }
 
     // --------------------------------------------------------------------
@@ -883,7 +899,11 @@ class flcValidation {
      * @return    bool
      */
     public function decimal(string $p_str): bool {
-        return (bool)preg_match('/^[\-+]?[0-9]+\.[0-9]+$/', $p_str);
+        if (!preg_match('/^[-+]?[0-9]*\.?[0-9]*$/', $p_str)) {
+            return false;
+        }
+
+        return true;
     }
 
     // --------------------------------------------------------------------

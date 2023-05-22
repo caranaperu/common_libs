@@ -40,11 +40,14 @@ abstract class flcCRUDController extends flcBaseController {
             $answer = $this->model->fetch($p_sub_operation);
 
         } elseif ($p_operation == 'add') {
+            FLC::get_instance()->db->trans_start();
             $answer = $this->model->add($p_sub_operation);
         } elseif ($p_operation == 'upd') {
+            FLC::get_instance()->db->trans_start();
             $answer = $this->model->update($p_sub_operation);
 
         } elseif ($p_operation == 'del') {
+            FLC::get_instance()->db->trans_start();
             $answer = $this->model->delete($p_sub_operation);
         } else {
             throw new RuntimeException("Operation $p_operation is not supported");

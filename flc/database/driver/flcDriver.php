@@ -209,7 +209,7 @@ abstract class flcDriver {
      *
      * @var    bool
      */
-    protected bool $_trans_unique = false;
+    protected bool $_trans_unique = true;
 
     /**
      * Transaction unique begin flag
@@ -392,6 +392,8 @@ abstract class flcDriver {
 
             // from here $_mysqli = $_conn_id
             $this->_connId = $conn;
+            pg_set_error_verbosity($this->_connId, PGSQL_ERRORS_TERSE);
+
         }
 
 
@@ -2323,10 +2325,10 @@ abstract class flcDriver {
             }
 
             if ($p_type == 'procedure') {
-                $sql .= $this->_callable_procedure_sep_string[1].';';
+                $sql .= $this->_callable_procedure_sep_string[1];
 
             } else {
-                $sql .= $this->_callable_function_sep_string[1].';';
+                $sql .= $this->_callable_function_sep_string[1];
             }
         } else {
             throw new RuntimeException("callable_string_extended - sp/function $p_sp_name doesnt exist");

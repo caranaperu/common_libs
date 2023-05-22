@@ -221,8 +221,9 @@ isc.DetailGridContainer.addProperties({
 
         // Si solo es para visualizacion no podra agregarse por ende
         // el boton de agregar no debe existir.
+        var abtn = undefined;
         if (this.onlyForListGrid === false) {
-            var abtn = isc.ImgButton.create({
+            abtn = isc.ImgButton.create({
                 ID: "addButton" + this.ID,
                 autoDraw: false,
                 src: "[SKIN]actions/add.png", size: 16,
@@ -301,6 +302,11 @@ isc.DetailGridContainer.addProperties({
                 grid.rowEndEditAction = "same";
                 grid.enterKeyEditAction = "nextCell";
 
+                // If mot childFom never can add
+               /* if (abtn !== undefined) {
+                    abtn.hide();
+                }*/
+
                 this.addItem(0, grid, 0);
             }
         } else {
@@ -311,6 +317,11 @@ isc.DetailGridContainer.addProperties({
             grid.canEdit = false;
             grid.canRemove = false;
             grid.modalEditing = false;
+
+            // If mot childFom never can add
+            if (abtn !== undefined) {
+                abtn.hide();
+            }
 
             this.addItem(0, grid, 0);
         }

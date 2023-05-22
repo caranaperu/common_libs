@@ -351,6 +351,15 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
                 } else {
                     $p_model->set_values($res->row_array());
+                    // remove from the answer model not allowed in read operations
+                    $valid_operations_field = $p_model->get_fields_operations();
+                    if ($valid_operations_field && count($valid_operations_field) > 0) {
+                        foreach ($valid_operations_field as $field => $operations) {
+                            if (strpos($operations,'r') === false) {
+                                $p_model->unset_field($field);
+                            }
+                        }
+                    }
                     $answer->set_success(true);
                 }
 
@@ -1284,7 +1293,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
      */
     protected function is_db_error(array $error): bool {
         // only message , postgres for example no return error code only message
-        if (!empty($error->message)) {
+        if (!empty($error['message'])) {
             return true;
         }
 
@@ -1313,7 +1322,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
         }
 
         if ($p_type == 'bool') {
-            return ($value ? "'1'" : "'0'");
+            return (in_array($value,['1',1,true,'true'],true) ? "'1'" : "'0'");
         } else {
             if ($p_type == 'nostring' || !is_string($p_value)) {
                 return $value;

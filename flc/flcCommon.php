@@ -216,6 +216,7 @@ class flcCommon {
                     if (stripos($controller, '.php') || empty($controller)) {
                         return $default_controller;
                     }
+
                     return $controller;
 
                 }
@@ -279,5 +280,28 @@ class flcCommon {
 
     }
 
+    /**
+     * Method to delete one or more files , if no directory is specified as part of the file
+     * pattern the files on the current path will be deleted , otherwise all specified by
+     * the pattern.
+     *
+     * @param string $p_file_pattern by example "*.jpg" o "/var/*.txt"
+     *
+     * @return bool true if all the files are deleted , false if at least one cant be deleted
+     * , like when a file is open by other process.
+     */
+     static function remove_dir_files(string $p_file_pattern): bool {
+
+        $ret = true;
+        // Eliminara tosdos los archivos que pueda aunque encuentre error eliminado alguno , por ejemplo
+        // por estar usado o abierto,.
+        foreach (glob($p_file_pattern) as $filename) {
+            if (!unlink($filename)) {
+                $ret = false;
+            }
+        }
+
+        return $ret;
+    }
 
 }

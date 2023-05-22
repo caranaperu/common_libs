@@ -16,6 +16,8 @@ use flc\flcCommon;
 /**
  * File loader class , this class allow the load of one file not multiple files ,
  * check mime types allowed , max size , valid upload path and also can encrypt the name.
+ * IMPORTANT: the php.ini post_max_size and upload_max_filesize need a size to allow the
+ * file size you expect to upload.
  */
 class flcFileUploader {
 
@@ -60,6 +62,17 @@ class flcFileUploader {
      */
     protected string $file_name_uploaded = '';
 
+    /**
+     * string to prepend to the filename before save the file.
+     * @var string|mixed
+     */
+    protected string $prepend_str = '';
+
+    /**
+     * string to append to the filename before save the file.
+     * @var string|mixed
+     */
+    protected string $append_str =  '';
 
     /**
      * The error code or empty string if all went ok.
@@ -85,6 +98,8 @@ class flcFileUploader {
         $this->upload_path = $p_options['upload_path'] ?? '';
         $this->encrypt_file_name = $p_options['encrypt_file_name'] ?? false;
         $this->max_file_size = $p_options['max_file_size'] ?? 2048;
+        $this->prepend_str = $p_options['prepend_str'] ?? '';
+        $this->append_str = $p_options['append_str'] ?? '';
         $this->error_code = '';
     }
 
@@ -104,6 +119,29 @@ class flcFileUploader {
         }
 
         if (!$this->_is_valid_upload_path($this->upload_path)) {
+            return false;
+        }
+
+        $file_path = $_FILES[$this->field_name]['tmp_name'];
+        $this->file_name_uploaded = $this->_clean_file_name($_FILES[$this->field_name]['name']);
+        $file_size = filesize($file_path);
+        $file_info = finfo_open(FILEINFO_MIME_TYPE);
+        $file_type = finfo_file($file_info, $file_path);
+        $file_ext = pathinfo($this->file_name_uploaded, PATHINFO_EXTENSION);
+
+        if ($this->encrypt_file_name) {
+            $this->file_name_uploaded = $this->_encrypt_file_name($this->upload_path, $file_ext);
+        }
+
+        if (!$this->_check_max_size($file_size)) {
+            $this->error_code = 'C_UPLOAD_ERR_MAX_SIZE';
+
+            return false;
+        }
+
+        if (!$this->_verify_mime_type_is_allowed($file_type, $file_ext)) {
+            $this->error_code = 'C_UPLOAD_MIME_NOT_ALLOWED';
+
             return false;
         }
 
@@ -143,40 +181,14 @@ class flcFileUploader {
         }
 
 
-        $file_path = $_FILES[$this->field_name]['tmp_name'];
-        $this->file_name_uploaded = $this->_clean_file_name($_FILES[$this->field_name]['name']);
-        $file_size = filesize($file_path);
-        $file_info = finfo_open(FILEINFO_MIME_TYPE);
-        $file_type = finfo_file($file_info, $file_path);
-        $file_ext = pathinfo($this->file_name_uploaded, PATHINFO_EXTENSION);
-
-        if ($this->encrypt_file_name) {
-            $this->file_name_uploaded = $this->_encrypt_file_name($this->upload_path, $file_ext);
-        }
-
-        if (!$this->_check_max_size($file_size)) {
-            $this->error_code = 'C_UPLOAD_ERR_MAX_SIZE';
-
-            return false;
-        }
-
-        if (!$this->_is_writable_dir($this->upload_path)) {
-            return false;
-        }
-
-
-        if (!$this->_verify_mime_type_is_allowed($file_type, $file_ext)) {
-            $this->error_code = 'C_UPLOAD_MIME_NOT_ALLOWED';
-
-            return false;
-        }
 
         /**
          * Because some configurations of the server move_upload_file isnot
          * reliable , first try a normal copy , if fails try move_uploaded_file.
          */
-        if (!@copy($file_path, $this->upload_path.DIRECTORY_SEPARATOR.$this->file_name_uploaded)) {
-            if (!@move_uploaded_file($file_path, $this->upload_path.DIRECTORY_SEPARATOR.$this->file_name_uploaded)) {
+        $final_filename_to_save = $this->upload_path.DIRECTORY_SEPARATOR.$this->prepend_str.$this->file_name_uploaded.$this->append_str;
+        if (!@copy($file_path, $final_filename_to_save)) {
+            if (!@move_uploaded_file($file_path, $final_filename_to_save)) {
                 $this->error_code = 'C_UPLOAD_DESTINATION_ERROR';
 
                 return false;

@@ -82,6 +82,13 @@ abstract class flcBaseController extends flcController {
             if ($validoper !== null) {
                 $flc->set_validations($validoper['file']);
                 $rules = $flc->get_rules($validoper['group'], $validoper['rules']);
+                // search in the rules if exist a field with the name _rowversion_field , and if exist modify to
+                // real rowversion field supported by the table
+                for ($i=0; $i < count($rules); $i++) {
+                    if ($rules[$i]['field'] == '_rowversion_field') {
+                        $rules[$i]['field'] = $this->model->get_rowversion_field();
+                    }
+                }
 
                 $flc->validation = new flcValidation($flc->lang);
                 $flc->validation->set_rules($rules);
@@ -148,7 +155,7 @@ abstract class flcBaseController extends flcController {
 
                         $ex = $answer->get_exception();
                         if ($ex != null) {
-                            $this->output_data->add_process_error($ex->getCode(), $ex->getMessage(), $ex);
+                            $this->output_data->add_process_error($ex->getCode(), $ex->getMessage());
                         } else {
                             $this->output_data->set_answer_message($this->get_error_message($answer->get_return_code()), $answer->get_return_code());
                         }

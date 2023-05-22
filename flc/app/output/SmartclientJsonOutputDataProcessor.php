@@ -157,7 +157,7 @@ class SmartclientJsonOutputDataProcessor extends flcOutputDataProcessor {
 
             if (isset($data)) {
                 // f not an array , only one record to output
-                if (!is_array($data)) {
+                if (!is_array($data)  || count($data) == 1) {
                     $one_record = true;
                 }
 

@@ -324,9 +324,18 @@ class flcBaseModel {
         return true;
     }
 
-    /*public function is_id_sequence_or_identity() : bool {
-        return true;
-    }*/
+    /**
+     * Previous to set a field , this method is called for transfor a field.
+     * for example transform to upper case o lower case.
+     *
+     * @param string $p_fieldname
+     * @param        $p_value
+     *
+     * @return mixed
+     */
+    public function transform_field(string $p_fieldname, $p_value) {
+        return $p_value;
+    }
 
     /**
      * Set the values of the fields of the model.
@@ -404,25 +413,43 @@ class flcBaseModel {
             if (!$this->is_valid_field($name, $value)) {
                 throw new InvalidArgumentException("Invalid value $value for field $name");
             }
-            $this->fields[$name] = $value;
+            $this->fields[$name] = $this->transform_field($name,$value);
         } else {
             // now search in fields for read operations
             if (array_key_exists($name, $this->fields_ro)) {
                 if (!$this->is_valid_field($name, $value)) {
                     throw new InvalidArgumentException("Invalid value $value for field(ro) $name");
                 }
-                $this->fields_ro[$name] = $value;
+                $this->fields_ro[$name] = $this->transform_field($name,$value);
             } else {
                 // now search in computed fields
                 if (array_key_exists($name, $this->fields_computed)) {
                     if (!$this->is_valid_field($name, $value)) {
                         throw new InvalidArgumentException("Invalid value $value for field(computed) $name");
                     }
-                    $this->fields_computed[$name] = $value;
+                    $this->fields_computed[$name] = $this->transform_field($name,$value);
                 } else {
                     throw new InvalidArgumentException("Field '$name' is not part of the model");
                 }
             }
+        }
+    }
+
+    /**
+     * Unset a field from the fields definition , search in the entity fields and also
+     * in the computed and optional fields.
+     *
+     * @param string $p_fieldname the field name
+     *
+     * @return void
+     */
+    public function unset_field(string $p_fieldname) {
+        if (array_key_exists($p_fieldname,$this->fields)) {
+            unset($this->fields[$p_fieldname]);
+        } else if (array_key_exists($p_fieldname,$this->fields_computed)) {
+            unset($this->fields_computed[$p_fieldname]);
+        } else if (array_key_exists($p_fieldname,$this->fields_ro)) {
+            unset($this->fields_ro[$p_fieldname]);
         }
     }
 

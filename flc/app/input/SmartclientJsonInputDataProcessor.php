@@ -27,7 +27,15 @@ class SmartclientJsonInputDataProcessor extends flcInputDataProcessor {
     // EXACTCASE
     // SUBSTRING (LIKE)
     // startsWith (LIKE)
-    private static array $_operator_map = ['exact'=> '=','substring'=> 'ilike' ,'startsWith'=> 'ilike(-%)'];
+    private static array $_operator_map = [
+        'exact' => '=',
+        'substring' => 'ilike',
+        'startsWith' => 'ilike(-%)',
+        'iStartsWith' => 'ilike(-%)',
+        'iContains' => 'ilike',
+        'greaterOrEqual' => '>=',
+        'notEqual' => '!='
+    ];
 
     /*--------------------------------------------------------------*/
 
@@ -36,12 +44,12 @@ class SmartclientJsonInputDataProcessor extends flcInputDataProcessor {
      */
     public function process_input_data(flcBaseModel $p_model) {
         // for easy and fast access
-        $input_data =$this->input_data;
+        $input_data = $this->input_data;
 
         // get the operation and suboperation , this neded to be in the 'op' and '_operationID'
         // entries in the input data
         $this->operation = $input_data['op'];
-        if(isset($input_data['_operationId'])) {
+        if (isset($input_data['_operationId'])) {
             $this->sub_operation = $input_data['_operationId'];
         }
 
@@ -76,7 +84,7 @@ class SmartclientJsonInputDataProcessor extends flcInputDataProcessor {
      */
     private final function _process_constraints() {
         // for easy and fast access
-        $input_data =$this->input_data;
+        $input_data = $this->input_data;
 
         // pagination stuff
         $startRow = 0;
@@ -97,7 +105,7 @@ class SmartclientJsonInputDataProcessor extends flcInputDataProcessor {
         if (isset($input_data['_sortBy'])) {
             $pos = strpos($input_data['_sortBy'], '-');
             if ($pos !== false) {
-                $this->sort_fields[trim($input_data['_sortBy'],'-')] ='desc';
+                $this->sort_fields[trim($input_data['_sortBy'], '-')] = 'desc';
             } else {
                 $this->sort_fields[$input_data['_sortBy']] = 'asc';
             }
@@ -112,25 +120,29 @@ class SmartclientJsonInputDataProcessor extends flcInputDataProcessor {
                     $this->fields[$elem->fieldName] = $elem->value;
                 }
                 // add to the filter fields
-                $this->filter_fields[$elem->fieldName] = $elem->operator;
+                $this->filter_fields[$elem->fieldName] = self::$_operator_map[$elem->operator] ?? '=';
             }
-        } else {
-            // Los campos de filtro , para el smartClient son todos aquellos que
-            // no tienen el underscore delante.
-            foreach ($input_data as $key => $value) {
-                // Si empieza con op o libid o parentId son parametros para otors usos no
-                // son campos.
-                if (!strcmp($key, "op") || !strcmp($key, "libid") || !strcmp($key, "parentId") || !strcmp($key, "filterSearchExact")) {
-                    continue;
-                }
+        }
 
-                // Si no empieza con underscore o _isc (isomorphic smartclient identificador)
-                $pos = strpos($key, '_');
-                $pos2 = strpos($key, 'isc_');
-                if (!($pos === 0 || $pos2 === 0)) {
-                    if (!isset($this->fields[$key]) || empty($this->fields[$key])) {
-                        $this->fields[$key] = $value;
-                    }
+        // Add to filter fields not in criteria but with values passed.
+        // Los campos de filtro , para el smartClient son todos aquellos que
+        // no tienen el underscore delante.
+        foreach ($input_data as $key => $value) {
+            // Si empieza con op o libid o parentId son parametros para otors usos no
+            // son campos.
+            if (!strcmp($key, "op") || !strcmp($key, "libid") || !strcmp($key, "parentId") || !strcmp($key, "filterSearchExact")) {
+                continue;
+            }
+
+            // Si no empieza con underscore o _isc (isomorphic smartclient identificador)
+            $pos = strpos($key, '_');
+            $pos2 = strpos($key, 'isc_');
+            if (!($pos === 0 || $pos2 === 0)) {
+                if (!isset($this->fields[$key]) || empty($this->fields[$key])) {
+                    $this->fields[$key] = $value;
+                }
+                // if already exist the field in the filter its not necessary add
+                if (!array_key_exists($key, $this->filter_fields)) {
                     if (isset($input_data['_textMatchStyle'])) {
                         // add to the filter fields
                         // EXACT
@@ -146,6 +158,7 @@ class SmartclientJsonInputDataProcessor extends flcInputDataProcessor {
                 }
             }
         }
+
 
     }
 }
