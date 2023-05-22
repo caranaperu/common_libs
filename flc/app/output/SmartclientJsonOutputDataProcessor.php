@@ -150,19 +150,11 @@ class SmartclientJsonOutputDataProcessor extends flcOutputDataProcessor {
 
         // if doesnt exist any kind of error , process the data to uoutput
         if (!$p_output_data->has_process_errors() && strlen($p_output_data->get_answer_message()) == 0) {
-            $one_record = false;
             // data procesing
             $data = $p_output_data->get_result_data();
 
-
             if (isset($data)) {
-                // f not an array , only one record to output
-                if (!is_array($data)  || count($data) == 1) {
-                    $one_record = true;
-                }
-
                 $out .= ',"data":';
-
 
                 $this->_process_data($data);
                 $out .= json_encode($data);
@@ -170,7 +162,7 @@ class SmartclientJsonOutputDataProcessor extends flcOutputDataProcessor {
 
                 //  number of recorsd = number of readed records + initial position , when exist more than one
                 // record.
-                $numRecords = $one_record === false ? $p_output_data->get_start_row() + count($data) : 1;
+                $numRecords = count($data) != 1 ? $p_output_data->get_start_row() + count($data) : 1;
 
                 // If not the last record => numRecords < the last record required , then the total number of records
                 // we put as total recods one page more (to avoid to do count of records)

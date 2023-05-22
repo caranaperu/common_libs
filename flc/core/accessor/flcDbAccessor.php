@@ -115,7 +115,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
         // announce we have an error
         if ($answer->is_success()) {
-            $answer->set_result_array($p_model->get_all_fields('rc'));
+            return $answer;
         } else {
             // mark transaction error
             $this->db->trans_mark_dirty();
@@ -200,7 +200,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
         }
 
         if ($answer->is_success()) {
-            $answer->set_result_array($p_model->get_all_fields('rc'));
+            return $answer;
         } else {
             // mark transaction error
             $this->db->trans_mark_dirty();
@@ -382,7 +382,8 @@ class flcDbAccessor extends flcPersistenceAccessor {
         }
 
         if ($answer->is_success()) {
-            $answer->set_result_array($p_model->get_all_fields('rc'));
+            $results[] = $p_model->get_all_fields('rc');
+            $answer->set_result_array($results);
         } else {
             // mark transaction error
             $this->db->trans_mark_dirty();

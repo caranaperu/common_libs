@@ -74,7 +74,7 @@ class flcDbResult {
      *
      * @var    int
      */
-    public int $num_rows = -1;
+    protected int $num_rows = -1;
 
     // --------------------------------------------------------------------
 
