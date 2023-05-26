@@ -667,7 +667,6 @@ abstract class flcDriver {
         try {
             $ret =($result_id = $this->_execute_qry($p_sqlqry));
         } catch (Throwable $ex) {
-            $ex->getMessage();
             throw new Exception($this->parse_exception_error_message($ex->getMessage()),$ex->getCode());
         }
 
