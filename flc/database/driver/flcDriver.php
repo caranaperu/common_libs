@@ -20,6 +20,7 @@ use flc\database\flcDbResult;
 use flc\database\flcDbResults;
 use flc\flcCommon;
 use RuntimeException;
+use Throwable;
 
 
 /**
@@ -392,7 +393,6 @@ abstract class flcDriver {
 
             // from here $_mysqli = $_conn_id
             $this->_connId = $conn;
-            pg_set_error_verbosity($this->_connId, PGSQL_ERRORS_TERSE);
 
         }
 
@@ -401,6 +401,8 @@ abstract class flcDriver {
 
         return true;
     }
+
+    // --------------------------------------------------------------------
 
     /**
      * Verify if the connection is already open
@@ -655,13 +657,21 @@ abstract class flcDriver {
      * @param string $p_sqlqry the query to execute
      *
      * @return flcDbResult|null
+     * @throws Throwable
      */
     public function execute_query(string $p_sqlqry): ?flcDbResult {
         if (trim($p_sqlqry) === '') {
             return null;
         }
 
-        if (false === ($result_id = $this->_execute_qry($p_sqlqry))) {
+        try {
+            $ret =($result_id = $this->_execute_qry($p_sqlqry));
+        } catch (Throwable $ex) {
+            $ex->getMessage();
+            throw new Exception($this->parse_exception_error_message($ex->getMessage()),$ex->getCode());
+        }
+
+        if (false === $ret) {
             // This will trigger a rollback if transactions are being used
             if ((!$this->_trans_unique && $this->_trans_depth !== 0) || ($this->_trans_unique && $this->_trans_unique_begin)) {
                 $this->_trans_status = false;
@@ -950,6 +960,8 @@ abstract class flcDriver {
         return (bool)preg_match('/^\s*"?(SET|INSERT|UPDATE|DELETE|REPLACE|CREATE|DROP|TRUNCATE|LOAD|COPY|ALTER|RENAME|GRANT|REVOKE|LOCK|UNLOCK|REINDEX)\s/i', $sql);
     }
 
+    // --------------------------------------------------------------------
+
     /**
      * "Smart" Escape String
      *
@@ -1169,6 +1181,8 @@ abstract class flcDriver {
     public function trans_off() {
         $this->trans_enabled = false;
     }
+
+    // --------------------------------------------------------------------
 
     /**
      * Return if a transaction is already in progress
@@ -1558,6 +1572,8 @@ abstract class flcDriver {
      */
     protected abstract function _close(): void;
 
+    // --------------------------------------------------------------------
+
     /**
      * Execute the query in low level , the return is a resource that depends of each
      * database that contain the answer.
@@ -1848,6 +1864,8 @@ abstract class flcDriver {
         return null;
     }
 
+    // --------------------------------------------------------------------
+
     /**
      * Executes an stored procedure based on the sp name (or function name in postgress) and the parameters to be used
      * and also casts if required.
@@ -1940,6 +1958,7 @@ abstract class flcDriver {
         return null;
     }
 
+    // --------------------------------------------------------------------
 
     /**
      * Executes an stored procedure/function based on the sp or function name and also casts if required.
@@ -2026,6 +2045,7 @@ abstract class flcDriver {
         return null;
     }
 
+    // --------------------------------------------------------------------
 
     /**
      * Get the Insert ID
@@ -2038,6 +2058,8 @@ abstract class flcDriver {
      * @return int with the id
      */
     abstract public function insert_id(?string $p_table_name = null, ?string $p_column_name = null): int;
+
+    // --------------------------------------------------------------------
 
     /**
      * @param string      $p_param the value to cast
@@ -2067,6 +2089,8 @@ abstract class flcDriver {
 
         return $conv;
     }
+
+    // --------------------------------------------------------------------
 
     /**
      * Generate the callable string , function or procedure
@@ -2208,6 +2232,8 @@ abstract class flcDriver {
         return $sql;
     }
 
+    // --------------------------------------------------------------------
+
     /**
      * @param string     $p_sp_name the name of the function or stored procedure
      * @param string     $p_type 'procedure' or 'function'
@@ -2337,6 +2363,13 @@ abstract class flcDriver {
         return $sql;
     }
 
+    // --------------------------------------------------------------------
+
+
+    /***********************************************************************
+     * Log stuff
+     */
+
     /**
      * Display an error message
      *
@@ -2344,12 +2377,6 @@ abstract class flcDriver {
      * @param string $p_type W-'warning' or E-'error' or 'e' soft error
      *
      */
-
-
-    /***********************************************************************
-     * Log stuff
-     */
-
     public function log_error(string $p_error, string $p_type = 'W') {
         try {
             if ($p_type == 'E') {
@@ -2379,15 +2406,8 @@ abstract class flcDriver {
         }
 
     }
-    /**
-     * Determine if the error identify a duplicate key code
-     * Need to be implemented in each driver to make sense.
-     *
-     * @param array $p_error database error obtained with error()
-     * function
-     *
-     * @return bool
-     */
+
+    // --------------------------------------------------------------------
 
 
     /****************************************************************
@@ -2420,6 +2440,7 @@ abstract class flcDriver {
      */
     protected abstract function get_callable_parameter_types(string $p_callable_name, string $p_callable_type): ?array;
 
+    // --------------------------------------------------------------------
 
     /**
      * Determine if the error identify a duplicate key error
@@ -2432,6 +2453,21 @@ abstract class flcDriver {
     public function is_duplicate_key_error(array $p_error): bool {
         return false;
     }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * Some databases send an error message with context stuff on it , here can override this
+     * method to parse and clean the text.
+     *
+     * @param string $p_error_msg
+     * @return string with the parsed text
+     */
+    protected function  parse_exception_error_message(string $p_error_msg) : string {
+        return $p_error_msg;
+    }
+
+    // --------------------------------------------------------------------
 
     /**
      * Determine if the error identify a foreign key doesnt exist

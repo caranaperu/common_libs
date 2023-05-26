@@ -218,6 +218,21 @@ class flcPostgresDriver extends flcDriver {
     // --------------------------------------------------------------------
 
     /**
+     * Add support for the error verbosity , by default is terse.
+     *
+     * @inheritdoc
+     */
+    public function open(): bool {
+        $ret = parent::open();
+        if ($ret !== false) {
+            pg_set_error_verbosity($this->_connId, PGSQL_ERRORS_TERSE);
+        }
+        return $ret;
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
      * @inheritdoc
      */
     public function set_charset(string $p_charset): bool {
@@ -960,6 +975,23 @@ class flcPostgresDriver extends flcDriver {
 
         return false;
     }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * @inheritdoc
+     *
+     * Remove the context stuff from exception message.
+     */
+    protected function parse_exception_error_message(string $p_error_msg): string {
+        $p_error_msg = str_replace('pg_query(): Query failed: ','',$p_error_msg);
+        if (($pos = strpos($p_error_msg,'CONTEXT:  ')) !== false) {
+            $p_error_msg = substr($p_error_msg,0,$pos);
+        }
+
+        return $p_error_msg;
+    }
+
 
     /****************************************************************
      * SQL types stuff
