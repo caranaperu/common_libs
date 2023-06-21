@@ -381,6 +381,7 @@ abstract class flcDriver {
      * the desired action call close method first.
      *
      * @return bool true if can get connection or already one open , false otherwise
+     * @throws Throwable
      */
     public function open(): bool {
         if (!$this->is_open()) {
@@ -538,6 +539,7 @@ abstract class flcDriver {
      * Return the version of the database
      *
      * @return string with the version
+     * @throws Throwable
      */
     public function get_version(): ?string {
         if (!isset($this->version)) {
@@ -609,6 +611,7 @@ abstract class flcDriver {
      * Connect to a database alias for open
      *
      * @return bool true if is connected , false if not.
+     * @throws Throwable
      */
     public abstract function connect(): bool;
 
@@ -645,6 +648,7 @@ abstract class flcDriver {
      * @param string $p_database the database name
      *
      * @return bool true if selected
+     * @throws Throwable
      */
     public abstract function select_database(string $p_database): bool;
 
@@ -699,6 +703,7 @@ abstract class flcDriver {
      * @param string $p_table the table name
      *
      * @return    int
+     * @throws Throwable
      */
     public function count_all(string $p_table = ''): int {
         if (trim($p_table) === '') {
@@ -752,6 +757,7 @@ abstract class flcDriver {
      * @param string $p_tablename
      *
      * @return    bool
+     * @throws Throwable
      */
     public function column_exists(string $p_fieldname, string $p_tablename): bool {
         return in_array($p_fieldname, $this->list_columns($p_tablename));
@@ -766,6 +772,7 @@ abstract class flcDriver {
      * @param string $p_table_constraints for a "like" search
      *
      * @return    array
+     * @throws Throwable
      */
     public function list_tables(string $p_schema, string $p_table_constraints = ''): array {
         $tables_list = [];
@@ -789,6 +796,7 @@ abstract class flcDriver {
      * @param string $p_table
      *
      * @return    bool
+     * @throws Throwable
      */
     public function table_exists(string $p_schema, string $p_table): bool {
         return in_array($p_table, $this->list_tables($p_schema, $p_table));
@@ -814,6 +822,7 @@ abstract class flcDriver {
      * @param string $p_table Table name
      *
      * @return    array
+     * @throws Throwable
      */
     public function list_columns(string $p_table): ?array {
 
@@ -847,6 +856,7 @@ abstract class flcDriver {
      * @param string $p_table Table name
      *
      * @return array with the list of primary keys or an empty array
+     * @throws Throwable
      */
     public function primary_key(string $p_table): array {
         $fields = $this->list_columns($p_table);
@@ -871,6 +881,7 @@ abstract class flcDriver {
      * schema for the db use in the connection.
      *
      * @return    array|null
+     * @throws Throwable
      */
     public function column_data(string $p_table, string $p_schema = ''): ?array {
 
@@ -1242,6 +1253,7 @@ abstract class flcDriver {
      * Complete Transaction
      *
      * @return    bool
+     * @throws Throwable
      */
     public function trans_complete(): bool {
         if (!$this->trans_enabled) {
@@ -1491,6 +1503,7 @@ abstract class flcDriver {
      * @param string $p_savepoint savepoint name
      *
      * @return    bool
+     * @throws Throwable
      */
     public function trans_rollback(string $p_savepoint = ''): bool {
         if (!$this->trans_enabled or $this->_trans_depth === 0) {
@@ -1559,6 +1572,7 @@ abstract class flcDriver {
 
     /**
      * @return resource|false basically a resource from the db
+     * @throws Throwable
      */
     protected abstract function _open();
 
@@ -1604,6 +1618,7 @@ abstract class flcDriver {
      * Most drivers will override this method.
      *
      * @return    string
+     * @throws Throwable
      */
     protected function _get_version(): string {
         $res = $this->execute_query($this->_version_qry());
@@ -1694,6 +1709,7 @@ abstract class flcDriver {
      * @param string $p_savepoint if defined the roolback will ber to the savepoint
      *
      * @return    bool
+     * @throws Throwable
      */
     abstract protected function _trans_rollback(string $p_savepoint = ''): bool;
 
@@ -1856,6 +1872,7 @@ abstract class flcDriver {
      * @return flcDbResult|null with the answers , null on error.
      *
      * @see flcDbResult
+     * @throws Throwable
      *
      *
      */
@@ -1948,6 +1965,7 @@ abstract class flcDriver {
      * @return flcDbResults|null the results , can contain multiple resulsets and also output parameters. Null on error
      *
      * @see flcDbResults
+     * @throws Throwable
      */
     public function execute_stored_procedure(string $p_fn_name, string $p_type, ?array $p_parameters = null, ?array $p_casts = null): ?flcDbResults {
 
@@ -2035,6 +2053,7 @@ abstract class flcDriver {
      * @return flcDbResults|null the results , can contain multiple resulsets and also output parameters. Null on error
      *
      * @see flcDbResults
+     * @throws Throwable
      */
     public function execute_callable(string $p_callable_name, string $p_type, ?array $p_params_values = null, ?array $p_exclude_casts = null): ?flcDbResults {
 
@@ -2055,6 +2074,7 @@ abstract class flcDriver {
      * @param string|null $p_column_name
      *
      * @return int with the id
+     * @throws Throwable
      */
     abstract public function insert_id(?string $p_table_name = null, ?string $p_column_name = null): int;
 
@@ -2249,6 +2269,7 @@ abstract class flcDriver {
      * @param array|null $p_exclude_casts array of field names that will be excluded from casts
      *
      * @return string with the callable string.
+     * @throws Throwable
      */
     public function callable_string_extended(string $p_sp_name, string $p_type, string $p_type_return, ?array $p_param_values = null, ?array $p_param_descriptors = null, ?array $p_exclude_casts = null): string {
 
@@ -2375,6 +2396,7 @@ abstract class flcDriver {
      * @param string $p_error the error message
      * @param string $p_type W-'warning' or E-'error' or 'e' soft error
      *
+     * @throws Throwable
      */
     public function log_error(string $p_error, string $p_type = 'W') {
         try {
@@ -2436,6 +2458,7 @@ abstract class flcDriver {
      *
      * @return array|null an associative array with parameter types (see explanation) or null if the fnction/sp not
      *     found.
+     * @throws Throwable
      */
     protected abstract function get_callable_parameter_types(string $p_callable_name, string $p_callable_type): ?array;
 

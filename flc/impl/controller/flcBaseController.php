@@ -13,7 +13,6 @@
 
 namespace flc\impl\controller;
 
-use Exception;
 use flc\core\accessor\flcDbAccessor;
 use flc\core\accessor\flcPersistenceAccessorAnswer;
 use flc\core\model\flcBaseModel;
@@ -63,10 +62,10 @@ abstract class flcBaseController extends flcController {
      * In case of errors , each error is added to the output data.
      *
      * @param string $p_operation the operation , ie : add, del , etc
-     * @param array  $p_data the data to validate
+     * @param array $p_data the data to validate
      *
      * @return bool true means no errors
-     * @throws Exception
+     * @throws Throwable
      */
     protected function execute_validations(string $p_operation, array $p_data): bool {
         if ($this->options && count($this->options) && isset($this->options['validation'])) {
@@ -195,6 +194,7 @@ abstract class flcBaseController extends flcController {
      * @param string $p_sub_operation
      *
      * @return flcPersistenceAccessorAnswer
+     * @throws Throwable
      */
     abstract protected function execute_operation(string $p_operation, string $p_sub_operation): flcPersistenceAccessorAnswer;
 

@@ -56,7 +56,7 @@ class SmartclientJsonOutputDataProcessor extends flcOutputDataProcessor {
      *
      * @inheritdoc
      */
-    public function process_output_data(flcOutputData $p_output_data) {
+    public function   process_output_data(flcOutputData $p_output_data) {
         $out = null;
 
         if (strlen($p_output_data->get_answer_message()) > 0) {

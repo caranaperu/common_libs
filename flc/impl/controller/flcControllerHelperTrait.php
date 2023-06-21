@@ -11,7 +11,6 @@
 
 namespace flc\impl\controller;
 
-use Exception;
 use flc\core\dto\flcInputDataProcessor;
 use flc\core\dto\flcOutputData;
 use flc\core\FLC;
@@ -195,7 +194,7 @@ trait flcControllerHelperTrait {
      *
      * @param Throwable $ex
      *
-     * @throws Exception
+     * @throws Throwable
      */
     public function controller_exception_handler(Throwable $ex) {
         // just in case is not already loaded , because a prematre exception

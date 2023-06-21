@@ -19,6 +19,7 @@ use flc\database\driver\flcDriver;
 use flc\database\flcDbResult;
 use flc\database\flcDbResultOutParams;
 use flc\database\flcDbResults;
+use Throwable;
 
 
 /**
@@ -1334,7 +1335,7 @@ class flcMssqlDriver extends flcDriver {
     // --------------------------------------------------------------------
 
     /**
-     * #inheritdoc
+     * @inheritdoc
      */
     public function insert_id(?string $p_table_name = null, ?string $p_column_name = null): int {
         $sql = version_compare($this->get_version(), '8', '>=') ? 'SELECT SCOPE_IDENTITY() AS last_id' : 'SELECT @@IDENTITY AS last_id';
@@ -1436,6 +1437,7 @@ class flcMssqlDriver extends flcDriver {
      * @return string|null if the functon doesnt exist return null , otherwise
      * 'p' for procedure , 'f' for functiom.
      *
+     * @throws Throwable
      */
     private function _get_callable_type(string $p_callable_name): ?string {
         $answer = null;

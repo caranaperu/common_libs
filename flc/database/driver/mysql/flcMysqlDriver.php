@@ -44,6 +44,7 @@ use flc\database\flcDbResult;
 use flc\database\flcDbResultOutParams;
 use flc\database\flcDbResults;
 use mysqli;
+use Throwable;
 
 
 /**
@@ -1129,6 +1130,7 @@ class flcMysqlDriver extends flcDriver {
      * @return string|null if the functon doesnt exist return null , otherwise
      * 'p' for procedure , 'f' for functiom.
      *
+     * @throws Throwable
      */
     private function _get_callable_type(string $p_callable_name): ?string {
         $answer = null;

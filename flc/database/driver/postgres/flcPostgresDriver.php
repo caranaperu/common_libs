@@ -43,6 +43,7 @@ use flc\database\driver\flcDriver;
 use flc\database\flcDbResult;
 use flc\database\flcDbResultOutParams;
 use flc\database\flcDbResults;
+use Throwable;
 
 
 /**
@@ -275,7 +276,7 @@ class flcPostgresDriver extends flcDriver {
     // --------------------------------------------------------------------
 
     /**
-     * @inheritDoc
+     * @inheritdoc
      */
     public function connect(): bool {
         return $this->open();
@@ -1074,18 +1075,19 @@ class flcPostgresDriver extends flcDriver {
     /**
      * Execute the final process of the sp/function execution.
      *
-     * @param string       $p_type
-     * @param string       $sqlfunc
+     * @param string $p_type
+     * @param string $sqlfunc
      * @param flcDbResults $results
-     * @param bool         $is_outparams
-     * @param bool         $is_resultset
-     * @param bool         $is_multiresultset
-     * @param array        $refcursors
-     * @param bool         $refcursors_ret
-     * @param string       $p_fn_name
+     * @param bool $is_outparams
+     * @param bool $is_resultset
+     * @param bool $is_multiresultset
+     * @param array $refcursors
+     * @param bool $refcursors_ret
+     * @param string $p_fn_name
      *
      * @return flcDbResults|null
      *
+     * @throws Throwable
      * @see flcPostgresDriver::execute_stored_procedure()
      * @see flcPostgresDriver::execute_callable()
      *
@@ -1194,13 +1196,14 @@ class flcPostgresDriver extends flcDriver {
      * Helper function to get the type of callable , function / sp and if return refcursors
      *
      * @param string $p_callable_name the name of the sp/function
-     * @param int    $numparams the expected number of parameters associated to the sp/function , if -1
+     * @param int $numparams the expected number of parameters associated to the sp/function , if -1
      * search the callable without take into account the parameter number.
      *
      * @return bool[]|null if the functon doesnt exist or no more than one function with the
      * same name and/or parameters return null , otherwise and array of 2 boolean elements
      * the first indicate if it is a function or not and the second if the return if a refcursor or not.
      *
+     * @throws Throwable
      */
     private function _get_callable_type_and_ref_return(string $p_callable_name, int $numparams = -1): ?array {
         $is_function = true;

@@ -16,6 +16,7 @@ namespace flc\core;
 use Exception;
 use flc\flcCommon;
 use flc\utils\flcStrUtils;
+use Throwable;
 
 
 /**
@@ -316,7 +317,7 @@ class flcValidation {
      * @param string|null $p_postdata the field value send to validate.
      *
      * @return void
-     * @throws \Throwable
+     * @throws Throwable
      */
     protected function _execute($p_row, ?string $p_postdata): void {
         $result = false;

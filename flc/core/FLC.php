@@ -11,7 +11,6 @@
 
 namespace flc\core;
 
-use Exception;
 use flc\core\session\flcSession;
 use flc\database\driver\flcDriver;
 use flc\flcCommon;
@@ -90,7 +89,7 @@ class FLC {
      * call get_instance() , because act as a singelton.
      *
      * @return    void
-     * @throws Exception if initialize fail.
+     * @throws Throwable if initialize fail.
      */
     protected function __construct() {
         self::$_instance =& $this;
@@ -123,7 +122,7 @@ class FLC {
      * Load the main config file.
      *
      * @return bool
-     * @throws Exception when trying to load the main config class fails.
+     * @throws Throwable when trying to load the main config class fails.
      * @used-by FLC::__construct
      */
     public function initialize(): bool {
@@ -155,8 +154,8 @@ class FLC {
             }
 
             // get global constants.
-            if (file_exists(APPPATH.'config/constants.php')) {
-                include_once APPPATH.'config/constants.php';
+            if (file_exists(APPPATH . 'config/constants.php')) {
+                include_once APPPATH . 'config/constants.php';
             }
 
             // load the config manager class
@@ -255,11 +254,11 @@ class FLC {
      * @param string $p_filename the filename of the file with the validation definition, this file need to end with
      * _validation.
      *
-     * @param bool   $p_reset if true rest the array of validations and create a new one
+     * @param bool $p_reset if true rest the array of validations and create a new one
      *
      * @return bool true if all went ok
      *
-     * @throws Exception
+     * @throws Throwable
      * @see flcCommon::load_validation_config()
      */
     public function set_validations(string $p_filename, bool $p_reset = true): bool {
@@ -353,7 +352,7 @@ class FLC {
      *
      * @param string $p_view the view name , can be something like '/special/menu',
      * it will load the view in APPPATH/views/special/menu.php.
-     * @param mixed  $p_vars an object or array of variables.
+     * @param mixed $p_vars an object or array of variables.
      *
      * @return void
      * @throws Throwable
@@ -438,7 +437,7 @@ class FLC {
         $this->db = flcServiceLocator::get_instance()->service('database');
 
         // get controller class name from uri.
-        $uri = !flcCommon::is_cli() ? (flcCommon::is_https() ? 'https://' : 'http://').$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI'] : '';
+        $uri = !flcCommon::is_cli() ? (flcCommon::is_https() ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'] : '';
         $controller_class = flcCommon::uri_get_controller($uri);
 
         // load the output manager
