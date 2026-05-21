@@ -128,12 +128,13 @@ class flcConstraints {
      *
      *
      * @param array $p_where_fields array with the where fields-
-     * @param array $p_exclude_fields array with the field names to exclude form the where
+     * @param array|null $p_exclude_fields array with the field names to exclude form the where
      * clause.-
      *
      * @return void
      */
-    public function set_where_fields(array $p_where_fields,?array $p_exclude_fields=null) {
+    public function set_where_fields(array $p_where_fields,?array $p_exclude_fields=null): void
+    {
         $this->where_fields = [];
         foreach ($p_where_fields as $field) {
             if ($p_exclude_fields == null || !in_array($field[0],$p_exclude_fields,true)) {
@@ -144,7 +145,8 @@ class flcConstraints {
 
     /*--------------------------------------------------------------*/
 
-    public function add_where_field(array $p_where_field) {
+    public function add_where_field(array $p_where_field): void
+    {
         if (!in_array($p_where_field[1], [
             '=',
             '!=',
@@ -191,7 +193,8 @@ class flcConstraints {
      *
      * @return void
      */
-    public function set_order_by_fields(array $p_order_by_fields) {
+    public function set_order_by_fields(array $p_order_by_fields): void
+    {
         $this->order_by_fields = $p_order_by_fields;
     }
 
@@ -216,7 +219,8 @@ class flcConstraints {
      *
      * @return void
      */
-    public function set_select_fields(array $p_select_fields) {
+    public function set_select_fields(array $p_select_fields): void
+    {
         $this->select_fields = $p_select_fields;
     }
 
@@ -240,7 +244,8 @@ class flcConstraints {
      *
      * @return void
      */
-    public function set_joins(flcJoins $p_joins) {
+    public function set_joins(flcJoins $p_joins): void
+    {
         $this->joins = $p_joins;
     }
 

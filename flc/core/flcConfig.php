@@ -14,6 +14,7 @@ namespace flc\core;
 
 use Exception;
 use flc\flcCommon;
+use Throwable;
 
 
 /**
@@ -51,8 +52,8 @@ class flcConfig {
      * config directory.
      * if fails exit , without config is not possible to continue.
      *
-     * @return array with the config options
-     * @throws Exception
+     * @return array|null with the config options
+     * @throws Throwable
      */
     public function load_config(): ?array {
         // load method ,by default load the main config file
@@ -71,10 +72,11 @@ class flcConfig {
      * Load Config Files
      *
      * @param string $file Configuration file name
-     * @param bool   $use_sections Whether configuration values should be loaded into their own section
+     * @param bool $use_sections Whether configuration values should be loaded into their own section
      *
      * @return    bool    true if the file was loaded correctly or false on failure
      * @throws Exception
+     * @throws Throwable
      */
     public function load(string $file = '', bool $use_sections = false): bool {
         // if not defined load the main config class otherwise take the file and remove php extesion

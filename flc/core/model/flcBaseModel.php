@@ -320,7 +320,7 @@ class flcBaseModel {
      *
      * @return bool true if it is ok.
      */
-    public function is_valid_field(string $p_fieldname, $p_value): bool {
+    public function is_valid_field(string $p_fieldname, mixed $p_value): bool {
         return true;
     }
 
@@ -333,7 +333,8 @@ class flcBaseModel {
      *
      * @return mixed
      */
-    public function transform_field(string $p_fieldname, $p_value) {
+    public function transform_field(string $p_fieldname, $p_value): mixed
+    {
         return $p_value;
     }
 
@@ -345,7 +346,8 @@ class flcBaseModel {
      *
      * @return void
      */
-    public function set_values(array $p_values) {
+    public function set_values(array $p_values): void
+    {
         foreach ($p_values as $field => $value) {
             $this->{$field} = $value;
         }
@@ -443,7 +445,8 @@ class flcBaseModel {
      *
      * @return void
      */
-    public function unset_field(string $p_fieldname) {
+    public function unset_field(string $p_fieldname): void
+    {
         if (array_key_exists($p_fieldname,$this->fields)) {
             unset($this->fields[$p_fieldname]);
         } else if (array_key_exists($p_fieldname,$this->fields_computed)) {

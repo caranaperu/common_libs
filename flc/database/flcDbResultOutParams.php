@@ -58,11 +58,12 @@ class flcDbResultOutParams {
      * Add an output  parameter value to the list of results.
      *
      * @param string $p_param_name
-     * @param        $p_param_value
+     * @param mixed  $p_param_value
      *
      * @return void
      */
-    public function add_out_param(string $p_param_name, $p_param_value) {
+    public function add_out_param(string $p_param_name, mixed $p_param_value): void
+    {
         $this->outparams[$p_param_name] = $p_param_value;
     }
 

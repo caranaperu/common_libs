@@ -117,7 +117,8 @@ trait flcControllerHelperTrait {
      *
      * @return mixed|object|string|null
      */
-    protected function class_loader(string $p_key, array $p_class_args = []) {
+    protected function class_loader(string $p_key, array $p_class_args = []): mixed
+    {
         if ($this->options && count($this->options)) {
             if (isset($this->options[$p_key])) {
                 $namespace = $this->options[$p_key]['namespace'] ?? '';
@@ -196,7 +197,8 @@ trait flcControllerHelperTrait {
      *
      * @throws Throwable
      */
-    public function controller_exception_handler(Throwable $ex) {
+    public function controller_exception_handler(Throwable $ex): void
+    {
         // just in case is not already loaded , because a prematre exception
         $this->init_options();
 

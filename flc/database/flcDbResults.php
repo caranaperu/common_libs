@@ -50,7 +50,8 @@ class flcDbResults {
      *
      * @return void
      */
-    public function add_resultset_result(flcDbResult $p_resulset_result) {
+    public function add_resultset_result(flcDbResult $p_resulset_result): void
+    {
         $this->resultsets[] = $p_resulset_result;
     }
 
@@ -64,7 +65,8 @@ class flcDbResults {
      *
      * @return void
      */
-    public function add_outparams_result(flcDbResultOutParams $p_outparams_result) {
+    public function add_outparams_result(flcDbResultOutParams $p_outparams_result): void
+    {
         $this->outparams = $p_outparams_result;
     }
 
@@ -100,7 +102,8 @@ class flcDbResults {
      *
      * @return void
      */
-    public function resultset_free_result(int $index = 0) {
+    public function resultset_free_result(int $index = 0): void
+    {
         if (isset($this->resultsets[$index])) {
             $this->resultsets[$index]->free_result();
             unset($this->resultsets[$index]);

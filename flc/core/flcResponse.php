@@ -18,6 +18,7 @@ use DateTime;
 use DateTimeZone;
 use Exception;
 use flc\flcCommon;
+use Throwable;
 
 
 /**
@@ -84,7 +85,7 @@ class flcResponse {
      * Determines whether zLib output compression will be used.
      *
      * @return    void
-     * @throws Exception
+     * @throws Exception|Throwable
      */
     private function __construct() {
         self::$_instance =& $this;
@@ -143,7 +144,8 @@ class flcResponse {
      *
      * @return    void
      */
-    public function set_output(string $p_output) {
+    public function set_output(string $p_output): void
+    {
         $this->final_output = $p_output;
     }
 
@@ -158,7 +160,8 @@ class flcResponse {
      *
      * @return    void
      */
-    public function append_output(string $p_output) {
+    public function append_output(string $p_output): void
+    {
         $this->final_output .= $p_output;
     }
 
@@ -182,7 +185,8 @@ class flcResponse {
      *
      * @return    void
      */
-    public function set_cookie($p_name, string $p_value = '', int $p_expire = 0, string $p_domain = '', string $p_path = '/', string $p_prefix = '', bool $p_secure = false, bool $p_httponly = false) {
+    public function set_cookie(array|string $p_name, string $p_value = '', int $p_expire = 0, string $p_domain = '', string $p_path = '/', string $p_prefix = '', bool $p_secure = false, bool $p_httponly = false): void
+    {
         if (is_array($p_name)) {
             // always leave 'name' in last place, as the loop will break otherwise, due to $$item
             foreach (['value', 'expire', 'domain', 'path', 'prefix', 'secure', 'httponly', 'name'] as $item) {
@@ -256,7 +260,8 @@ class flcResponse {
      * Sends the headers of this HTTP response to the browser.
      *
      */
-    public function send_headers() {
+    public function send_headers(): void
+    {
         // Have the headers already been sent?
         if (headers_sent()) {
             return;

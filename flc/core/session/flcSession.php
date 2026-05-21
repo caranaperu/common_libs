@@ -19,9 +19,8 @@ use Exception;
 use flc\core\flcConfig;
 use flc\core\flcResponse;
 use flc\flcCommon;
-use \SessionHandlerInterface;
-
-
+use SessionHandlerInterface;
+use Throwable;
 
 
 /**
@@ -157,6 +156,7 @@ class flcSession implements flcSessionInterface {
      *
      * @return flcSession|null
      * @throws Exception
+     * @throws Throwable
      */
     public function start(): ?flcSession {
         if (flcCommon::is_cli() && ENVIRONMENT !== 'testing') {
@@ -214,7 +214,8 @@ class flcSession implements flcSessionInterface {
      * - unsets the session id
      * - destroys the session cookie
      */
-    public function stop() {
+    public function stop(): void
+    {
         setcookie($this->session_cookie_name, session_id(), [
             'expires' => 1,
             'path' => $this->cookie['path'],
@@ -231,7 +232,8 @@ class flcSession implements flcSessionInterface {
      *
      * Handle input binds and configuration defaults.
      */
-    protected function configure() {
+    protected function configure(): void
+    {
         if (empty($this->session_cookie_name)) {
             $this->session_cookie_name = ini_get('session.name');
         } else {
@@ -284,16 +286,23 @@ class flcSession implements flcSessionInterface {
      * So we were forced to make changes, and OF COURSE something was
      * going to break and now we have this pile of shit. -- Narf
      */
-    protected function configure_sid_length() {
-        $bitsPerCharacter = (int)(ini_get('session.sid_bits_per_character') !== false ? ini_get('session.sid_bits_per_character') : 4);
+    protected function configure_sid_length(): void
+    {
+        if (PHP_VERSION_ID < 80400) {
 
-        $sidLength = (int)(ini_get('session.sid_length') !== false ? ini_get('session.sid_length') : 40);
+            $bitsPerCharacter = (int)(ini_get('session.sid_bits_per_character') !== false ? ini_get('session.sid_bits_per_character') : 4);
 
-        if (($sidLength * $bitsPerCharacter) < 160) {
-            $bits = ($sidLength * $bitsPerCharacter);
-            // Add as many more characters as necessary to reach at least 160 bits
-            $sidLength += (int)ceil((160 % $bits) / $bitsPerCharacter);
-            ini_set('session.sid_length', (string)$sidLength);
+            $sidLength = (int)(ini_get('session.sid_length') !== false ? ini_get('session.sid_length') : 40);
+
+            if (($sidLength * $bitsPerCharacter) < 160) {
+                $bits = ($sidLength * $bitsPerCharacter);
+                // Add as many more characters as necessary to reach at least 160 bits
+                $sidLength += (int)ceil((160 % $bits) / $bitsPerCharacter);
+                ini_set('session.sid_length', (string)$sidLength);
+            }
+        } else {
+                $bitsPerCharacter = 4;
+                $sidLength = 32;
         }
 
         // Yes, 4,5,6 are the only known possible values as of 2016-10-27
@@ -321,7 +330,8 @@ class flcSession implements flcSessionInterface {
      * "temp" data deletion.
      * TODO : no flashdata in this implementation, need remove?
      */
-    protected function init_vars() {
+    protected function init_vars(): void
+    {
         if (empty($_SESSION['__flc_vars'])) {
             return;
         }
@@ -345,7 +355,8 @@ class flcSession implements flcSessionInterface {
     /**
      * @inheritdoc
      */
-    public function regenerate(bool $p_destroy = false) {
+    public function regenerate(bool $p_destroy = false): void
+    {
         $_SESSION['__flc_last_regenerate'] = time();
         session_regenerate_id($p_destroy);
     }
@@ -353,7 +364,8 @@ class flcSession implements flcSessionInterface {
     /**
      * Destroys the current session.
      */
-    public function destroy() {
+    public function destroy(): void
+    {
         if (ENVIRONMENT === 'testing') {
             return;
         }
@@ -364,7 +376,8 @@ class flcSession implements flcSessionInterface {
     /**
      * @inheritdoc
      */
-    public function set($p_data, $p_value = null) {
+    public function set(array|string $p_data, mixed $p_value = null): void
+    {
         if (is_array($p_data)) {
             foreach ($p_data as $key => $p_value) {
                 if (is_int($key)) {
@@ -383,7 +396,8 @@ class flcSession implements flcSessionInterface {
     /**
      * @inheritdoc
      */
-    public function get(?string $p_key = null) {
+    public function get(?string $p_key = null): mixed
+    {
         if (!empty($p_key) && (null !== ($value = $_SESSION[$p_key] ?? null) || null !== ($value = $this->_array_dot_search($p_key, $_SESSION ?? [])))) {
             return $value;
         }
@@ -420,7 +434,8 @@ class flcSession implements flcSessionInterface {
      * @param string $key Identifier of the session property we are interested in.
      * @param array  $data value to be pushed to existing session key.
      */
-    public function push(string $key, array $data) {
+    public function push(string $key, array $data): void
+    {
         if ($this->has($key) && is_array($value = $this->get($key))) {
             $this->set($key, array_merge($value, $data));
         }
@@ -429,7 +444,8 @@ class flcSession implements flcSessionInterface {
     /**
      * @inheritdoc
      */
-    public function remove($p_key) {
+    public function remove(array|string $p_key): void
+    {
         if (is_array($p_key)) {
             foreach ($p_key as $k) {
                 unset($_SESSION[$k]);
@@ -448,7 +464,7 @@ class flcSession implements flcSessionInterface {
      * @param string       $key Identifier of the session property to set.
      * @param array|string $value
      */
-    public function __set(string $key, $value) {
+    public function __set(string $key, array|string $value) {
         $_SESSION[$key] = $value;
     }
 
@@ -490,7 +506,8 @@ class flcSession implements flcSessionInterface {
      * Sets the driver as the session handler in PHP.
      * Extracted for easier testing.
      */
-    protected function set_save_handler() {
+    protected function set_save_handler(): void
+    {
         session_set_save_handler($this->driver, true);
     }
 
@@ -498,7 +515,8 @@ class flcSession implements flcSessionInterface {
      * Starts the session.
      * Extracted for testing reasons.
      */
-    protected function start_session() {
+    protected function start_session(): void
+    {
         if (ENVIRONMENT === 'testing') {
             $_SESSION = [];
 
@@ -513,7 +531,8 @@ class flcSession implements flcSessionInterface {
      *
      * @codeCoverageIgnore
      */
-    protected function set_cookie() {
+    protected function set_cookie(): void
+    {
         // Add specific session stuff to cookie
         $this->cookie['value'] = session_id();
         $this->cookie['expire'] = $this->session_expiration === 0 ? 0 : time() + $this->session_expiration;

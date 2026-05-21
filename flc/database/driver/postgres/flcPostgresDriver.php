@@ -324,7 +324,8 @@ class flcPostgresDriver extends flcDriver {
     /**
      * @inheritdoc
      */
-    protected function _execute_qry(string $p_sqlquery) {
+    protected function _execute_qry(string $p_sqlquery): object|bool
+    {
         return @pg_query($this->_connId, $p_sqlquery);
     }
 
@@ -443,7 +444,8 @@ class flcPostgresDriver extends flcDriver {
      * @inheritdoc
      *
      */
-    public function cast_to_rowversion($p_value) {
+    public function cast_to_rowversion(mixed $p_value): mixed
+    {
         // in pgsql xmin is the rowversion field no transformation required
         return $p_value;
     }
@@ -474,7 +476,8 @@ class flcPostgresDriver extends flcDriver {
     /**
      * @@inheritdoc
      */
-    public function escape($p_to_escape) {
+    public function escape(mixed $p_to_escape): mixed
+    {
         if (version_compare(PHP_VERSION, '5.4.4', '>=') && (is_string($p_to_escape) or (is_object($p_to_escape) && method_exists($p_to_escape, '__toString')))) {
             return pg_escape_literal($this->_connId, $p_to_escape);
         } elseif (is_bool($p_to_escape)) {
@@ -489,7 +492,8 @@ class flcPostgresDriver extends flcDriver {
     /**
      * @inheritdoc
      */
-    public function escape_identifiers($p_item) {
+    public function escape_identifiers(array|string $p_item): array|string
+    {
 
         if ($this->_escape_char === '' or empty($p_item) or in_array($p_item, $this->_reserved_identifiers)) {
             return $p_item;
@@ -1014,8 +1018,8 @@ class flcPostgresDriver extends flcDriver {
             case 'text':
             case 'timestamp':
             case 'timestamptz':
-            case 'timestamp with time zone';
-            case 'timestamp without time zone';
+            case 'timestamp with time zone':
+            case 'timestamp without time zone':
             case 'date':
             case 'time':
             case 'point':

@@ -48,7 +48,8 @@ abstract class flcBaseUploadController extends flcController {
      *
      * call to init options
      */
-    public function initialize() {
+    public function initialize(): void
+    {
         parent::initialize();
         // this init option need to be the required by flcFileUploader
         // @see flcFileUploader
@@ -72,7 +73,8 @@ abstract class flcBaseUploadController extends flcController {
      *
      * @throws Throwable
      */
-    public function index() {
+    public function index(): void
+    {
         try {
             $FLC = FLC::get_instance();
 

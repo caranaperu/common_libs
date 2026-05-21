@@ -35,7 +35,7 @@ class flcMssqlResult extends flcDbResult {
      *
      * @var    mixed
      */
-    public $scrollable;
+    public mixed $scrollable;
 
     /**
      * List of field types based on numeric type returned by sqlsrv_field_metadata
@@ -172,7 +172,8 @@ class flcMssqlResult extends flcDbResult {
     /**
      * @inheritdoc
      */
-    protected function _fetch_assoc() {
+    protected function _fetch_assoc(): bool|array
+    {
         return sqlsrv_fetch_array($this->result_id, SQLSRV_FETCH_ASSOC);
     }
 

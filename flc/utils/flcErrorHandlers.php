@@ -20,7 +20,8 @@ class flcErrorHandlers {
     public int $ob_level;
 
 
-    public function initialize() {
+    public function initialize(): void
+    {
         set_exception_handler([$this, '_exception_handler']);
         set_error_handler([$this, '_error_handler']);
         register_shutdown_function([$this, '_shutdown_handler']);
@@ -37,7 +38,7 @@ class flcErrorHandlers {
      *
      * @throws Throwable
      */
-    public function _exception_handler(Throwable $exception) {
+    public function _exception_handler(Throwable $exception) : never {
         $this->ob_level = ob_get_level();
 
         [$statusCode, $exitCode] = $this->get_codes($exception);
@@ -112,8 +113,10 @@ class flcErrorHandlers {
      * need to be caught and handle them.
      *
      * @codeCoverageIgnore
+     * @throws Throwable
      */
-    public function _shutdown_handler() {
+    public function _shutdown_handler(): void
+    {
         $error = error_get_last();
 
         if ($error === null) {
@@ -135,7 +138,8 @@ class flcErrorHandlers {
      * @return void
      * @throws Throwable
      */
-    private function _show_exception(Throwable $exception, $response,$data) {
+    private function _show_exception(Throwable $exception, $response,$data): void
+    {
         $templates_path = flcCommon::get_config()->item('error_views_path');
         if (empty($templates_path)) {
             $templates_path = VIEWPATH.'errors'.DIRECTORY_SEPARATOR;

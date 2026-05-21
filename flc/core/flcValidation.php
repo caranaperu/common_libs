@@ -57,7 +57,7 @@ class flcValidation {
     /**
      * @var mixed a class instance that hold the csllback functions
      */
-    private $_callback_class;
+    private mixed $_callback_class;
 
     /**
      * @var flcLanguage that contains the translation for the field names
@@ -74,7 +74,7 @@ class flcValidation {
      * @param object|null $p_callback_class a class instance that hold the callback functions
      * for validations with callbacks..
      */
-    public function __construct(flcLanguage $p_lang, object $p_callback_class = null) {
+    public function __construct(flcLanguage $p_lang, ?object $p_callback_class = null) {
         $this->set_callbacks_class($p_callback_class);
         $this->_lang = $p_lang;
     }
@@ -86,7 +86,8 @@ class flcValidation {
      *
      * @return void
      */
-    public function set_callbacks_class(?object $p_callback_class) {
+    public function set_callbacks_class(?object $p_callback_class): void
+    {
         if ($p_callback_class !== null) {
             $this->_callback_class = $p_callback_class;
         }
@@ -103,7 +104,8 @@ class flcValidation {
      *
      * @return void
      */
-    public function set_data(array $p_data) {
+    public function set_data(array $p_data): void
+    {
         if (count($p_data) > 0) {
             $this->_data = $p_data;
         }
@@ -127,7 +129,8 @@ class flcValidation {
      * @param string         $p_rule_msg if rule_id is a rule name this will be the associated error message.
      *
      */
-    public function set_message($p_rule_id, string $p_rule_msg = '') {
+    public function set_message(array|string $p_rule_id, string $p_rule_msg = ''): void
+    {
         if (!is_array($p_rule_id)) {
             $p_rule_id = [$p_rule_id => $p_rule_msg];
         }
@@ -199,7 +202,8 @@ class flcValidation {
      *
      * @return void
      */
-    public function add_rule(string $p_field, string $p_label, $p_rules, ?array $p_errors = null) {
+    public function add_rule(string $p_field, string $p_label, mixed $p_rules, ?array $p_errors = null): void
+    {
 
         if (empty($p_field) || empty($p_rules)) {
             // nothing to do
@@ -238,7 +242,8 @@ class flcValidation {
      *
      * @return void
      */
-    public function set_rules(array $p_rules) {
+    public function set_rules(array $p_rules): void
+    {
         //  claer current data
         $this->_field_data = [];
 
@@ -264,7 +269,7 @@ class flcValidation {
      * Validate each one of the fields on the data with field => values
      *
      * @return bool true if all validations are ok, false otherwise
-     * @throws Exception
+     * @throws Exception|Throwable
      */
     public function run(): bool {
         // no fields to verify
@@ -319,7 +324,7 @@ class flcValidation {
      * @return void
      * @throws Throwable
      */
-    protected function _execute($p_row, ?string $p_postdata): void {
+    protected function _execute(mixed $p_row, ?string $p_postdata): void {
         $result = false;
         $rules = $p_row['rules'];
 
@@ -504,12 +509,12 @@ class flcValidation {
     /**
      * Get the error message for the rule
      *
-     * @param string | array $p_rule The rule name ot array of rules
+     * @param array | string $p_rule The rule name ot array of rules
      * @param string         $p_field The field name
      *
      * @return    string
      */
-    protected function _get_error_message($p_rule, string $p_field): string {
+    protected function _get_error_message(array|string $p_rule, string $p_field): string {
         // check if a custom message is defined through validation config row.
 
         if (isset($this->_field_data[$p_field]['errors'][$p_rule])) {
@@ -1235,7 +1240,7 @@ class flcValidation {
      * @return boolean true si es valido
      *
      */
-    public function depends_on_boolean(string $p_str, $p_field): bool {
+    public function depends_on_boolean(string $p_str, mixed $p_field): bool {
         if (isset($this->_data[$p_field])) {
             $value = $this->_data[$p_field];
             if ($value === true || $value === 'true' || $value === 'TRUE' || $value === '1' || $value === 1) {
@@ -1258,7 +1263,7 @@ class flcValidation {
      *
      * @return bool true or false
      */
-    function is_boolean($p_value): bool {
+    function is_boolean(mixed $p_value): bool {
         if ($p_value === true || $p_value === 'true' || $p_value === 'TRUE' || $p_value === false || $p_value === 'false' || $p_value === 'FALSE' || $p_value === '0' || $p_value === 0 || $p_value === '1' || $p_value === 1) {
             return true;
         }

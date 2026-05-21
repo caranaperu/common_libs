@@ -145,7 +145,8 @@ class flcLog {
      *
      * @return void
      */
-    public function do_log_rotate() {
+    public function do_log_rotate(): void
+    {
         $documentspath = $this->_log_path;
 
         $dir = opendir($documentspath);

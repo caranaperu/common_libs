@@ -15,6 +15,7 @@ namespace flc\core;
 
 use Exception;
 use flc\flcCommon;
+use Throwable;
 
 require_once dirname(__FILE__).'/../flcCommon.php';
 
@@ -83,7 +84,7 @@ class flcRequest {
      * and whether to allow the $_GET array.
      *
      * @return    void
-     * @throws Exception if config cant be loaded
+     * @throws Exception|Throwable if config cant be loaded
      */
     private function __construct() {
         self::$_instance =& $this;
@@ -134,11 +135,12 @@ class flcRequest {
      * Internal method used to retrieve values from global arrays.
      *
      * @param array    &$p_array $_GET, $_POST, $_COOKIE, $_SERVER, etc.
-     * @param mixed     $p_index Index for item to be fetched from $array
+     * @param mixed|null $p_index Index for item to be fetched from $array
      *
      * @return    mixed
      */
-    protected function _fetch_from_array(array &$p_array, $p_index = null) {
+    protected function _fetch_from_array(array &$p_array, mixed $p_index = null): mixed
+    {
 
         // If $index is NULL, it means that the whole $array is requested
         isset($p_index) or $p_index = array_keys($p_array);
@@ -183,11 +185,12 @@ class flcRequest {
     /**
      * Fetch an item from the GET array
      *
-     * @param mixed $p_index Index for item to be fetched from $_GET
+     * @param mixed|null $p_index Index for item to be fetched from $_GET
      *
      * @return    mixed
      */
-    public function get($p_index = null) {
+    public function get(mixed $p_index = null): mixed
+    {
         return $this->_fetch_from_array($_GET, $p_index);
     }
 
@@ -200,7 +203,7 @@ class flcRequest {
      * @param mixed $p_index Index for item to be set on the $_SET array
      * @param mixed $p_value
      */
-    public function set_get($p_index, $p_value): void {
+    public function set_get(mixed $p_index, mixed $p_value): void {
         $_GET[$p_index] = $p_value;
     }
 
@@ -209,11 +212,12 @@ class flcRequest {
     /**
      * Fetch an item from the POST array
      *
-     * @param mixed $p_index Index for item to be fetched from $_POST
+     * @param mixed|null $p_index Index for item to be fetched from $_POST
      *
      * @return    mixed
      */
-    public function post($p_index = null) {
+    public function post(mixed $p_index = null): mixed
+    {
         return $this->_fetch_from_array($_POST, $p_index);
     }
 
@@ -226,7 +230,7 @@ class flcRequest {
      * @param mixed $p_index Index for item to be set on the $_POST array
      * @param mixed $p_value
      */
-    public function set_post($p_index, $p_value): void {
+    public function set_post(mixed $p_index, mixed $p_value): void {
         $_POST[$p_index] = $p_value;
     }
 
@@ -235,11 +239,12 @@ class flcRequest {
     /**
      * Fetch an item from the REQUEST array
      *
-     * @param mixed $p_index Index for item to be fetched from $_REQUEST
+     * @param mixed|null $p_index Index for item to be fetched from $_REQUEST
      *
      * @return    mixed
      */
-    public function request($p_index = null) {
+    public function request(mixed $p_index = null): mixed
+    {
         return $this->_fetch_from_array($_REQUEST, $p_index);
     }
     // ----
@@ -252,7 +257,7 @@ class flcRequest {
      * @param mixed $p_index Index for item to be set on the $_REQUEST array
      * @param mixed $p_value
      */
-    public function set_request($p_index, $p_value): void {
+    public function set_request(mixed $p_index, mixed $p_value): void {
         $_REQUEST[$p_index] = $p_value;
     }
 
@@ -265,7 +270,8 @@ class flcRequest {
      *
      * @return    mixed
      */
-    public function post_get(string $p_index) {
+    public function post_get(string $p_index): mixed
+    {
         return isset($_POST[$p_index]) ? $this->post($p_index) : $this->get($p_index);
     }
 
@@ -278,7 +284,8 @@ class flcRequest {
      *
      * @return    mixed
      */
-    public function get_post(string $p_index) {
+    public function get_post(string $p_index): mixed
+    {
         return isset($_GET[$p_index]) ? $this->get($p_index) : $this->post($p_index);
     }
 
@@ -287,11 +294,12 @@ class flcRequest {
     /**
      * Fetch an item from the COOKIE array
      *
-     * @param mixed $p_index Index for item to be fetched from $_COOKIE
+     * @param mixed|null $p_index Index for item to be fetched from $_COOKIE
      *
      * @return    mixed
      */
-    public function cookie($p_index = null) {
+    public function cookie(mixed $p_index = null): mixed
+    {
         return $this->_fetch_from_array($_COOKIE, $p_index);
     }
 
@@ -304,7 +312,8 @@ class flcRequest {
      *
      * @return    mixed
      */
-    public function server($p_index) {
+    public function server(mixed $p_index): mixed
+    {
         return $this->_fetch_from_array($_SERVER, $p_index);
     }
 
@@ -319,7 +328,8 @@ class flcRequest {
      *
      * @return    mixed
      */
-    public function input_stream(?string $p_index = null) {
+    public function input_stream(?string $p_index = null): mixed
+    {
 
         return $this->_fetch_from_array($this->_input_stream, $p_index);
     }
@@ -334,7 +344,7 @@ class flcRequest {
      * Determines and validates the visitor's IP address.
      *
      * @return    string    IP address
-     * @throws Exception
+     * @throws Exception|Throwable
      */
     public function ip_address(): string {
         if ($this->ip_address !== '') {
@@ -458,7 +468,7 @@ class flcRequest {
                 $p_which = FILTER_FLAG_IPV6;
                 break;
             default:
-                $p_which = null;
+                $p_which = 0;
                 break;
         }
 
@@ -472,7 +482,8 @@ class flcRequest {
      *
      * @return    string|null    User Agent string or NULL if it doesn't exist
      */
-    public function user_agent() {
+    public function user_agent(): ?string
+    {
         return $this->_fetch_from_array($_SERVER, 'HTTP_USER_AGENT');
     }
 
@@ -488,9 +499,10 @@ class flcRequest {
      *    - Standardizes newline characters to PHP_EOL
      *
      * @return    void
-     * @throws Exception
+     * @throws Exception|Throwable
      */
-    protected function _sanitize_globals() {
+    protected function _sanitize_globals(): void
+    {
         if (is_array($_GET)) {
             foreach ($_GET as $key => $val) {
                 $_GET[$this->_clean_input_keys($key)] = $this->_clean_input_data($val);
@@ -562,7 +574,7 @@ class flcRequest {
      *
      * @param string $p_str Input string
      *
-     * @return    string|bool
+     * @return    string|null
      */
     protected function _clean_input_keys(string $p_str): ?string {
         if (!preg_match('/^[a-z0-9:_\/|-]+$/i', $p_str)) {

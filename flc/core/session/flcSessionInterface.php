@@ -42,9 +42,9 @@ interface flcSessionInterface {
      * to be set as session properties.
      *
      * @param array|string $p_data Property name or associative array of properties
-     * @param mixed        $p_value Property value if single key provided
+     * @param mixed|null $p_value Property value if single key provided
      */
-    public function set($p_data, $p_value = null);
+    public function set(array|string $p_data, mixed $p_value = null);
 
     /**
      * Get user data that has been set in the session.
@@ -58,7 +58,7 @@ interface flcSessionInterface {
      *
      * @return mixed The property value(s)
      */
-    public function get(?string $p_key = null);
+    public function get(?string $p_key = null): mixed;
 
     /**
      * Returns whether an index exists in the session array.
@@ -76,7 +76,7 @@ interface flcSessionInterface {
      *
      * @param array|string $p_key Identifier of the session property or properties to remove.
      */
-    public function remove( $p_key);
+    public function remove(array|string $p_key);
 
 
 }

@@ -151,7 +151,8 @@ class flcPostgresResult extends flcDbResult {
     /**
      * @inheritdoc
      */
-    protected function _fetch_assoc() {
+    protected function _fetch_assoc(): bool|array
+    {
         return pg_fetch_assoc($this->result_id);
     }
 

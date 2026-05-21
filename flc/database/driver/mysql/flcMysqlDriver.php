@@ -79,7 +79,7 @@ class flcMysqlDriver extends flcDriver {
      *
      * @var string|null
      */
-    private string $_socket;
+    private ?string $_socket;
 
     /**
      * Hold the client flags
@@ -567,7 +567,8 @@ class flcMysqlDriver extends flcDriver {
     /**
      * @inheritdoc
      */
-    public function escape_identifiers($p_item) {
+    public function escape_identifiers(array|string $p_item): array|string
+    {
 
         if (is_array($p_item)) {
             foreach ($p_item as $key => $value) {
@@ -599,7 +600,8 @@ class flcMysqlDriver extends flcDriver {
      * @inheritdoc
      *
      */
-    public function cast_to_rowversion($p_value) {
+    public function cast_to_rowversion(mixed $p_value): mixed
+    {
         return "'$p_value'";
     }
 

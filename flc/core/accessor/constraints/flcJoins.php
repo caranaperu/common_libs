@@ -24,7 +24,8 @@ class flcJoins {
      *
      * @return void
      */
-    public function add_join(flcJoinEntry $p_join) {
+    public function add_join(flcJoinEntry $p_join): void
+    {
         $this->joins[] = $p_join;
     }
 

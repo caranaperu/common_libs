@@ -35,7 +35,7 @@ abstract class flcBaseHandler implements SessionHandlerInterface {
      *
      * @var mixed
      */
-    protected $lock = false;
+    protected mixed $lock = false;
 
     /**
      * Cookie prefix
@@ -95,7 +95,7 @@ abstract class flcBaseHandler implements SessionHandlerInterface {
      *
      * @var array|string
      */
-    protected $save_path;
+    protected string|array $save_path;
 
     /**
      * User's IP address.
@@ -109,7 +109,7 @@ abstract class flcBaseHandler implements SessionHandlerInterface {
      *
      * @param string $p_p_ip_ddress
      *
-     * @throws Exception
+     * @throws Exception|\Throwable
      */
     public function __construct(string $p_p_ip_ddress) {
         $config = flcCommon::get_config();

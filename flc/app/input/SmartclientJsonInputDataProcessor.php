@@ -42,7 +42,8 @@ class SmartclientJsonInputDataProcessor extends flcInputDataProcessor {
     /**
      * @inheritdoc
      */
-    public function process_input_data(flcBaseModel $p_model) {
+    public function process_input_data(flcBaseModel $p_model): void
+    {
         // for easy and fast access
         $input_data = $this->input_data;
 
@@ -82,7 +83,8 @@ class SmartclientJsonInputDataProcessor extends flcInputDataProcessor {
      *
      * @return void
      */
-    private final function _process_constraints() {
+    private function _process_constraints(): void
+    {
         // for easy and fast access
         $input_data = $this->input_data;
 

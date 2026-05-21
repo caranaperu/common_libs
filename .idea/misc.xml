@@ -4,9 +4,13 @@
     <entry_point>
       <entry_point TYPE="phpMethod" FQNAME="\app\common\bussiness\TSLAppCRUDBussinessService doService" />
       <entry_point TYPE="phpClass" FQNAME="\app\common\bussiness\TSLAppCRUDBussinessService" />
+      <entry_point TYPE="phpMethod" FQNAME="\flc\app\output\SmartclientJsonOutputDataProcessor process_output_data" />
+      <entry_point TYPE="phpClass" FQNAME="\flc\app\output\SmartclientJsonOutputDataProcessor" />
     </entry_point>
     <pattern value="\app\common\bussiness\TSLAppCRUDBussinessService" member="doService" />
     <pattern value="\app\common\bussiness\TSLAppCRUDBussinessService" />
+    <pattern value="\flc\app\output\SmartclientJsonOutputDataProcessor" member="process_output_data" />
+    <pattern value="\flc\app\output\SmartclientJsonOutputDataProcessor" />
   </component>
   <component name="masterDetails">
     <states>

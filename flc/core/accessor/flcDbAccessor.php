@@ -59,6 +59,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
     /**
      * @inheritdoc
+     * @throws Throwable
      */
     public function add(flcBaseModel &$p_model, ?string $p_suboperation = null, ?flcConstraints $p_constraints = null): flcPersistenceAccessorAnswer {
 
@@ -128,6 +129,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
     /**
      * @inheritdoc
+     * @throws Throwable
      */
     public function update(flcBaseModel &$p_model, ?string $p_suboperation = null, ?flcConstraints $p_constraints = null): flcPersistenceAccessorAnswer {
 
@@ -214,6 +216,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
     /**
      * @inheritdoc
+     * @throws Throwable
      */
     public function delete(flcBaseModel &$p_model, bool $p_verify_deleted_check = true): flcPersistenceAccessorAnswer {
 
@@ -283,6 +286,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
     /**
      * @inheritdoc
+     * @throws Throwable
      */
     public function delete_full(flcBaseModel &$p_model, flcConstraints $p_constraints): flcPersistenceAccessorAnswer {
         $answer = new flcPersistenceAccessorAnswer();
@@ -334,6 +338,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
     /**
      * @inheritdoc
+     * @throws Throwable
      */
     public function read(flcBaseModel &$p_model, ?string $p_suboperation = null, ?flcConstraints $p_constraints = null): flcPersistenceAccessorAnswer {
 
@@ -400,6 +405,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
     /**
      * @inheritdoc
+     * @throws Throwable
      */
     public function fetch(flcBaseModel $p_model, ?flcConstraints $p_constraints = null, ?string $p_suboperation = null): flcPersistenceAccessorAnswer {
         $answer = new flcPersistenceAccessorAnswer();
@@ -440,10 +446,11 @@ class flcDbAccessor extends flcPersistenceAccessor {
      * Return the query required to add one instance of the model.
      *
      * @param flcBaseModel $p_model the model values requiered for creATE THE QUERY.
-     * @param string|null  $p_suboperation optional user defined suboperation.
+     * @param string|null $p_suboperation optional user defined suboperation.
      *
      * @return string
      * @throws Exception
+     * @throws Throwable
      */
     protected function get_add_query(flcBaseModel $p_model, ?string $p_suboperation = null): string {
         // setup add fields
@@ -530,12 +537,13 @@ class flcDbAccessor extends flcPersistenceAccessor {
     /**
      * Return the query required to update one instance of the model.
      *
-     * @param flcBaseModel        $p_model the model values requiered for creATE THE QUERY.
-     * @param string|null         $p_suboperation optional user defined suboperation.
+     * @param flcBaseModel $p_model the model values requiered for creATE THE QUERY.
+     * @param string|null $p_suboperation optional user defined suboperation.
      * @param flcConstraints|null $p_constraints the constraints required to update (optional).
      *
      * @return string the query string
      * @throws Exception
+     * @throws Throwable
      */
     protected function get_update_query(flcBaseModel $p_model, ?string $p_suboperation = null, ?flcConstraints $p_constraints = null): string {
         // setup update fields
@@ -662,6 +670,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
      *
      * @return string with the delete query
      * @throws Exception
+     * @throws Throwable
      */
     protected function get_delete_query(flcBaseModel $p_model): string {
         $fields = $p_model->get_fields();
@@ -733,13 +742,14 @@ class flcDbAccessor extends flcPersistenceAccessor {
     /**
      * Return the query required to delete one or more instances of the model based on the constraints.
      *
-     * @param flcBaseModel        $p_model the model values requiered for create the query.
+     * @param flcBaseModel $p_model the model values requiered for create the query.
      * @param flcConstraints|null $p_constraints the constraints required to delete (optional).
      *
      * @return string with the delete query
      * @throws Exception
+     * @throws Throwable
      */
-    public function get_delete_query_full(flcBaseModel $p_model, flcConstraints $p_constraints): string {
+    public function get_delete_query_full(flcBaseModel $p_model, ?flcConstraints $p_constraints): string {
         $fields = $p_model->get_fields();
 
         if (count($fields) == 0) {
@@ -766,13 +776,14 @@ class flcDbAccessor extends flcPersistenceAccessor {
     /**
      * Get the query to fetch only one record of an model.
      *
-     * @param flcBaseModel        $p_model the model giving the key fields or at least the id field
+     * @param flcBaseModel $p_model the model giving the key fields or at least the id field
      * to get the unique record. At least one of this fields need to exist in the model..
-     * @param string|null         $p_suboperation optional user defined suboperation.
+     * @param string|null $p_suboperation optional user defined suboperation.
      * @param flcConstraints|null $p_constraints the constraints to read only useful in joins.
      *
      * @return string with the select query
      * @throws Exception
+     * @throws Throwable
      */
     protected function get_read_query(flcBaseModel $p_model, ?string $p_suboperation = null, ?flcConstraints $p_constraints = null): string {
 
@@ -856,12 +867,13 @@ class flcDbAccessor extends flcPersistenceAccessor {
      * Get the fetch query no joins and not referenced entities allowed , in other words only work with
      * the main model fields.
      *
-     * @param flcBaseModel        $p_model the main model source of the fields and input values to the constraints.
+     * @param flcBaseModel $p_model the main model source of the fields and input values to the constraints.
      * @param flcConstraints|null $p_constraints the constraints.
-     * @param string|null         $p_suboperation optional user defined suboperation.
+     * @param string|null $p_suboperation optional user defined suboperation.
      *
      * @return string with the fetch query.
      * @throws Exception
+     * @throws Throwable
      */
     protected function get_fetch_query(flcBaseModel $p_model, ?flcConstraints $p_constraints = null, ?string $p_suboperation = null): string {
 
@@ -1098,13 +1110,13 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
                     if (strpos($operator, 'like') !== false) {
                         switch ($operator) {
-                            case 'nlike';
-                            case 'nlike(%-)';
+                            case 'nlike':
+                            case 'nlike(%-)':
                                 $sql .= "$field not like '%";
                                 break;
 
-                            case 'like';
-                            case 'like(%-)';
+                            case 'like':
+                            case 'like(%-)':
                                 $sql .= "$field like '%";
                                 break;
 
@@ -1170,12 +1182,12 @@ class flcDbAccessor extends flcPersistenceAccessor {
 
                     if (strpos($operator, 'like') !== false) {
                         switch ($operator) {
-                            case 'like';
-                            case 'like(-%)';
+                            case 'like':
+                            case 'like(-%)':
                             case 'ilike':
                             case 'ilike(-%)':
-                            case 'nlike';
-                            case 'nlike(-%)';
+                            case 'nlike':
+                            case 'nlike(-%)':
                             case 'nilike':
                             case 'nilike(-%)':
                                 $sql .= "%'";
@@ -1217,7 +1229,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
      * @see flcConstraints
      *
      */
-    protected function order_by_clause(string $p_table, array $p_fields, array $p_key_fields, $p_id, ?flcConstraints $p_constraints = null): string {
+    protected function order_by_clause(string $p_table, array $p_fields, array $p_key_fields, mixed $p_id, ?flcConstraints $p_constraints = null): string {
         $sql = '';
         if (isset($p_constraints)) {
             // order by
@@ -1314,7 +1326,8 @@ class flcDbAccessor extends flcPersistenceAccessor {
      *
      * @return bool|int|float|string with the normalized value
      */
-    protected function get_normalized_field_value($p_value, string $p_type) {
+    protected function get_normalized_field_value(mixed $p_value, string $p_type): float|bool|int|string
+    {
 
         $value = $p_value ?? 'NULL';
 
@@ -1344,10 +1357,11 @@ class flcDbAccessor extends flcPersistenceAccessor {
      * Simple method to process in case of an exception during any db operatiom.
      *
      * @param Throwable $p_ex
-     * @param string    $p_operation what operation is the source of error , can be 'add','update',
+     * @param string $p_operation what operation is the source of error , can be 'add','update',
      * 'delete','read','fetch'.
      *
      * @return int the db error code.
+     * @throws Throwable
      * @see self::$db_error_codes
      */
     private function _process_exception(Throwable $p_ex, string $p_operation): int {
@@ -1382,6 +1396,7 @@ class flcDbAccessor extends flcPersistenceAccessor {
      * 'delete','read','fetch'.
      *
      * @return int the db error code.
+     * @throws Throwable
      * @see self::$db_error_codes
      */
     private function _process_db_error(string $p_operation): int {
@@ -1410,8 +1425,10 @@ class flcDbAccessor extends flcPersistenceAccessor {
      * @param string $p_type W-'warning' or E-'error' or 'e' soft error or 'I' - info
      *
      * @throws Exception
+     * @throws Throwable
      */
-    protected function log_error(string $p_errormsg, string $p_type = 'W') {
+    protected function log_error(string $p_errormsg, string $p_type = 'W'): void
+    {
         try {
 
             if (flcCommon::is_cli()) {

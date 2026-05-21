@@ -137,7 +137,7 @@ abstract class flcDriver {
      *
      * @var    bool | array
      */
-    public $encrypt = false;
+    public mixed $encrypt = false;
 
     /**
      * Compression flag
@@ -315,13 +315,13 @@ abstract class flcDriver {
     protected static array $_cast_conversion = [];
 
 
-    public const FLCDRIVER_PROCTYPE_RESULTSET      = 1;
-    public const FLCDRIVER_PROCTYPE_MULTIRESULTSET = 2;
-    public const FLCDRIVER_PROCTYPE_SCALAR         = 4;
+    public const int FLCDRIVER_PROCTYPE_RESULTSET      = 1;
+    public const int FLCDRIVER_PROCTYPE_MULTIRESULTSET = 2;
+    public const int FLCDRIVER_PROCTYPE_SCALAR         = 4;
 
-    public const FLCDRIVER_PARAMTYPE_IN    = 'IN';
-    public const FLCDRIVER_PARAMTYPE_INOUT = 'INOUT';
-    public const FLCDRIVER_PARAMTYPE_OUT   = 'OUT';
+    public const string FLCDRIVER_PARAMTYPE_IN    = 'IN';
+    public const string FLCDRIVER_PARAMTYPE_INOUT = 'INOUT';
+    public const string FLCDRIVER_PARAMTYPE_OUT   = 'OUT';
 
     // --------------------------------------------------------------------
 
@@ -538,7 +538,7 @@ abstract class flcDriver {
     /**
      * Return the version of the database
      *
-     * @return string with the version
+     * @return string|null with the version
      * @throws Throwable
      */
     public function get_version(): ?string {
@@ -594,7 +594,8 @@ abstract class flcDriver {
      *
      * @return void
      */
-    public function set_trans_unique(bool $is_trans_unique) {
+    public function set_trans_unique(bool $is_trans_unique): void
+    {
         // Only can be changed if not transaction are active now.
         if ($this->_trans_depth == 0) {
             $this->_trans_unique = $is_trans_unique;
@@ -821,7 +822,7 @@ abstract class flcDriver {
      *
      * @param string $p_table Table name
      *
-     * @return    array
+     * @return array|null
      * @throws Throwable
      */
     public function list_columns(string $p_table): ?array {
@@ -926,7 +927,7 @@ abstract class flcDriver {
      *
      * @return mixed
      */
-    abstract public function cast_to_rowversion($p_value);
+    abstract public function cast_to_rowversion(mixed $p_value): mixed;
 
     // --------------------------------------------------------------------
 
@@ -1002,7 +1003,8 @@ abstract class flcDriver {
      *
      * @return    mixed
      */
-    public function escape($p_to_escape) {
+    public function escape(mixed $p_to_escape): mixed
+    {
         if (is_array($p_to_escape)) {
             // recursive
             return array_map([
@@ -1041,7 +1043,8 @@ abstract class flcDriver {
      *
      * @return    string|string[]
      */
-    public function escape_str($p_to_escape, bool $p_like = false) {
+    public function escape_str(array|string $p_to_escape, bool $p_like = false): array|string
+    {
         if (is_array($p_to_escape)) {
             foreach ($p_to_escape as $key => $val) {
                 $p_to_escape[$key] = $this->escape_str($val, $p_like);
@@ -1076,11 +1079,12 @@ abstract class flcDriver {
      * This function escapes column and table names
      * This is generic , override if its necessary
      *
-     * @param string|array $p_item
+     * @param array|string $p_item
      *
      * @return    string|array
      */
-    public function escape_identifiers($p_item) {
+    public function escape_identifiers(array|string $p_item): array|string
+    {
 
         if ($this->_escape_char === '' or empty($p_item) or in_array($p_item, $this->_reserved_identifiers)) {
             return $p_item;
@@ -1160,7 +1164,7 @@ abstract class flcDriver {
      *
      * @return    string
      */
-    public function update_string(string $p_table, array $p_data, string $p_where, int $p_limit = 0, string $p_orderby = null): string {
+    public function update_string(string $p_table, array $p_data, string $p_where, int $p_limit = 0, ?string $p_orderby = null): string {
         if (empty($p_where)) {
             return false;
         }
@@ -1188,7 +1192,8 @@ abstract class flcDriver {
      *
      * @return    void
      */
-    public function trans_off() {
+    public function trans_off(): void
+    {
         $this->trans_enabled = false;
     }
 
@@ -1323,7 +1328,8 @@ abstract class flcDriver {
      *
      * @return    void
      */
-    public function trans_mark_dirty() {
+    public function trans_mark_dirty(): void
+    {
         if ($this->trans_enabled) {
             if ($this->_trans_unique_begin || $this->_trans_depth > 0) {
                 $this->_trans_status = false;
@@ -1338,7 +1344,8 @@ abstract class flcDriver {
      *
      * @return    void
      */
-    public function trans_mark_clean() {
+    public function trans_mark_clean(): void
+    {
         $this->_trans_status = true;
     }
 
@@ -1595,7 +1602,7 @@ abstract class flcDriver {
      *
      * @return object|bool the object is basically a resource db dependant
      */
-    protected abstract function _execute_qry(string $p_sqlquery);
+    protected abstract function _execute_qry(string $p_sqlquery): object|bool;
 
 
     // --------------------------------------------------------------------
@@ -2398,7 +2405,8 @@ abstract class flcDriver {
      *
      * @throws Throwable
      */
-    public function log_error(string $p_error, string $p_type = 'W') {
+    public function log_error(string $p_error, string $p_type = 'W'): void
+    {
         try {
             if ($p_type == 'E') {
                 $error = $this->error();

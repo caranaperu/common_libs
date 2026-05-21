@@ -48,7 +48,8 @@ abstract class flcBaseController extends flcController {
      *
      * call to init options
      */
-    public function initialize() {
+    public function initialize(): void
+    {
         parent::initialize();
         $this->init_options();
     }
@@ -124,7 +125,8 @@ abstract class flcBaseController extends flcController {
      * @return void
      * @throws Throwable
      */
-    public function index() {
+    public function index(): void
+    {
 
         try {
 
@@ -218,19 +220,19 @@ abstract class flcBaseController extends flcController {
      */
     protected function get_error_message(int $p_error_code): string {
         switch ($p_error_code) {
-            case flcDbAccessor::$db_error_codes['DB_RECORD_MODIFIED'];
+            case flcDbAccessor::$db_error_codes['DB_RECORD_MODIFIED']:
                 $msg_id = 'flc_common_record_modified';
                 break;
-            case flcDbAccessor::$db_error_codes['DB_RECORD_NOT_EXIST'];
+            case flcDbAccessor::$db_error_codes['DB_RECORD_NOT_EXIST']:
                 $msg_id = 'flc_common_record_not_exist';
                 break;
-            case flcDbAccessor::$db_error_codes['DB_RECORD_EXIST'];
+            case flcDbAccessor::$db_error_codes['DB_RECORD_EXIST']:
                 $msg_id = 'flc_common_record_exist';
                 break;
-            case flcDbAccessor::$db_error_codes['DB_DUPLICATE_KEY'];
+            case flcDbAccessor::$db_error_codes['DB_DUPLICATE_KEY']:
                 $msg_id = 'flc_common_duplicate_key';
                 break;
-            case flcDbAccessor::$db_error_codes['DB_FOREIGN_KEY_ERROR'];
+            case flcDbAccessor::$db_error_codes['DB_FOREIGN_KEY_ERROR']:
                 $msg_id = 'flc_common_foreign_key';
                 break;
 

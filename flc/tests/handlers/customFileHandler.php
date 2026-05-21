@@ -32,7 +32,7 @@ class customFileHandler extends flcBaseHandler {
      *
      * @var string
      */
-    protected $save_path;
+    protected string|array $save_path;
 
     /**
      * The file handle
@@ -316,13 +316,19 @@ class customFileHandler extends flcBaseHandler {
      * Configure Session ID regular expression
      */
     protected function configure_session_id_Regex() {
-        $bitsPerCharacter = (int)ini_get('session.sid_bits_per_character');
-        $SIDLength = (int)ini_get('session.sid_length');
+        if (PHP_VERSION_ID < 80400) {
 
-        if (($bits = $SIDLength * $bitsPerCharacter) < 160) {
-            // Add as many more characters as necessary to reach at least 160 bits
-            $SIDLength += (int)ceil((160 % $bits) / $bitsPerCharacter);
-            ini_set('session.sid_length', (string)$SIDLength);
+            $bitsPerCharacter = (int)ini_get('session.sid_bits_per_character');
+            $SIDLength = (int)ini_get('session.sid_length');
+
+            if (($bits = $SIDLength * $bitsPerCharacter) < 160) {
+                // Add as many more characters as necessary to reach at least 160 bits
+                $SIDLength += (int)ceil((160 % $bits) / $bitsPerCharacter);
+                ini_set('session.sid_length', (string)$SIDLength);
+            }
+        } else {
+            $bitsPerCharacter = 4;
+            $SIDLength = 32;
         }
 
         switch ($bitsPerCharacter) {

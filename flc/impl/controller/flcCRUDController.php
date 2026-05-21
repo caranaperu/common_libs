@@ -65,7 +65,8 @@ abstract class flcCRUDController extends flcBaseController {
      *
      * Support for close db
      */
-    public function controller_exception_handler(Throwable $ex) {
+    public function controller_exception_handler(Throwable $ex): void
+    {
         parent::controller_exception_handler($ex);
 
         if (FLC::get_instance()->db) {

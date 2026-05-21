@@ -277,7 +277,8 @@ class flcDbResult {
      *
      * @return    object|array|null
      */
-    public function row(int $p_nrecord = 0, string $p_type = 'object'): ?object {
+    public function row(int $p_nrecord = 0, string $p_type = 'object'): object|array|null
+    {
 
         if ($p_type === 'object') {
             return $this->row_object($p_nrecord);
@@ -351,7 +352,7 @@ class flcDbResult {
      *
      * @param int $p_nrecord the number of record to return.
      *
-     * @return    array
+     * @return array|null
      */
     public function row_array(int $p_nrecord = 0): ?array {
         $result = $this->result_array();
@@ -374,7 +375,8 @@ class flcDbResult {
      *
      * @return    object|array|null
      */
-    public function first_row(string $p_type = 'object') {
+    public function first_row(string $p_type = 'object'): object|array|null
+    {
         $result = $this->result($p_type);
 
 
@@ -397,7 +399,8 @@ class flcDbResult {
      *
      * @return    object|array|null
      */
-    public function last_row(string $p_type = 'object') {
+    public function last_row(string $p_type = 'object'): object|array|null
+    {
         $result = $this->result($p_type);
 
         $this->current_row = 0;
@@ -423,7 +426,8 @@ class flcDbResult {
      *
      * @return    object|array|null
      */
-    public function next_row(string $p_type = 'object') {
+    public function next_row(string $p_type = 'object'): object|array|null
+    {
         $result = $this->result($p_type);
         if (count($result) === 0) {
             return null;
@@ -442,7 +446,8 @@ class flcDbResult {
      *
      * @return    object|array|null
      */
-    public function previous_row(string $p_type = 'object') {
+    public function previous_row(string $p_type = 'object'): object|array|null
+    {
         $result = $this->result($p_type);
         if (count($result) === 0) {
             return null;
@@ -462,9 +467,10 @@ class flcDbResult {
      *
      * @param string $p_type 'array', 'object' or a custom class name
      *
-     * @return    object|array|null
+     * @return object|bool|array|null
      */
-    public function unbuffered_row(string $p_type = 'object') {
+    public function unbuffered_row(string $p_type = 'object'): object|bool|array|null
+    {
         if ($p_type === 'array') {
             return $this->_fetch_assoc();
         } elseif ($p_type === 'object') {
@@ -573,7 +579,8 @@ class flcDbResult {
      *
      * @return    array|bool , false if no more records otherwise an array with answers
      */
-    protected function _fetch_assoc() {
+    protected function _fetch_assoc(): bool|array
+    {
         return [];
     }
 
@@ -588,7 +595,7 @@ class flcDbResult {
      *
      * @param string $p_classname
      *
-     * @return    object
+     * @return object|null
      */
     protected function _fetch_object(string $p_classname = 'stdClass'): ?object {
         return new $p_classname();

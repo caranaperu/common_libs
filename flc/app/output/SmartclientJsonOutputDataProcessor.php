@@ -56,7 +56,8 @@ class SmartclientJsonOutputDataProcessor extends flcOutputDataProcessor {
      *
      * @inheritdoc
      */
-    public function   process_output_data(flcOutputData $p_output_data) {
+    public function   process_output_data(flcOutputData $p_output_data): array|string
+    {
         $out = null;
 
         if (strlen($p_output_data->get_answer_message()) > 0) {
@@ -188,7 +189,7 @@ class SmartclientJsonOutputDataProcessor extends flcOutputDataProcessor {
      *
      * @param mixed | flcBaseModel $p_extdata
      */
-    private function _process_data(&$p_extdata): void {
+    private function _process_data(mixed &$p_extdata): void {
         if (isset($p_extdata)) {
             $extdata = $p_extdata;
             // IF not an array

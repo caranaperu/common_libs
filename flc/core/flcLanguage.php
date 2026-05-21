@@ -15,6 +15,7 @@ namespace flc\core;
 
 use Exception;
 use flc\flcCommon;
+use Throwable;
 
 
 /**
@@ -43,16 +44,17 @@ class flcLanguage {
     /**
      * Load the specified language file for the idiom.
      *
-     * @param string|array $p_langfile the language file or array of them, this will be searched in the
+     * @param array|string $p_langfile the language file or array of them, this will be searched in the
      *     BASEPATH/core/language and the APPPATH/language. Only is need the base name no extension or idiom.
      *
-     * @param string       $p_idiom the idiom for the language file.
-     * @param string       $p_langsuffix by default _lang , bu can be changed by this parameter.
+     * @param string $p_idiom the idiom for the language file.
+     * @param string $p_langsuffix by default _lang , bu can be changed by this parameter.
      *
      * @return bool
      * @throws Exception if not main config is loaded.
+     * @throws Throwable
      */
-    public function load($p_langfile, string $p_idiom = '', string $p_langsuffix = '_lang'): bool {
+    public function load(array|string $p_langfile, string $p_idiom = '', string $p_langsuffix = '_lang'): bool {
         static $lang;
 
         if (empty($p_idiom)) {

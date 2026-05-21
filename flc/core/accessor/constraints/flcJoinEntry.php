@@ -41,7 +41,8 @@ class flcJoinEntry {
      *
      * @return void
      */
-    public function initialize(flcBaseModel $p_left_model, flcBaseModel $p_right_model, array $p_fields, array $p_show_fields, ?string $p_type = null) {
+    public function initialize(flcBaseModel $p_left_model, flcBaseModel $p_right_model, array $p_fields, array $p_show_fields, ?string $p_type = null): void
+    {
         $this->left_model = $p_left_model;
         $this->right_model = $p_right_model;
         $this->fields = $p_fields;

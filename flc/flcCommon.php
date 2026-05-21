@@ -274,7 +274,8 @@ class flcCommon {
      * @return void
      * @throws Throwable
      */
-    static function log_message(string $p_type, string $p_message) {
+    static function log_message(string $p_type, string $p_message): void
+    {
         //echo $p_type.' : '.$p_message.PHP_EOL;
         flcServiceLocator::get_instance()->service('log')->write_log($p_type, $p_message);
 

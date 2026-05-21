@@ -52,7 +52,7 @@ class flcMssqlDriver extends flcDriver {
      *
      * @var    mixed
      */
-    public $scrollable = null;
+    public mixed $scrollable = null;
 
     /**
      * The reserved word to execute a stored procedure.
@@ -397,7 +397,8 @@ class flcMssqlDriver extends flcDriver {
      *
      * @inheritdoc
      */
-    protected function _execute_qry(string $p_sqlquery) {
+    protected function _execute_qry(string $p_sqlquery): object|bool
+    {
         return ($this->scrollable === false or $this->is_write_type($p_sqlquery)) ? sqlsrv_query($this->_connId, $p_sqlquery) : sqlsrv_query($this->_connId, $p_sqlquery, null, [
             'Scrollable' => $this->scrollable,
             'SendStreamParamsAtExec' => 0
@@ -548,7 +549,8 @@ class flcMssqlDriver extends flcDriver {
      * @inheritdoc
      *
      */
-    public function cast_to_rowversion($p_value) {
+    public function cast_to_rowversion(mixed $p_value): mixed
+    {
         // in ms sql server is a timestamp , this si the way to convert
         return '0x'.bin2hex($p_value);
     }
@@ -566,7 +568,8 @@ class flcMssqlDriver extends flcDriver {
     /**
      * @inheritdoc
      */
-    function escape_identifiers($p_item) {
+    function escape_identifiers(array|string $p_item): array|string
+    {
         if (!isset($p_item) or empty($p_item)) {
             return '';
         }
@@ -776,20 +779,38 @@ class flcMssqlDriver extends flcDriver {
                         $params[] = '<outparam=?>';
                         $outparams_count++;
                     } elseif ($paramtype == 'readonly') {
+                        // Valido para php7.x y mssql driver 5.10 o anterior
+//                        $is_outparams = true;
+//
+//                        ${'p'.$outparams_count} = [$sqltype => $value];
+//
+//                        // If this is a readonly parameter in mssql allways is a table value
+//                        // parameter
+//                        $oparams[] = [
+//                            &${'p'.$outparams_count},
+//                            SQLSRV_PARAM_IN,
+//                            SQLSRV_PHPTYPE_TABLE,
+//                            SQLSRV_SQLTYPE_TABLE
+//                        ];
+//
+//                        // need to be binded.
+/*                        $params[] = '<outparam=?>';*/
+//                        $outparams_count++;
+
+                        ///////////////////////
+                        /// Codigo php 8+ NO VALIDADO , REQUIERE PRUEBAS
                         $is_outparams = true;
 
-                        ${'p'.$outparams_count} = [$sqltype => $value];
+                        // Convertimos el valor a JSON
+                        ${'p'.$outparams_count} = json_encode($value, JSON_UNESCAPED_UNICODE);
 
-                        // If this is a readonly parameter in mssql allways is a table value
-                        // parameter
+                        // OUT param sin PHPTYPE ni SQLTYPE (el driver lo maneja como NVARCHAR)
                         $oparams[] = [
                             &${'p'.$outparams_count},
-                            SQLSRV_PARAM_IN,
-                            SQLSRV_PHPTYPE_TABLE,
-                            SQLSRV_SQLTYPE_TABLE
+                            SQLSRV_PARAM_IN
                         ];
 
-                        // need to be binded.
+                        // Mantener placeholder
                         $params[] = '<outparam=?>';
                         $outparams_count++;
 
@@ -1002,25 +1023,46 @@ class flcMssqlDriver extends flcDriver {
                     $params[$param_name] = '?';
 
                 } elseif ($paramtype == 'readonly') {
+                    // PAra version 7.x y driver mssql server 5.10.x
+//                    $is_outparams = true;
+//
+//                    // remove the @ at the beggining , because php doesnt allow for define a
+//                    // variable.
+//                    $param_ext = substr($param_name, 1);
+//                    $$param_ext = [$sqltype => $value];
+//
+//                    // If this is a readonly parameter in mssql allways is a table value
+//                    // parameter
+//                    $oparams[] = [
+//                        $$param_ext,
+//                        SQLSRV_PARAM_IN,
+//                        SQLSRV_PHPTYPE_TABLE,
+//                        SQLSRV_SQLTYPE_TABLE
+//                    ];
+//
+//                    // need to be binded.
+//                    $params[$param_name] = '?';
+
+
+                    // Para version 8+ de php
                     $is_outparams = true;
 
-                    // remove the @ at the beggining , because php doesnt allow for define a
-                    // variable.
+                    // remove the @ at the beginning
                     $param_ext = substr($param_name, 1);
-                    $$param_ext = [$sqltype => $value];
 
-                    // If this is a readonly parameter in mssql allways is a table value
-                    // parameter
+                    // Convertimos el valor a JSON (nuevo formato del SP)
+                    $$param_ext = json_encode($value, JSON_UNESCAPED_UNICODE);
+
+                    // OUT param sin PHPTYPE ni SQLTYPE (el driver lo maneja como NVARCHAR)
                     $oparams[] = [
-                        $$param_ext,
-                        SQLSRV_PARAM_IN,
-                        SQLSRV_PHPTYPE_TABLE,
-                        SQLSRV_SQLTYPE_TABLE
+                        &$$param_ext,
+                        SQLSRV_PARAM_IN
                     ];
 
-                    // need to be binded.
+                    // mantener el placeholder EXACTO
                     $params[$param_name] = '?';
 
+                    $outparams_count++;
                 } else {
                     $params[$param_name] = $value;
                 }

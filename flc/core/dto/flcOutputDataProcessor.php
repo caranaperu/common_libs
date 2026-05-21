@@ -32,7 +32,7 @@ abstract class flcOutputDataProcessor {
      * by an specific client.
      *
      */
-    public abstract function process_output_data(flcOutputData $p_output_data);
+    public abstract function process_output_data(flcOutputData $p_output_data): array|string;
 
 
     /*--------------------------------------------------------------*/

@@ -61,15 +61,16 @@ class flcServiceLocator {
 
     /**
      *
-     * @param string      $p_type
+     * @param string $p_type
      * @param string|null $p_service_id the controller name ,  view name or database group
-     * @param mixed|null  $p_vars variables to pass to the service if required.
+     * @param mixed|null $p_vars variables to pass to the service if required.
      *
-     * @return Object|bool the service instance (for views only return a boolean).
+     * @return object|bool|null the service instance (for views only return a boolean).
      *
      * @throws Throwable
      */
-    public function service(string $p_type, ?string $p_service_id = null, $p_vars = null) {
+    public function service(string $p_type, ?string $p_service_id = null, mixed $p_vars = null): object|bool|null
+    {
         $ret = false;
         switch ($p_type) {
 
@@ -191,12 +192,12 @@ class flcServiceLocator {
      * Load the view identified by p_view_name , this will be the base name of the file
      * that contains the view can include an extension , without the extension php will be used
      *
-     * @param string|null $p_view_name the view file name , will be searhed on APPPATH/views.
-     * @param mixed|null  $p_vars the variables to pass to the view.
+     * @param string $p_view_name the view file name , will be searhed on APPPATH/views.
+     * @param mixed|null $p_vars the variables to pass to the view.
      *
-     * @throws RuntimeException
      */
-    private function _get_view(string $p_view_name, $p_vars = null) {
+    private function _get_view(string $p_view_name, mixed $p_vars = null): void
+    {
         static $ob_level = -1;
 
         if ($ob_level === -1) {
@@ -447,7 +448,7 @@ class flcServiceLocator {
 
 
     /**
-     * @throws Exception
+     * @throws Exception|Throwable
      */
     private function _get_session($p_ip_address): flcSession {
         static $session;

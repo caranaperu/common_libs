@@ -19,7 +19,7 @@ namespace flc\core\session\handler;
 use Exception;
 use flc\flcCommon;
 use RuntimeException;
-
+use Throwable;
 
 
 /**
@@ -31,7 +31,7 @@ class flcFileHandler extends flcBaseHandler {
      *
      * @var string
      */
-    protected $save_path;
+    protected string|array $save_path;
 
     /**
      * The file handle
@@ -126,8 +126,10 @@ class flcFileHandler extends flcBaseHandler {
      * @return false|string Returns an encoded string of the read data.
      *                      If nothing was read, it must return false.
      * @throws Exception
+     * @throws Throwable
      */
-    public function read($p_session_id) {
+    public function read($p_session_id): false|string
+    {
         // This might seem weird, but PHP 5.6 introduced session_reset(),
         // which re-reads session data
         if ($this->file_handle === null) {
@@ -187,6 +189,7 @@ class flcFileHandler extends flcBaseHandler {
      *
      * @return bool if no problems
      * @throws Exception
+     * @throws Throwable
      */
     public function write($p_session_id, $p_data): bool {
         // If the two IDs don't match, we have a session_regenerate_id() call
@@ -277,8 +280,10 @@ class flcFileHandler extends flcBaseHandler {
      *
      * @return false|int Returns the number of deleted sessions on success, or false on failure.
      * @throws Exception
+     * @throws Throwable
      */
-    public function gc( $p_max_lifetime) {
+    public function gc( $p_max_lifetime): false|int
+    {
         if (!is_dir($this->save_path) || ($directory = opendir($this->save_path)) === false) {
             flcCommon::log_message('debug',"Session: Garbage collector couldn't list files under directory '".$this->save_path."'.");
 
@@ -313,14 +318,20 @@ class flcFileHandler extends flcBaseHandler {
     /**
      * Configure Session ID regular expression
      */
-    protected function configure_session_id_Regex() {
-        $bitsPerCharacter = (int)ini_get('session.sid_bits_per_character');
-        $SIDLength = (int)ini_get('session.sid_length');
+    protected function configure_session_id_Regex(): void
+    {
+        if (PHP_VERSION_ID < 80400) {
+            $bitsPerCharacter = (int)ini_get('session.sid_bits_per_character');
+            $SIDLength = (int)ini_get('session.sid_length');
 
-        if (($bits = $SIDLength * $bitsPerCharacter) < 160) {
-            // Add as many more characters as necessary to reach at least 160 bits
-            $SIDLength += (int)ceil((160 % $bits) / $bitsPerCharacter);
-            ini_set('session.sid_length', (string)$SIDLength);
+            if (($bits = $SIDLength * $bitsPerCharacter) < 160) {
+                // Add as many more characters as necessary to reach at least 160 bits
+                $SIDLength += (int)ceil((160 % $bits) / $bitsPerCharacter);
+                ini_set('session.sid_length', (string)$SIDLength);
+            }
+        } else {
+            $bitsPerCharacter = 4;
+            $SIDLength = 32;
         }
 
         switch ($bitsPerCharacter) {

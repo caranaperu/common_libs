@@ -187,7 +187,8 @@ trait flcMessageTrait {
      * @throws RuntimeException For invalid status code arguments.
      *
      */
-    public function set_status_code(int $p_code, string $p_reason = '') {
+    public function set_status_code(int $p_code, string $p_reason = ''): void
+    {
         // Valid range?
         if ($p_code < 100 || $p_code > 599) {
             throw new RuntimeException("$p_code is not a valid HTTP return status code");
@@ -214,7 +215,8 @@ trait flcMessageTrait {
      * @throws RuntimeException For invalid protocols
      *
      */
-    public function set_protocol_version(string $p_version) {
+    public function set_protocol_version(string $p_version): void
+    {
         if (!is_numeric($p_version)) {
             $p_version = substr($p_version, strpos($p_version, '/') + 1);
         }
@@ -248,7 +250,8 @@ trait flcMessageTrait {
      * Populates the $headers array with any headers the getServer knows about.
      *
      */
-    public function populate_headers() {
+    public function populate_headers(): void
+    {
         // If header is already defined, return it immediately
         if (!empty($this->headers)) {
             return;
@@ -285,7 +288,8 @@ trait flcMessageTrait {
      *
      * @return    array|string|null    The requested header on success or NULL on failure
      */
-    public function get_header(string $p_name) {
+    public function get_header(string $p_name): array|string|null
+    {
         $orig_name = $this->get_header_name($p_name);
 
         return $this->headers[$orig_name] ?? null;
@@ -307,7 +311,8 @@ trait flcMessageTrait {
      * @return    void
      *
      */
-    public function set_header(string $p_name, $p_value) {
+    public function set_header(string $p_name, array|string $p_value): void
+    {
         // If zlib.output_compression is enabled it will compress the output,
         // but it will not modify the content-length header to compensate for
         // the reduction, causing the browser to hang waiting for more data.
@@ -380,7 +385,8 @@ trait flcMessageTrait {
      * @param string|null $p_value header value
      *
      */
-    public function append_header(string $p_name, ?string $p_value) {
+    public function append_header(string $p_name, ?string $p_value): void
+    {
         $origName = $this->get_header_name($p_name);
 
         if (array_key_exists($origName, $this->headers)) {
@@ -404,7 +410,8 @@ trait flcMessageTrait {
      *
      * @return    void
      */
-    function set_status_header(int $p_code = 200, string $p_text = '') {
+    function set_status_header(int $p_code = 200, string $p_text = ''): void
+    {
         if (flcCommon::is_cli()) {
             return;
         }
@@ -466,7 +473,7 @@ trait flcMessageTrait {
      *
      * @return string
      */
-    private function _get_value_line($p_header_val): string {
+    private function _get_value_line(array|string $p_header_val): string {
         if (is_string($p_header_val)) {
             return $p_header_val;
         }

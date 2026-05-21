@@ -357,7 +357,8 @@ class FLC {
      * @return void
      * @throws Throwable
      */
-    public function view(string $p_view, $p_vars) {
+    public function view(string $p_view, mixed $p_vars): void
+    {
         flcServiceLocator::get_instance()->service('views', $p_view, $p_vars);
     }
 
@@ -384,7 +385,8 @@ class FLC {
      * @return void
      * @throws Throwable multiple . check error code
      */
-    public function execute_request() {
+    public function execute_request(): void
+    {
 
         // flush any preconfigured buffering
         if (ob_get_level()) ob_end_clean();

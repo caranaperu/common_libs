@@ -15,6 +15,7 @@ namespace flc\core;
 
 use Exception;
 use flc\flcCommon;
+use Throwable;
 
 
 /**
@@ -32,9 +33,10 @@ class flcUtf8 {
      * Need to be called before any utf8 or security stuff.
      *
      * @return    void
-     * @throws Exception if config cant be loaded
+     * @throws Exception|Throwable if config cant be loaded
      */
-    public static function initialize() {
+    public static function initialize(): void
+    {
         if (defined('PREG_BAD_UTF8_ERROR')                // PCRE must support UTF-8
             && (ICONV_ENABLED === true or MB_ENABLED === true)    // iconv or mbstring must be installed
             && strtoupper(flcCommon::get_config()->item('charset')) === 'UTF-8'    // Application charset must be UTF-8
@@ -99,9 +101,10 @@ class flcUtf8 {
      * @param string $p_str Input string
      * @param string $p_encoding Input encoding
      *
-     * @return    string    $str encoded in UTF-8 or FALSE on failure
+     * @return false|string $str encoded in UTF-8 or FALSE on failure
      */
-    public static function convert_to_utf8(string $p_str, string $p_encoding) {
+    public static function convert_to_utf8(string $p_str, string $p_encoding): false|string
+    {
         if (MB_ENABLED) {
             return mb_convert_encoding($p_str, 'UTF-8', $p_encoding);
         } elseif (ICONV_ENABLED) {

@@ -76,9 +76,9 @@ class flcOutputData {
     /**
      * The output data of all went ok.
      * .
-     * @var array|flcBaseModel $result_data
+     * @var array|flcBaseModel|null $result_data
      */
-    private $result_data;
+    private array|flcBaseModel|null $result_data = null;
 
     /*--------------------------------------------------------------*/
 
@@ -159,7 +159,8 @@ class flcOutputData {
      * @param string $p_param_name name of parameter.
      * @param mixed  $p_param_value his value
      */
-    public function add_output_parameter(string $p_param_name, $p_param_value) {
+    public function add_output_parameter(string $p_param_name, mixed $p_param_value): void
+    {
         $this->out_params[$p_param_name] = $p_param_value;
     }
 
@@ -169,7 +170,7 @@ class flcOutputData {
      * Return the array of output parameters if exist.
      * The format is 'param name' => value
      *
-     * @return array with output parameters
+     * @return array|null with output parameters
      */
     public function get_output_parameters(): ?array {
         return $this->out_params;
@@ -184,7 +185,7 @@ class flcOutputData {
      *
      * @param array|flcBaseModel $p_result_data los datos resultado.
      */
-    public function set_result_data($p_result_data): void {
+    public function set_result_data(flcBaseModel|array $p_result_data): void {
         if (isset ($p_result_data)) {
             $this->result_data = $p_result_data;
         }
@@ -197,7 +198,8 @@ class flcOutputData {
      *
      * @return array|flcBaseModel|null con los resultados.
      */
-    public function get_result_data() {
+    public function get_result_data(): flcBaseModel|array|null
+    {
         return $this->result_data;
     }
 
@@ -224,7 +226,8 @@ class flcOutputData {
      * @param string $p_error_message el mensaje de salida
      * @param int    $p_error_code codigo de error.
      */
-    public function set_answer_message(string $p_error_message, int $p_error_code) {
+    public function set_answer_message(string $p_error_message, int $p_error_code): void
+    {
         if (strlen($p_error_message) > 0) {
             // prepare for json or xml
             $this->answer_message = str_replace(["\"", "\r", "\n", "\r\n"], ' ', $p_error_message);

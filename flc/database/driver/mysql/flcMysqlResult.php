@@ -161,7 +161,8 @@ class flcMysqlResult extends flcDbResult {
     /**
      * @inheritdoc
      */
-    protected function _fetch_assoc() {
+    protected function _fetch_assoc(): bool|array
+    {
         return $this->result_id->fetch_assoc();
     }
 

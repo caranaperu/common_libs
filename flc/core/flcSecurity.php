@@ -16,6 +16,7 @@ namespace flc\core;
 use Exception;
 use flc\flcCommon;
 use RuntimeException;
+use Throwable;
 
 
 /**
@@ -67,7 +68,7 @@ class flcSecurity {
      *
      * @return    void
      * @throws Exception
-     * @throws RuntimeException config problems
+     * @throws RuntimeException|Throwable config problems
      */
     public function __construct() {
         $config = flcCommon::get_config();
@@ -100,7 +101,7 @@ class flcSecurity {
      *
      * @return bool
      * @throws RuntimeException when the operation is not allowed
-     * @throws Exception
+     * @throws Exception|Throwable
      */
     public function csrf_verify(): bool {
         $config = flcCommon::get_config();
@@ -142,7 +143,7 @@ class flcSecurity {
      * CSRF Set Cookie
      *
      * @return bool
-     * @throws Exception when set cookie fails
+     * @throws Exception|Throwable when set cookie fails
      */
     public function csrf_set_cookie(): bool {
         $config = flcCommon::get_config();
@@ -168,6 +169,7 @@ class flcSecurity {
      *
      * @return    string
      * @throws Exception
+     * @throws Throwable
      */
     protected function _csrf_set_hash(): string {
         if ($this->_csrf_hash === null) {
@@ -195,7 +197,7 @@ class flcSecurity {
      * @param int $p_length Output length
      *
      * @return    string|null
-     * @throws Exception
+     * @throws Exception|Throwable
      */
     public function get_random_bytes(int $p_length): ?string {
         if (empty($p_length) or !ctype_digit((string)$p_length)) {

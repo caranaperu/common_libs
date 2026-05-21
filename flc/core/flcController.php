@@ -92,7 +92,7 @@ abstract class flcController {
      * @throws Throwable
      *
      */
-    public abstract function index();
+    public abstract function index(): void;
 
     // --------------------------------------------------------------------
 

@@ -32,7 +32,8 @@ class flcPersistenceAccessorAnswer {
      *
      * @return void
      */
-    public function set_success(bool $p_is_success) {
+    public function set_success(bool $p_is_success): void
+    {
         $this->success = $p_is_success;
     }
 
@@ -52,7 +53,8 @@ class flcPersistenceAccessorAnswer {
      *
      * @return void
      */
-    public function set_return_code(int $p_return_code) {
+    public function set_return_code(int $p_return_code): void
+    {
         $this->return_code = $p_return_code;
     }
 
@@ -75,7 +77,8 @@ class flcPersistenceAccessorAnswer {
      *
      * @return void
      */
-    public function set_exception(Throwable $p_exception) {
+    public function set_exception(Throwable $p_exception): void
+    {
         $this->ex = $p_exception;
     }
 
@@ -83,7 +86,7 @@ class flcPersistenceAccessorAnswer {
      * Get the exception generated from the accessor , this can only be set
      * if is_success() is false.
      *
-     * @return Throwable , null if is_success() is false.
+     * @return Throwable|null , null if is_success() is false.
      */
     public function get_exception(): ?Throwable {
         return $this->ex ?? null;
@@ -101,7 +104,8 @@ class flcPersistenceAccessorAnswer {
      *
      * @return void
      */
-    public function set_result_array(array $p_results) {
+    public function set_result_array(array $p_results): void
+    {
         $this->result_array = $p_results;
     }
 

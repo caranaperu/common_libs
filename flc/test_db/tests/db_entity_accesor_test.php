@@ -77,9 +77,9 @@ class factura_header_entity extends flcBaseModel {
 
     }
 
-    public function is_valid_field($field, $value): bool {
-        if ($field === 'numero') {
-            return $value < 1000;
+    public function is_valid_field($p_fieldname, mixed $p_value): bool {
+        if ($p_fieldname === 'numero') {
+            return $p_value < 1000;
 
         }
 
